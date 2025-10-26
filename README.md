@@ -1,11 +1,16 @@
-# Mopay
+# Mopay (no-auth)
 
-Full-stack Mopay app (React + Vite + Tailwind + Flask + SQLite) — ready for Docker.
+Monthly income/expense tracker — React (Vite + Tailwind) frontend, Flask + SQLite backend.
+**No authorization**. Import/Export CSV included.
 
 ## Quick start
-1. create data dir: `mkdir -p ./data`
-2. export a PIN (min 8 chars): `export MOPAY_PIN='yourlongpin123'`
-3. docker-compose up --build -d
-4. open http://localhost:3000
+```bash
+mkdir -p ./data
+docker compose up --build -d
+# open
+http://localhost:8080
+```
 
-**Do not commit your PIN** into git. Configure it in environment or a secret manager.
+## Notes (Synology DSM 7.3)
+- Frontend is built with Vite and served via `serve` (static server). No proxying is required, the app calls backend at `http://localhost:8000` (set at build time).
+- If you run behind Synology Reverse Proxy, map 8080 → frontend and 8000 → backend.

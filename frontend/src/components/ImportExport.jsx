@@ -1,11 +1,12 @@
 import React, { useRef } from 'react'
 import axios from 'axios'
+import { API } from '../lib/api'
 
-export default function ImportExport({pin}){
+export default function ImportExport(){
   const fileRef = useRef()
 
   async function onExport(){
-    const res = await axios.get('/api/export', { headers:{ 'X-MOPAY-PIN': pin }, responseType: 'blob' })
+    const res = await axios.get(`${API}/api/export`, { responseType: 'blob' })
     const url = window.URL.createObjectURL(new Blob([res.data]))
     const a = document.createElement('a')
     a.href = url
@@ -20,7 +21,7 @@ export default function ImportExport({pin}){
     if(!f) return alert('Choose a file')
     const form = new FormData()
     form.append('file', f)
-    await axios.post('/api/import', form, { headers:{ 'X-MOPAY-PIN': pin, 'Content-Type': 'multipart/form-data' } })
+    await axios.post(`${API}/api/import`, form, { headers:{ 'Content-Type': 'multipart/form-data' } })
     alert('Import done. Refresh any open views to see changes.')
   }
 

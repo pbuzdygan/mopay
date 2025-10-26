@@ -1,9 +1,14 @@
+# Build stage
 FROM node:20-alpine as build
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 COPY . ./
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
+
+# Serve stage
 FROM node:20-alpine
 WORKDIR /app
 RUN npm i -g serve

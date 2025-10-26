@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
+import { API } from '../lib/api'
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
-export default function GridEditor({pin, type}){
+export default function GridEditor({type}){
   const [year, setYear] = useState(new Date().getFullYear())
   const [data, setData] = useState(null)
 
   useEffect(()=>{ fetchData() }, [year, type])
 
   async function fetchData(){
-    const res = await axios.get(`/api/data?year=${year}&type=${type}`, { headers: { 'X-MOPAY-PIN': pin } })
+    const res = await axios.get(`${API}/api/data?year=${year}&type=${type}`)
     setData(res.data)
   }
 
   async function onCellChange(category_id, item_id, month, value){
-    await axios.post('/api/entry', { year, month, amount: value, comment:'', type, category_id, item_id }, { headers:{ 'X-MOPAY-PIN': pin } })
+    await axios.post(`${API}/api/entry`, { year, month, amount: value, comment:'', type, category_id, item_id })
     fetchData()
   }
 
@@ -68,7 +69,7 @@ export default function GridEditor({pin, type}){
       </div>
       <aside className="w-80 bg-white p-3 rounded shadow">
         <h3 className="font-semibold mb-2">Actions</h3>
-        <button className="btn w-full mb-2" onClick={async ()=>{ const name=prompt('Category name'); if(!name) return; const items=prompt('Comma separated items')||''; await axios.post('/api/category', { name, items: items.split(',').map(s=>s.trim()).filter(Boolean) }, { headers:{ 'X-MOPAY-PIN': pin } }); fetchData(); }}>Add category</button>
+        <button className="btn w-full mb-2" onClick={async ()=>{ const name=prompt('Category name'); if(!name) return; const items=prompt('Comma separated items')||''; await axios.post(`${API}/api/category`, { name, items: items.split(',').map(s=>s.trim()).filter(Boolean) }); fetchData(); }}>Add category</button>
         <p className="text-sm mt-4">Currency: PLN</p>
       </aside>
     </div>

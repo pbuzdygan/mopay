@@ -1,7 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey
-from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, create_engine
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 Base = declarative_base()
 
@@ -22,10 +20,10 @@ class Entry(Base):
     __tablename__ = 'entries'
     id = Column(Integer, primary_key=True)
     year = Column(Integer, nullable=False)
-    month = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=False)  # 1..12
     amount = Column(Float, default=0.0)
     comment = Column(Text, default='')
-    type = Column(String, nullable=False)
+    type = Column(String, nullable=False)  # 'expense' or 'income'
     category_id = Column(Integer, ForeignKey('categories.id'))
     item_id = Column(Integer, ForeignKey('items.id'))
 

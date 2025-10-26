@@ -2,8 +2,6 @@ from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from sqlalchemy.orm import sessionmaker
 from .models import init_db, Category, Item, Entry
-# Note: relative import; when running via gunicorn the package root is app
-from .utils import require_pin
 import os, csv
 from io import StringIO
 from sqlalchemy import func
@@ -18,11 +16,11 @@ CORS(app)
 MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
 @app.route('/api/data')
-@require_pin
 def get_data():
     year = int(request.args.get('year', 2025))
     type_ = request.args.get('type', 'expense')
     session = Session()
+
     categories = session.query(Category).all()
     grid = []
     for cat in categories:
@@ -54,7 +52,6 @@ def get_data():
     return jsonify({'year': year, 'type': type_, 'months': MONTHS, 'grid': grid, 'column_sums': column_sums, 'total': total})
 
 @app.route('/api/entry', methods=['POST'])
-@require_pin
 def upsert_entry():
     data = request.json
     session = Session()
@@ -78,7 +75,6 @@ def upsert_entry():
     return jsonify({'status': 'ok'})
 
 @app.route('/api/category', methods=['POST'])
-@require_pin
 def add_category():
     data = request.json
     name = data.get('name')
@@ -97,10 +93,10 @@ def add_category():
     return jsonify({'status': 'ok'})
 
 @app.route('/api/dashboard')
-@require_pin
 def dashboard():
     year = int(request.args.get('year', 2025))
     session = Session()
+    from sqlalchemy import func
     income_total = session.query(func.coalesce(func.sum(Entry.amount), 0)).filter(Entry.year==year, Entry.type=='income').scalar() or 0
     expense_total = session.query(func.coalesce(func.sum(Entry.amount), 0)).filter(Entry.year==year, Entry.type=='expense').scalar() or 0
     balance = income_total - expense_total
@@ -109,7 +105,6 @@ def dashboard():
     return jsonify({'year': year, 'income_total': income_total, 'expense_total': expense_total, 'balance': balance, 'percent_spent': percent_spent})
 
 @app.route('/api/export')
-@require_pin
 def export_csv():
     session = Session()
     entries = session.query(Entry).all()
@@ -125,7 +120,6 @@ def export_csv():
     return send_file(StringIO(output.getvalue()), mimetype='text/csv', as_attachment=True, download_name='mopay_export.csv')
 
 @app.route('/api/import', methods=['POST'])
-@require_pin
 def import_csv():
     if 'file' not in request.files:
         return jsonify({'error':'no file provided'}), 400
