@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    image: mopay-backend:latest
+    environment:
+      - MOPAY_DB=/app/data/mopay.db
+      - MOPAY_PIN=${MOPAY_PIN}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: mopay-frontend:latest
+    environment:
+      - VITE_API_URL=http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
