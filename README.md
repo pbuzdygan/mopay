@@ -1,30 +1,46 @@
-# Docketis
+# MOPAY
 
-Single-container app: Express + SQLite (better-sqlite3) + React (Vite) + Tailwind + Zustand + TanStack Query + Framer Motion + dnd-kit.
+![MOPAY Banner](mopay_banner.png)
 
-## Run
+**MOPAY** to samohostowalna aplikacja do zarządzania finansami osobistymi / domowym budżetem.
+
+- ✅ Nowoczesny interfejs (React + Vite + Tailwind)
+- ✅ Backend API (Node.js)
+- ✅ PWA – działa jak natywna aplikacja, tryb offline
+- ✅ Obsługa wielu lat, wpisów, raportów, celów oszczędnościowych
+- ✅ Przyjazny dla self-hostingu (Docker, docker-compose, reverse proxy)
+
+---
+
+## Demo / screenshoty
+
+> TODO: wrzuć 1–3 screenshoty do `branding/` i odkomentuj poniżej.
+
+<!--
+![Ekran główny](branding/mopay_screen_main.png)
+![Widok raportów](branding/mopay_screen_reports.png)
+-->
+
+---
+
+## Funkcje
+
+- Zarządzanie **latami rozliczeniowymi**
+- Dodawanie, edycja i usuwanie **wpisów przychodów i wydatków**
+- **Raporty** i podsumowania
+- **Cele oszczędnościowe** i śledzenie postępu
+- **PIN guard** (blokada dostępu)
+- Tryb **offline** (PWA, cache zasobów)
+- Przygotowane pod **reverse proxy** (np. Nginx Proxy Manager)
+
+---
+
+## Uruchomienie – Docker (GHCR)
+
+Najprostszy sposób na start: użyć gotowego obrazu z GitHub Container Registry.
+
 ```bash
-APP_PIN= docker compose up --build
-```
-App: `http://<NAS_IP>:8010`  
-Health: `http://<NAS_IP>:8010/health` → `{ "status": "ok" }`
-
-## Deployment notes for Synology DSM
-- Dockerfile uses `npm install --legacy-peer-deps --no-audit --no-fund` to avoid peer-deps stalls and audit/fund noise.
-- **Why not `npm ci`?** On DSM/Node 20 small lockfile/npm drifts may cause `EUSAGE`. This project does **not** run `npm ci` during build.
-- If frontend build fails, the image still builds with a **placeholder** `public/index.html`. Check logs and rebuild later.
-
-## Quick test checklist
-1. `APP_PIN= docker compose up --build`
-2. Open `http://<NAS_IP>:8010`.
-3. Add entry (Add modal) – confirm validation.
-4. Switch to `Edit → Change order` – drag rows and ensure persistence.
-5. `Edit → Remove` – select multiple rows; confirm sticky footer Remove works.
-6. Menu → Year operations → add/remove years.
-7. Menu → Export → Select year(s) → **XLSX downloads**.
-8. Menu → Settings → Toggle **Light/Dark** (Peri Mist/Ash).
-
-## Expected boot log
-```
-Docketis app listening on :8010
-```
+docker run -d \
+  --name mopay \
+  -p 3000:3000 \
+  ghcr.io/<twoj-user>/<twoje-repo>:latest
