@@ -1,0 +1,18 @@
+[data-theme="dark"] {
+  --bg: #1A191F;
+  --panel: #26252D;
+  --text-prim: #E5E5EA;
+  --text-sec: #93939F;
+  --accent: #938CE3;
+  --accent-hover: #817AD4;
+  --border: #4C4A57;
+  --row-hover: #32313B;
+  --error: #F46A6A;
+  --success: #5AD68E;
+  --layer-shadow: 0 18px 42px rgba(5, 5, 12, 0.38);
+  --layer-shadow-strong: 0 26px 58px rgba(6, 6, 16, 0.5);
+  --shadow-soft: 0 10px 30px rgba(5, 5, 12, 0.32);
+  --shadow-float: 0 18px 40px rgba(6, 6, 16, 0.45);
+  --shadow-lift: 0 8px 24px rgba(5, 5, 12, 0.28);
+  --shadow-drag: 0 22px 52px rgba(6, 6, 16, 0.5);
+}

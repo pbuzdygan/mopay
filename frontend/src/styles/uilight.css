@@ -1,0 +1,12 @@
+[data-theme="light"] {
+  --bg: #F1F2F6;
+  --panel: #FFFFFF;
+  --text-prim: #1E1F25;
+  --text-sec: #5A5D68;
+  --accent: #7B75D1;
+  --accent-hover: #6A65C1;
+  --border: #CCCFDA;
+  --row-hover: #ECEEF3;
+  --error: #C44539;
+  --success: #198A63;
+}
