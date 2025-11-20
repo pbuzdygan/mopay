@@ -33,11 +33,11 @@
 #Main UI
 <p align="center">
   <img src="branding/0_dark.png" width="45%" alt="Main UI Expenses Dark">
-  <img src="branding/000_dark.png" width="45%" alt="Main UI Expenses Dark">
+  <img src="branding/000_light.png" width="45%" alt="Main UI Expenses Dark">
 </p>
 <p align="center">
   <img src="branding/1_dark.png" width="45%" alt="Main UI Incomes Dark">
-  <img src="branding/111_dark.png" width="45%" alt="Main UI Incomes Dark">
+  <img src="branding/111_light.png" width="45%" alt="Main UI Incomes Dark">
 </p>
 
 #Savings
