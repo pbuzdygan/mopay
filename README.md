@@ -5,7 +5,7 @@
 </p>
 
 
-**MOPAY** is a self-hosted personal finance and home budget management application.
+**MOPAY** is a self-hosted personal finance and home monthly payments management application.
 
 - ✅ Modern UI (React + Vite + Tailwind)
 - ✅ Backend API (Node.js)
@@ -16,7 +16,7 @@
 ---
 ## Demo / Screenshots
 
-# Main UI
+### Main UI
 <p align="center">
   <img src="branding/0_dark.png" width="45%" alt="Main UI Expenses Dark">
   <img src="branding/0_light.png" width="45%" alt="Main UI Expenses Dark">
@@ -26,19 +26,19 @@
   <img src="branding/1_light.png" width="45%" alt="Main UI Incomes Dark">
 </p>
 
-# Savings
+### Savings
 <p align="center">
   <img src="branding/2_dark.png" width="45%" alt="Oszczędności Dark">
   <img src="branding/2_light.png" width="45%" alt="Oszczędności Light">
 </p>
 
-# Reports
+### Reports
 <p align="center">
   <img src="branding/3_dark.png" width="45%" alt="Raporty Dark">
   <img src="branding/3_light.png" width="45%" alt="Raporty Light">
 </p>
 
-# Settings
+### Settings
 <p align="center">
   <img src="branding/4_dark.png" width="45%" alt="Ustawienia Dark">
   <img src="branding/4_light.png" width="45%" alt="Ustawienia Light">
