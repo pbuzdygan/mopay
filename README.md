@@ -89,9 +89,39 @@ services:
 #      interval: 30s
 #      timeout: 5s
 #      retries: 5
+```
+## Build locally
 
+The easiest way to get started is to use compose file:
+```bash
+docker compose -f local-build-docker-compose.yml build --no-cache
+docker compose -f local-build-docker-compose.yml up -d
+```
+
+File: local-build-docker-compose.yml
+```bash
+services:
+  app:
+    build: .
+    container_name: mopay
+    restart: unless-stopped
+    environment:
+#      - PORT=8010
+      - DB_FILE=/data/mopay.sqlite
+      - APP_PIN=123456
+      - NODE_ENV=production
+    volumes:
+      - ./data:/data
+    ports:
+      - "8010:8010"
 
 ```
+You can create above file as regular docker-compose.yml, then regular expression like below will work:
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.
 
