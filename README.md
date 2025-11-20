@@ -2,11 +2,8 @@
 
 <p align="center">
   <img src="branding/mopay_banner.png" alt="MOPAY Banner" width="25%">
-  <a>[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/pbuzdygan)</a>
 </p>
-<p align="center">
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/pbuzdygan)
-</p>
+
 
 **MOPAY** is a self-hosted personal finance and home monthly payments management application.
 
@@ -72,8 +69,7 @@ docker run -d \
 ```
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.
-<p><a href="https://www.buymeacoffee.com/pbuzdygan"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=pbuzdygan&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
-</p>
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/pbuzdygan)
 <p align="center">
   <img src="branding/bmc_qr.png" width="25%" alt="BMC QR code">
 </p>
