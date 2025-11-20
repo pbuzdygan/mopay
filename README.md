@@ -58,7 +58,7 @@
   <img src="branding/4_light.png" width="45%" alt="Ustawienia Light">
 </p>
 
-
+<p><img src="branding/0_light.png)" width="45%" alt="Main UI Expenses Light"></p>
 
 ---
 
