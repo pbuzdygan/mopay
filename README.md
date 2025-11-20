@@ -5,32 +5,18 @@
 </p>
 
 
-**MOPAY** to samohostowalna aplikacja do zarządzania finansami osobistymi / domowym budżetem.
+**MOPAY** is a self-hosted personal finance and home budget management application.
 
-- ✅ Nowoczesny interfejs (React + Vite + Tailwind)
+- ✅ Modern UI (React + Vite + Tailwind)
 - ✅ Backend API (Node.js)
-- ✅ PWA – działa jak natywna aplikacja, tryb offline
-- ✅ Obsługa wielu lat, wpisów, raportów, celów oszczędnościowych
-- ✅ Przyjazny dla self-hostingu (Docker, docker-compose, reverse proxy)
+- ✅ PWA – works offline and behaves like a native app
+- ✅ Manage multiple years, entries, reports, and savings goals
+- ✅ Designed for self-hosting (Docker, docker-compose, reverse proxy friendly)
 
 ---
-<!--
-## Demo / screenshoty
+## Demo / Screenshots
 
-![Ekran główny 1 Dark](branding/0_dark.png)
-![Ekran główny 1 Light](branding/0_light.png)
-![Ekran główny 2 Dark](branding/1_dark.png)
-![Ekran główny 2 Light](branding/1_light.png)
-![Oszczędności Dark](branding/2_dark.png)
-![Oszczędności Light](branding/2_light.png)
-![Raporty Dark](branding/3_dark.png)
-![Raporty Light](branding/3_light.png)
-![Ustawienia Dark](branding/4_dark.png)
-![Ustawienia Light](branding/4_light.png)
--->
-## Demo / screenshoty
-
-#Main UI
+# Main UI
 <p align="center">
   <img src="branding/0_dark.png" width="45%" alt="Main UI Expenses Dark">
   <img src="branding/0_light.png" width="45%" alt="Main UI Expenses Dark">
@@ -40,19 +26,19 @@
   <img src="branding/1_light.png" width="45%" alt="Main UI Incomes Dark">
 </p>
 
-#Savings
+# Savings
 <p align="center">
   <img src="branding/2_dark.png" width="45%" alt="Oszczędności Dark">
   <img src="branding/2_light.png" width="45%" alt="Oszczędności Light">
 </p>
 
-#Reports
+# Reports
 <p align="center">
   <img src="branding/3_dark.png" width="45%" alt="Raporty Dark">
   <img src="branding/3_light.png" width="45%" alt="Raporty Light">
 </p>
 
-#Settings
+# Settings
 <p align="center">
   <img src="branding/4_dark.png" width="45%" alt="Ustawienia Dark">
   <img src="branding/4_light.png" width="45%" alt="Ustawienia Light">
@@ -60,20 +46,20 @@
 
 ---
 
-## Funkcje
+## Features
 
-- Zarządzanie **latami rozliczeniowymi**
-- Dodawanie, edycja i usuwanie **wpisów przychodów i wydatków**
-- **Raporty** i podsumowania
-- **Cele oszczędnościowe** i śledzenie postępu
-- **PIN guard** (blokada dostępu)
-- Tryb **offline** (PWA, cache zasobów)
+- Manage **financial years**
+- Add, edit, and delete **income and expense entries**
+- Generate **reports and summaries**
+- Track **savings goals** and progress
+- **PIN guard** built-in (secure access)
+- **Offline** mode (PWA, cache zasobów)
 
 ---
 
-## Uruchomienie – Docker (GHCR)
+## Run with Docker (GHCR)
 
-Najprostszy sposób na start: użyć gotowego obrazu z GitHub Container Registry.
+The easiest way to get started is to use the prebuilt image from GitHub Container Registry:
 
 ```bash
 docker run -d \
