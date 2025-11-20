@@ -1,6 +1,11 @@
 # MOPAY
 
-                            ![MOPAY Banner](branding/mopay_banner.png)
+![MOPAY Banner](branding/mopay_banner.png)
+
+<p align="center">
+  <img src="branding/mopay_banner.png" alt="MOPAY Banner" width="33%">
+</p>
+
 
 **MOPAY** to samohostowalna aplikacja do zarządzania finansami osobistymi / domowym budżetem.
 
