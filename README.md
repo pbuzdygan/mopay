@@ -30,6 +30,7 @@
 
 ## Demo / screenshoty
 
+#Main UI
 <p align="center">
   <img src="branding/0_dark.png" width="45%" alt="Main UI Expenses Dark">
   <img src="branding/0_light.png)" width="45%" alt="Main UI Expenses Light">
@@ -38,14 +39,20 @@
   <img src="branding/1_dark.png" width="45%" alt="Main UI Incomes Dark">
   <img src="branding/1_light.png)" width="45%" alt="Main UI Incomes Light">
 </p>
+
+#Savings
 <p align="center">
   <img src="branding/2_dark.png" width="45%" alt="Oszczędności Dark">
   <img src="branding/2_light.png" width="45%" alt="Oszczędności Light">
 </p>
+
+#Reports
 <p align="center">
   <img src="branding/3_dark.png" width="45%" alt="Raporty Dark">
   <img src="branding/3_light.png" width="45%" alt="Raporty Light">
 </p>
+
+#Settings
 <p align="center">
   <img src="branding/4_dark.png" width="45%" alt="Ustawienia Dark">
   <img src="branding/4_light.png" width="45%" alt="Ustawienia Light">
