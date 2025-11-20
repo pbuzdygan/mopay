@@ -78,9 +78,9 @@ services:
 
 # Environment variables
     environment:
-      - PORT=8010
+#      - PORT=8010 #in network_mode host You can set different than default port
       - DB_FILE=/data/mopay.sqlite
-      - APP_PIN=123456
+      - APP_PIN=123456 #PIN 4-8 digits
       - NODE_ENV=production
 
 # Health check (optional but recommended)
@@ -89,6 +89,7 @@ services:
 #      interval: 30s
 #      timeout: 5s
 #      retries: 5
+
 
 ```
 ## Buy Me a Coffee
