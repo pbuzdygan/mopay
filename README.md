@@ -14,22 +14,19 @@
 
 ## Demo / screenshoty
 
-> TODO: wrzuć 1–3 screenshoty do `branding/` i odkomentuj poniżej.
-
-<!--
-![Ekran główny]
+[Ekran główny]
 (branding/0_dark.png)(branding/0_light.png)
 (branding/1_dark.png)(branding/1_light.png)
 
-![Oszczędności]
+[Oszczędności]
 (branding/2_dark.png)(branding/2_light.png)
 
-![Raporty]
+[Raporty]
 (branding/3_dark.png)(branding/3_light.png)
 
-![Ustawienia]
+[Ustawienia]
 (branding/4_dark.png)(branding/4_light.png)
--->
+
 
 ---
 
