@@ -2,6 +2,7 @@
 
 <p align="center">
   <img src="branding/mopay_banner.png" alt="MOPAY Banner" width="25%">
+  <a href="https://www.buymeacoffee.com/pbuzdygan"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=pbuzdygan&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
 </p>
 
 
@@ -69,6 +70,7 @@ docker run -d \
 ```
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.
+<a href="https://www.buymeacoffee.com/pbuzdygan"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=pbuzdygan&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
 <p align="center">
   <img src="branding/bmc_qr.png" width="25%" alt="BMC QR code">
 </p>
