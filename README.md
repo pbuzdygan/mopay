@@ -71,6 +71,6 @@ docker run -d \
 If You like results of my efforts, feel free to show that by supporting me.
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/pbuzdygan)
-<p align="center">
+<p align="left">
   <img src="branding/bmc_qr.png" width="25%" alt="BMC QR code">
 </p>
