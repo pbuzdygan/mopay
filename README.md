@@ -14,18 +14,16 @@
 
 ## Demo / screenshoty
 
-[Ekran główny]
-(branding/0_dark.png)(branding/0_light.png)
-(branding/1_dark.png)(branding/1_light.png)
-
-[Oszczędności]
-(branding/2_dark.png)(branding/2_light.png)
-
-[Raporty]
-(branding/3_dark.png)(branding/3_light.png)
-
-[Ustawienia]
-(branding/4_dark.png)(branding/4_light.png)
+[Ekran główny 1 Dark](branding/0_dark.png)
+[Ekran główny 1 Light](branding/0_light.png)
+[Ekran główny 2 Dark](branding/1_dark.png)
+[Ekran główny 2 Light](branding/1_light.png)
+[Oszczędności Dark](branding/2_dark.png)
+[Oszczędności Light](branding/2_light.png)
+[Raporty Dark](branding/3_dark.png)
+[Raporty Light](branding/3_light.png)
+[Ustawienia Dark](branding/4_dark.png)
+[Ustawienia Light](branding/4_light.png)
 
 
 ---
