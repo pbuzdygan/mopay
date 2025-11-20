@@ -59,13 +59,37 @@
 
 ## Run with Docker (GHCR)
 
-The easiest way to get started is to use the prebuilt image from GitHub Container Registry:
+The easiest way to get started is to use compose file:
 
 ```bash
-docker run -d \
-  --name mopay \
-  -p 8010:8010 \
-  ghcr.io/<twoj-user>/<twoje-repo>:latest
+services:
+  mopay:
+    image: ghcr.io/pbuzdygan/mopay:latest
+    container_name: mopay
+    restart: unless-stopped
+
+# MOPAY backend/frontend listens on port 8010 inside the container
+    ports:
+      - "8010:8010"
+
+# Persistent data (if backend writes anything to /data)
+    volumes:
+      - /volume1/buzlab/docker/mopay/data:/data
+
+# Environment variables
+    environment:
+      - PORT=8010
+      - DB_FILE=/data/mopay.sqlite
+      - APP_PIN=123456
+      - NODE_ENV=production
+
+# Health check (optional but recommended)
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:8010"]
+#      interval: 30s
+#      timeout: 5s
+#      retries: 5
+
 ```
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.

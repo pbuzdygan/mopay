@@ -1,14 +1,27 @@
 services:
-  app:
-    build: .
-    container_name: Mopay
+  mopay:
+    image: ghcr.io/pbuzdygan/mopay:latest
+    container_name: mopay
     restart: unless-stopped
+
+# MOPAY backend/frontend listens on port 8010 inside the container
+    ports:
+      - "8010:8010"
+
+# Persistent data (if backend writes anything to /data)
+    volumes:
+      - /volume1/buzlab/docker/mopay/data:/data
+
+# Environment variables
     environment:
       - PORT=8010
       - DB_FILE=/data/mopay.sqlite
       - APP_PIN=123456
       - NODE_ENV=production
-    volumes:
-      - ./data:/data
-    ports:
-      - "8010:8010"
+
+# Health check (optional but recommended)
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:8010"]
+#      interval: 30s
+#      timeout: 5s
+#      retries: 5
