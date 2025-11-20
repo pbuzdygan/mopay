@@ -25,11 +25,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build Docker image (NO CACHE)
         run: |
-          docker build \
+            docker build \
+            --no-cache \
             -t ghcr.io/${{ github.repository }}:latest \
             .
+
 
       - name: Push Docker image (latest)
         run: |
