@@ -1,72 +1,63 @@
 # ───────────────────────────────────────────────
-# 1️⃣ BUILD STAGE (frontend + backend deps)
+# 1️⃣ BUILD STAGE – build frontend
 # ───────────────────────────────────────────────
 FROM node:20-bookworm-slim AS build
 
 WORKDIR /app
 
-# Install system deps required for native modules
+# System deps for native modules (if needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ pkg-config \
  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=development
 
-# Copy package files first to use cache
-COPY backend/package*.json ./backend/
+# Use cache for npm
 COPY frontend/package*.json ./frontend/
 
-# Install backend deps
-RUN cd backend && \
-    (npm ci --no-audit --prefer-offline || npm install --legacy-peer-deps --no-audit --no-fund)
-
-# Install frontend deps
 RUN cd frontend && \
     (npm ci --no-audit --prefer-offline || npm install --legacy-peer-deps --no-audit --no-fund)
 
-# Copy full source code
-COPY backend ./backend
+# Copy frontend sources
 COPY frontend ./frontend
 
 # Build frontend
 RUN cd frontend && npm run build || \
-    (echo "⚠️ Frontend build failed" && \
-    mkdir -p dist && \
-    printf '<!doctype html><html><body><h1>Frontend build error</h1></body></html>' \
-      > dist/index.html)
-
-RUN npm cache clean --force
+  (echo "⚠️ Frontend build failed" && \
+   mkdir -p dist && \
+   printf '<!doctype html><html><body><h1>Frontend build error</h1></body></html>' > dist/index.html)
 
 
 
 # ───────────────────────────────────────────────
-# 2️⃣ RUNTIME STAGE (minimal production layer)
+# 2️⃣ RUNTIME STAGE – backend + built frontend
 # ───────────────────────────────────────────────
 FROM node:20-bookworm-slim AS runtime
 
 WORKDIR /app
+
 ENV NODE_ENV=production
 ENV PORT=8010
 EXPOSE 8010
 
-# SQLite runtime library
+# SQLite runtime lib
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy ONLY package files first
+# Copy ONLY backend package files first (for npm ci)
 COPY backend/package*.json /app/
 
-# Install runtime dependencies
+# Install backend runtime deps
 RUN npm ci --omit=dev --no-audit --prefer-offline && npm cache clean --force
 
-# Copy backend FULLY (now npm ci will NOT delete these files!)
-COPY --from=build /app/backend /app
+# 🔥 Copy FULL backend source (including schema.sql, db.js, export.js, server.js)
+COPY backend /app
 
-# Copy frontend build output
+# Copy built frontend (as static bundle) to /app/public
 COPY --from=build /app/frontend/dist /app/public
 
-# Create persistent data directory
+# Data directory for SQLite file
 RUN mkdir -p /data
 
 CMD ["node", "server.js"]
