@@ -17,8 +17,18 @@
 > TODO: wrzuć 1–3 screenshoty do `branding/` i odkomentuj poniżej.
 
 <!--
-![Ekran główny](branding/mopay_screen_main.png)
-![Widok raportów](branding/mopay_screen_reports.png)
+![Ekran główny]
+(branding/0_dark.png)(branding/0_light.png)
+(branding/1_dark.png)(branding/1_light.png)
+
+![Oszczędności]
+(branding/2_dark.png)(branding/2_light.png)
+
+![Raporty]
+(branding/3_dark.png)(branding/3_light.png)
+
+![Ustawienia]
+(branding/4_dark.png)(branding/4_light.png)
 -->
 
 ---
@@ -31,7 +41,6 @@
 - **Cele oszczędnościowe** i śledzenie postępu
 - **PIN guard** (blokada dostępu)
 - Tryb **offline** (PWA, cache zasobów)
-- Przygotowane pod **reverse proxy** (np. Nginx Proxy Manager)
 
 ---
 
@@ -42,5 +51,5 @@ Najprostszy sposób na start: użyć gotowego obrazu z GitHub Container Registry
 ```bash
 docker run -d \
   --name mopay \
-  -p 3000:3000 \
+  -p 8010:8010 \
   ghcr.io/<twoj-user>/<twoje-repo>:latest
