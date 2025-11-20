@@ -66,3 +66,9 @@ docker run -d \
   --name mopay \
   -p 8010:8010 \
   ghcr.io/<twoj-user>/<twoje-repo>:latest
+```
+## Buy Me a Coffee
+If You like results of my efforts, feel free to show that by supporting me.
+<p align="center">
+  <img src="branding/bmc_qr.png" width="25%" alt="BMC QR code">
+</p>
