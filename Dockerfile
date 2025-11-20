@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV NODE_ENV=development
 
 # Copy package files first to use cache
-COPY backend/package*.json backend/
-COPY frontend/package*.json frontend/
+COPY backend/package*.json ./backend/
+COPY frontend/package*.json ./frontend/
 
 # Install backend deps
 RUN cd backend && \
@@ -25,8 +25,8 @@ RUN cd frontend && \
     (npm ci --no-audit --prefer-offline || npm install --legacy-peer-deps --no-audit --no-fund)
 
 # Copy full source code
-COPY backend backend
-COPY frontend frontend
+COPY backend ./backend
+COPY frontend ./frontend
 
 # Build frontend
 RUN cd frontend && npm run build || \
