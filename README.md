@@ -74,7 +74,7 @@ services:
 
 # Persistent data (if backend writes anything to /data)
     volumes:
-      - /volume1/buzlab/docker/mopay/data:/data
+      - ./data:/data
 
 # Environment variables
     environment:
