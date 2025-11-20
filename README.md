@@ -14,7 +14,7 @@
 - ✅ Przyjazny dla self-hostingu (Docker, docker-compose, reverse proxy)
 
 ---
-
+<!--
 ## Demo / screenshoty
 
 ![Ekran główny 1 Dark](branding/0_dark.png)
@@ -27,7 +27,7 @@
 ![Raporty Light](branding/3_light.png)
 ![Ustawienia Dark](branding/4_dark.png)
 ![Ustawienia Light](branding/4_light.png)
-
+-->
 ## Demo / screenshoty
 
 #Main UI
