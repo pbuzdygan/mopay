@@ -40,23 +40,21 @@ ENV NODE_ENV=production
 ENV PORT=8010
 EXPOSE 8010
 
-# SQLite runtime library
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 \
  && rm -rf /var/lib/apt/lists/*
 
-# 1. Copy ONLY backend package files (required for npm ci)
+# 1. Install deps
 COPY backend/package*.json /app/
-
-# 2. Install backend dependencies
 RUN npm ci --omit=dev --no-audit --prefer-offline && npm cache clean --force
 
-# 3. NOW copy backend FULLY — this ensures schema.sql survives
+# 2. Copy FULL backend – this brings schema.sql!
 COPY backend /app
 
-# 4. Copy built frontend
+# 3. Copy frontend build
 COPY --from=build /app/frontend/dist /app/public
 
 RUN mkdir -p /data
 
 CMD ["node", "server.js"]
+

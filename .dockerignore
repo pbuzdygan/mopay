@@ -1,3 +1,6 @@
+!backend/schema.sql
+
+
 # Node artifacts
 **/node_modules
 **/dist
