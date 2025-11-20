@@ -1,9 +1,7 @@
 # MOPAY
 
-![MOPAY Banner](branding/mopay_banner.png)
-
 <p align="center">
-  <img src="branding/mopay_banner.png" alt="MOPAY Banner" width="33%">
+  <img src="branding/mopay_banner.png" alt="MOPAY Banner" width="25%">
 </p>
 
 
@@ -29,6 +27,30 @@
 ![Raporty Light](branding/3_light.png)
 ![Ustawienia Dark](branding/4_dark.png)
 ![Ustawienia Light](branding/4_light.png)
+
+## Demo / screenshoty
+
+<p align="center">
+  <img src="branding/0_dark.png" width="45%" alt="Main UI Expenses Dark">
+  <img src="branding/0_light.png)" width="45%" alt="Main UI Expenses Light">
+</p>
+<p align="center">
+  <img src="branding/1_dark.png" width="45%" alt="Main UI Incomes Dark">
+  <img src="branding/1_light.png)" width="45%" alt="Main UI Incomes Light">
+</p>
+<p align="center">
+  <img src="branding/2_dark.png" width="45%" alt="Oszczędności Dark">
+  <img src="branding/2_light.png" width="45%" alt="Oszczędności Light">
+</p>
+<p align="center">
+  <img src="branding/3_dark.png" width="45%" alt="Raporty Dark">
+  <img src="branding/3_light.png" width="45%" alt="Raporty Light">
+</p>
+<p align="center">
+  <img src="branding/4_dark.png" width="45%" alt="Ustawienia Dark">
+  <img src="branding/4_light.png" width="45%" alt="Ustawienia Light">
+</p>
+
 
 
 ---
