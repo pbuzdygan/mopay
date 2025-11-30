@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAppStore } from "./store";
+import { Api } from "./api";
 
 // komponenty
 import { MainBar } from "./components/MainBar";
@@ -14,6 +15,8 @@ import { YearOperationsModal } from "./components/modals/YearOperationsModal";
 import { ExportModal } from "./components/modals/ExportModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { SavingsGoalModal } from "./components/modals/SavingsGoalModal";
+import { EncryptionMigrationModal } from "./components/modals/EncryptionMigrationModal";
+import { EncryptionKeyMismatchModal } from "./components/modals/EncryptionKeyMismatchModal";
 import AddToHomeScreen from "./components/AddToHomeScreen";
 
 // style globalne
@@ -22,6 +25,8 @@ import "./styles/global.css";
 export default function App() {
   const theme = useAppStore((s) => s.theme);
   const tab = useAppStore((s) => s.tab);
+  const setMigrationNotice = useAppStore((s) => s.setMigrationNotice);
+  const setKeyMismatch = useAppStore((s) => s.setKeyMismatch);
 
   // Sticky header scroll effect
   useEffect(() => {
@@ -51,6 +56,24 @@ export default function App() {
     return () => clearTimeout(tm);
   }, [theme]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const status = await Api.encryption.status();
+        setKeyMismatch(Boolean(status?.keyMismatch));
+        if (status?.keyMismatch) {
+          setMigrationNotice(false);
+          return;
+        }
+        if (status?.encryptionEnabled && status?.showNotice) {
+          setMigrationNotice(true);
+        }
+      } catch {
+        // ignore errors – app can still function
+      }
+    })();
+  }, [setMigrationNotice, setKeyMismatch]);
+
   return (
     <div className="min-h-screen">
       <PinGuard />
@@ -78,6 +101,8 @@ export default function App() {
       <ExportModal />
       <SettingsModal />
       <SavingsGoalModal />
+      <EncryptionMigrationModal />
+      <EncryptionKeyMismatchModal />
       <AddToHomeScreen />
     </div>
   );

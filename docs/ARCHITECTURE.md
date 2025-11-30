@@ -50,7 +50,68 @@ The app is split into:
 
 ## **4\. Backend**
 
-### **4.1 Database Initialization (**<span style="color: rgb(77, 170, 252)">**backend/db.js**</span>**,** <span style="color: rgb(77, 170, 252)">**backend/schema.sql**</span>**)**
+### **4.1 Data encryption
+Mopay stores all application data in a local SQLite database. Starting from version 1.1, all sensitive numeric data is encrypted at the application level using a symmetric key provided via environment variables.
+
+#### Encryption model
+
+- Algorithm: AES‑256‑GCM (authenticated encryption).
+- Scope of encryption:
+  - monthly values in `entries` (`Jan`–`Dec` for income/expense rows),
+  - `target_value` in `savings_goals`,
+  - `value` in `savings_items`,
+  - PIN is stored as a salted hash and then encrypted as a blob in the `meta` table.
+- Storage format:
+  - encrypted values are stored as text columns with the prefix `enc:` followed by a base64 payload containing IV, auth tag and ciphertext.
+  - decryption happens in the backend before values are returned to the frontend or used for calculations (e.g. reports, export).
+
+#### Encryption key (APP_ENC_KEY)
+
+- The backend requires a symmetric key provided as `APP_ENC_KEY` (usually via Docker Compose):
+  - recommended format: `APP_ENC_KEY=base64:<32‑byte‑base64>`,
+  - if the variable is missing, the process logs  
+    `Error: APP_ENC_KEY environment variable is required for Mopay to start.`  
+    and exits – running without encryption is not supported.
+- Internally, the key is normalized and validated to 32 bytes and a SHA‑256 fingerprint is computed and stored in the `meta` table as `enc_key_fingerprint`.
+
+#### Migration of existing data
+
+On first start with a valid `APP_ENC_KEY`:
+
+- The backend initializes the `meta` table (if needed) and runs a migration that:
+  - encrypts all existing numeric values in `entries`, `savings_goals` and `savings_items`,
+  - sets `meta.enc_migrated = 1` and `meta.enc_notice_pending = 1` so the frontend can display a one‑time “your data has been encrypted” message.
+- After migration, all subsequent writes to monetary columns are always stored in encrypted form.
+- Export and reporting logic transparently decrypts values before generating Excel or aggregate views.
+
+#### PIN handling
+
+- `APP_PIN` is no longer compared directly; instead:
+  - on startup the backend computes a salted hash of the PIN using scrypt, wraps `{ salt, hash }` in JSON, encrypts it with `APP_ENC_KEY` and stores it under `meta.pin_hash`,
+  - `/api/pin/verify` verifies user input only against this encrypted hash record (constant‑time comparison),
+  - the raw PIN is never stored in plaintext in the database.
+
+#### APP_ENC_KEY changes and safety
+
+To protect data integrity, Mopay tracks which key was used to encrypt the current database:
+
+- On startup:
+  - the backend computes a fingerprint of the current `APP_ENC_KEY` and compares it with `meta.enc_key_fingerprint`,
+  - if they match, the app runs normally and verifies that monetary columns are encrypted; if needed, a repair step re‑encrypts any remaining plaintext values.
+- If the fingerprint does not match (APP_ENC_KEY changed):
+  - the backend sets `meta.enc_key_mismatch = 1` and logs:  
+    `Your APP_ENC_KEY has been changed! Revert to previous encryption key to keep your data.`,
+  - all data‑related API endpoints return HTTP 409 with a structured error (`ENCRYPTION_KEY_MISMATCH`),
+  - the frontend shows a blocking modal explaining that the key does not match the encrypted data and offers two options:
+    - restore the previous `APP_ENC_KEY` in Docker / environment and restart Mopay (recommended to keep all data),
+    - wipe all data and start fresh with the current key:
+      - this is done via a dedicated endpoint that deletes all rows from `years`, `entries`, `savings_goals`, `savings_items`,
+      - the action requires an explicit confirmation in the UI (red “Confirm reset” button),
+      - after reset the fingerprint is updated to the current key and the app behaves like a fresh installation.
+
+In short, as long as `APP_ENC_KEY` remains consistent, all monetary data and PIN protection are handled transparently. Changing or losing the key without a prior migration/backup makes existing encrypted data unrecoverable by design; the application guides the user to either restore the previous key or reset the database.
+
+### **4.2 Database Initialization (**<span style="color: rgb(77, 170, 252)">**backend/db.js**</span>**,** <span style="color: rgb(77, 170, 252)">**backend/schema.sql**</span>**)**
 
 -   Resolves DB location from DB\_FILE env (default <span style="color: rgb(77, 170, 252)">./mopay.sqlite</span>).
 -   Opens a better-sqlite3 connection, enabling:
@@ -91,7 +152,7 @@ Tables:
 
 Indexes exist on (year\_id, type) and savings foreign keys for performance.
 
-### **4.2 Express Server (**<span style="color: rgb(77, 170, 252)">**backend/server.js**</span>**)**
+### **4.3 Express Server (**<span style="color: rgb(77, 170, 252)">**backend/server.js**</span>**)**
 
 Configuration:
 
@@ -114,7 +175,7 @@ Static UI:
 -   express.static for backend/public
 -   Catch‑all GET \* serving <span style="color: rgb(77, 170, 252)">public/index.html</span> for the SPA.
 
-### **4.3 API Endpoints**
+### **4.4 API Endpoints**
 
 All APIs return JSON unless stated otherwise.
 
@@ -220,7 +281,7 @@ All APIs return JSON unless stated otherwise.
         -   Content type: <span style="color: rgb(77, 170, 252)">application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</span>
         -   Content-Disposition: attachment; filename="mopay\_export.xlsx"
 
-### **4.4 Excel Export Implementation (**<span style="color: rgb(77, 170, 252)">**backend/export.js**</span>**)**
+### **4.5 Excel Export Implementation (**<span style="color: rgb(77, 170, 252)">**backend/export.js**</span>**)**
 
 -   Uses ExcelJS + a custom color palette and borders.
 -   For each requested year:

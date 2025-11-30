@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import db from './db.js';
+import { decryptToNumber } from './encryption.js';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CURRENCY_FORMAT = '#,##0.00';
@@ -91,7 +92,10 @@ function renderEntriesSection(sheet, year, type, startRow) {
 
   const monthlyTotals = new Array(MONTHS.length).fill(0);
   for (const entry of rows) {
-    const values = MONTHS.map((month) => Number(entry[month] ?? (month === 'Dec' ? entry.Decm : entry[month]) ?? 0));
+    const values = MONTHS.map((month) => {
+      const raw = month === 'Dec' ? entry.Decm : entry[month];
+      return decryptToNumber(raw);
+    });
     values.forEach((value, idx) => {
       monthlyTotals[idx] += value;
     });
@@ -157,7 +161,7 @@ function styleSavingsRow(sheet, rowIndex, startCol, endCol, variant = 'body') {
 
 function renderGoalTable(sheet, goal, items, startRow, startCol) {
   const endCol = startCol + SAVINGS_DATA_COLUMNS - 1;
-  const totalValue = items.reduce((sum, item) => sum + Number(item.value ?? 0), 0);
+  const totalValue = items.reduce((sum, item) => sum + decryptToNumber(item.value), 0);
 
   sheet.mergeCells(startRow, startCol, startRow, endCol);
   sheet.getCell(startRow, startCol).value = goal.name;
@@ -166,7 +170,7 @@ function renderGoalTable(sheet, goal, items, startRow, startCol) {
   let row = startRow + 1;
   sheet.getCell(row, startCol).value = 'Target';
   sheet.getCell(row, startCol + 1).value =
-    goal.targetValue === null || goal.targetValue === undefined ? null : Number(goal.targetValue);
+    goal.targetValue === null || goal.targetValue === undefined ? null : decryptToNumber(goal.targetValue);
   if (goal.targetValue === null || goal.targetValue === undefined) {
     sheet.getCell(row, startCol + 1).value = '—';
   }
@@ -186,7 +190,7 @@ function renderGoalTable(sheet, goal, items, startRow, startCol) {
     for (const item of items) {
       row += 1;
       sheet.getCell(row, startCol).value = item.name || '';
-      sheet.getCell(row, startCol + 1).value = Number(item.value ?? 0);
+      sheet.getCell(row, startCol + 1).value = decryptToNumber(item.value);
       styleSavingsRow(sheet, row, startCol, endCol, 'body');
     }
   }

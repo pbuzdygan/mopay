@@ -35,6 +35,8 @@ type State = {
     initiateYear: boolean;
   };
   goalModal: { open: boolean; goalId: number | null };
+  migrationNotice: { open: boolean; message: string };
+  keyMismatch: boolean;
   setTab: (t: Tab) => void;
   setYear: (y: number | null) => void;
   setTheme: (m: 'light' | 'dark') => void;
@@ -49,6 +51,8 @@ type State = {
   setComment: (id: number | null, text: string) => void;
   openGoalModal: (goalId?: number | null) => void;
   closeGoalModal: () => void;
+  setMigrationNotice: (open: boolean, message?: string) => void;
+  setKeyMismatch: (active: boolean) => void;
 };
 
 export const useAppStore = create<State>((set, get) => ({
@@ -68,6 +72,8 @@ export const useAppStore = create<State>((set, get) => ({
     initiateYear: false,
   },
   goalModal: { open: false, goalId: null },
+  migrationNotice: { open: false, message: '' },
+  keyMismatch: false,
 
   setTab: (tab) => {
     save('tab', tab);
@@ -145,4 +151,11 @@ export const useAppStore = create<State>((set, get) => ({
     set({
       goalModal: { open: false, goalId: null },
     }),
+
+  setMigrationNotice: (open, message = '') =>
+    set({
+      migrationNotice: { open, message },
+    }),
+
+  setKeyMismatch: (active) => set({ keyMismatch: active }),
 }));

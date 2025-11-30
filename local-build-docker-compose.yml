@@ -7,6 +7,7 @@ services:
 #      - PORT=8010
       - DB_FILE=/data/mopay.sqlite
       - APP_PIN=123456
+      - APP_ENC_KEY=YOUR_ENC_KEY_HERE
       - NODE_ENV=production
     volumes:
       - ./data:/data

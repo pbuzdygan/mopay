@@ -12,6 +12,7 @@
 - ✅ PWA – works offline and behaves like a native app
 - ✅ Manage multiple years, entries, reports, and savings goals
 - ✅ Designed for self-hosting (Docker, docker-compose, reverse proxy friendly)
+- ✅ Secured with encryption key
 
 ---
 ## Demo / Screenshots
@@ -54,6 +55,7 @@
 - Track **savings goals** and progress
 - **PIN guard** built-in (secure access)
 - **Offline** mode (PWA, cache zasobów)
+- **Data encryption** - your incomes and expeneses values are secured with encryption key
 
 ---
 
@@ -81,6 +83,7 @@ services:
 #      - PORT=8010 #in network_mode host You can set different than default port
       - DB_FILE=/data/mopay.sqlite
       - APP_PIN=123456 #PIN 4-8 digits
+      - APP_ENC_KEY=REPLACE_WITH_YOUR_KEY
       - NODE_ENV=production
 
 # Health check (optional but recommended)
@@ -90,36 +93,13 @@ services:
 #      timeout: 5s
 #      retries: 5
 ```
-## Build locally
+### Generate Your APP_ENC_KEY
 
-The easiest way to get started is to use compose file:
-```bash
-docker compose -f local-build-docker-compose.yml build --no-cache
-docker compose -f local-build-docker-compose.yml up -d
-```
+Result of below command is Your encryption key - stored it securley - without it, Your Mopay will not start and Your data will be lost.
 
-File: local-build-docker-compose.yml
 ```bash
-services:
-  app:
-    build: .
-    container_name: mopay
-    restart: unless-stopped
-    environment:
-#      - PORT=8010
-      - DB_FILE=/data/mopay.sqlite
-      - APP_PIN=123456
-      - NODE_ENV=production
-    volumes:
-      - ./data:/data
-    ports:
-      - "8010:8010"
+openssl rand -base64 32
 
-```
-You can create above file as regular docker-compose.yml, then regular expression like below will work:
-```bash
-docker compose build --no-cache
-docker compose up -d
 ```
 
 ## Buy Me a Coffee

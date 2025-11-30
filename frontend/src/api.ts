@@ -23,6 +23,11 @@ export const Api = {
     updateItem: (itemId: number, payload: { name?: string; value?: number }) => api(`/api/savings/items/${itemId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     removeItem: (itemId: number) => api(`/api/savings/items/${itemId}`, { method: 'DELETE' }),
   },
+  encryption: {
+    status: () => api('/api/encryption/status'),
+    noticeAck: () => api('/api/encryption/notice-ack', { method: 'POST', body: JSON.stringify({}) }),
+    resetData: () => api('/api/encryption/reset', { method: 'POST', body: JSON.stringify({ confirm: true }) }),
+  },
   exportYears: async (years: number[]) => {
     const res = await fetch(`${BASE}/api/export`, { method: 'POST', body: JSON.stringify({ years }), headers: { 'Content-Type': 'application/json' } });
     const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a');

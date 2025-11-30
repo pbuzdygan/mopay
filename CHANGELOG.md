@@ -1,0 +1,24 @@
+## 1.1 – Data encryption
+
+- Added transparent encryption for all monetary data:
+  - monthly values in entries (`Jan`–`Dec` for incomes/expenses),
+  - savings goals target values,
+  - savings items values,
+  - PIN is now stored as a salted hash wrapped in encryption.
+- Mopay now requires an encryption key via `APP_ENC_KEY`:
+  - generate a key, for example: `openssl rand -base64 32`,
+  - set it in your Docker config, e.g. `APP_ENC_KEY=base64:...` in `docker-compose.yml`.
+- Existing databases:
+  - on first start with a valid `APP_ENC_KEY`, Mopay encrypts all existing numeric values in-place,
+  - the app shows a one-time in-app notice that your data has been encrypted.
+- Missing key:
+  - if `APP_ENC_KEY` is not set, the backend does not start and logs:
+    `Error: APP_ENC_KEY environment variable is required for Mopay to start.`  
+  - running Mopay without encryption is no longer supported.
+- Changed key (mismatch with existing data):
+  - Mopay detects when `APP_ENC_KEY` does not match the key used to encrypt the current database,
+  - access to data is blocked and a clear message is shown:
+    `Your APP_ENC_KEY has been changed! Revert to previous encryption key to keep your data.`,
+  - in the UI you can either:
+    - restore the previous `APP_ENC_KEY` in your Docker config to keep all data, or
+    - wipe all stored data and start fresh with the current key (requires a two-step confirmation in a red “Confirm reset” dialog).

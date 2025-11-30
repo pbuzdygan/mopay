@@ -5,6 +5,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 import { exportYearsToWorkbook } from './export.js';
+import { encryptNumber, decryptToNumber, KEY_FINGERPRINT } from './encryption.js';
+import { runEncryptionMigration, evaluateEncryptionState, repairEncryptionState } from './migration.js';
+import { initializePin, verifyPinValue } from './pin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +15,68 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT || 8010);
 const APP_PIN = process.env.APP_PIN || '';
+let keyMismatch = false;
+
+const getMetaValue = (key) => db.prepare('SELECT value FROM meta WHERE key=?').get(key);
+const setMetaValue = (key, value) =>
+  db.prepare('INSERT OR REPLACE INTO meta(key,value) VALUES (?, ?)').run(key, value);
+
+const KEY_MISMATCH_MESSAGE =
+  'Your APP_ENC_KEY has been changed! Revert to previous encryption key to keep your data.';
+const KEY_MISMATCH_RESPONSE = {
+  error: 'ENCRYPTION_KEY_MISMATCH',
+  message: `${KEY_MISMATCH_MESSAGE} You can also reset the database to start fresh with the current key.`,
+};
+
+const guardKeyMismatch = (res) => {
+  if (!keyMismatch) return false;
+  res.status(409).json(KEY_MISMATCH_RESPONSE);
+  return true;
+};
+const migrationInfo = runEncryptionMigration(db);
+console.log(migrationInfo.migrationRan ? 'Encryption migration executed on startup' : 'Encryption migration not required');
+initializePin(db, APP_PIN);
+const fingerprintRow = getMetaValue('enc_key_fingerprint');
+if (!fingerprintRow?.value) {
+  setMetaValue('enc_key_fingerprint', KEY_FINGERPRINT);
+  setMetaValue('enc_key_mismatch', '0');
+} else if (fingerprintRow.value !== KEY_FINGERPRINT) {
+  keyMismatch = true;
+  setMetaValue('enc_key_mismatch', '1');
+  console.error(KEY_MISMATCH_MESSAGE);
+} else {
+  setMetaValue('enc_key_mismatch', '0');
+}
+
+if (!keyMismatch) {
+  const encryptionState = evaluateEncryptionState(db);
+  if (!encryptionState.hasData) {
+    console.log('Encryption verification: no monetary data stored yet (ready for encrypted writes)');
+  } else if (encryptionState.encrypted) {
+    console.log('Encryption verification: monetary columns confirmed encrypted');
+  } else {
+    const sources = encryptionState.sources.join(', ');
+    console.warn(`Encryption verification: detected unencrypted monetary values in: ${sources || 'unknown tables'}`);
+    const repairInfo = repairEncryptionState(db);
+    if (repairInfo.changed) {
+      console.log(
+        `Encryption repair applied (entries: ${repairInfo.entriesUpdated}, goals: ${repairInfo.goalsUpdated}, items: ${repairInfo.itemsUpdated})`
+      );
+      const postState = evaluateEncryptionState(db);
+      if (postState.encrypted) {
+        console.log('Encryption verification after repair: monetary columns confirmed encrypted');
+      } else {
+        console.warn('Encryption verification after repair still detects issues – manual inspection recommended');
+      }
+    } else {
+      console.warn('Encryption repair ran but no values needed updating – please inspect the database manually');
+    }
+  }
+} else {
+  console.warn('Mopay is locked because the encryption key does not match the stored data.');
+}
+
+const MONTH_COLUMNS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const clampText = (value, max = 80) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -29,11 +94,10 @@ app.use(morgan('dev'));
 // Health check
 app.get('/health', (_req,res)=> res.json({ status: 'ok' }));
 
-// Pin verification (auto-pass if APP_PIN empty)
+// Pin verification
 app.post('/api/pin/verify', (req,res)=>{
   const { pin } = req.body || {};
-  if (!APP_PIN) return res.json({ ok: true });
-  if (typeof pin === 'string' && pin === APP_PIN && pin.length >= 4 && pin.length <= 8) {
+  if (typeof pin === 'string' && verifyPinValue(db, pin)) {
     return res.json({ ok: true });
   }
   return res.status(401).json({ ok: false, error: 'Wrong Pin' });
@@ -41,14 +105,17 @@ app.post('/api/pin/verify', (req,res)=>{
 
 // Years
 app.get('/api/years', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const years = db.prepare('SELECT year FROM years ORDER BY year ASC').all().map(r=>r.year);
   res.json({ years });
 });
 app.get('/api/years/exists', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const c = db.prepare('SELECT COUNT(1) c FROM years').get().c;
   res.json({ hasAny: c > 0 });
 });
 app.post('/api/years', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { year } = req.body;
   if (!Number.isInteger(year) || String(year).length !== 4) return res.status(400).json({ error: 'Invalid year' });
   try {
@@ -60,6 +127,7 @@ app.post('/api/years', (req,res)=>{
   }
 });
 app.delete('/api/years', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { years } = req.body;
   if (!Array.isArray(years) || years.length===0) return res.status(400).json({ error: 'No years provided' });
   const found = db.prepare(`SELECT id, year FROM years WHERE year IN (${years.map(()=>'?').join(',')})`).all(...years);
@@ -83,6 +151,7 @@ app.delete('/api/years', (req,res)=>{
 
 // Entries
 app.get('/api/entries', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { type, year } = req.query;
   if (!['income','expense'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
   const y = Number(year);
@@ -93,26 +162,53 @@ app.get('/api/entries', (req,res)=>{
     `SELECT id, name, comment, sort_index, Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, "Dec" as Decm
      FROM entries WHERE type=? AND year_id=? ORDER BY sort_index, id`
   ).all(type, yr.id);
-  res.json({ entries: rows });
+  const decrypted = rows.map((row)=>({
+    ...row,
+    Jan: decryptToNumber(row.Jan),
+    Feb: decryptToNumber(row.Feb),
+    Mar: decryptToNumber(row.Mar),
+    Apr: decryptToNumber(row.Apr),
+    May: decryptToNumber(row.May),
+    Jun: decryptToNumber(row.Jun),
+    Jul: decryptToNumber(row.Jul),
+    Aug: decryptToNumber(row.Aug),
+    Sep: decryptToNumber(row.Sep),
+    Oct: decryptToNumber(row.Oct),
+    Nov: decryptToNumber(row.Nov),
+    Decm: decryptToNumber(row.Decm),
+  }));
+  res.json({ entries: decrypted });
 });
 app.post('/api/entries', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { type, year, name } = req.body;
   if (!['income','expense'].includes(type) || !name) return res.status(400).json({ error: 'Invalid payload' });
   const yr = db.prepare('SELECT id FROM years WHERE year=?').get(year);
   if (!yr) return res.status(404).json({ error: 'Year not found' });
   const mx = db.prepare('SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=?').get(yr.id, type).mx;
-  const info = db.prepare('INSERT INTO entries(type,name,year_id,sort_index) VALUES (?,?,?,?)').run(type, name, yr.id, mx+1);
+  const monthColumnsSql = MONTH_COLUMNS.map((col) => (col === 'Dec' ? '"Dec"' : col)).join(', ');
+  const monthPlaceholders = MONTH_COLUMNS.map(() => '?').join(', ');
+  const zeroValues = MONTH_COLUMNS.map(() => encryptNumber(0));
+  const stmt = db.prepare(
+    `INSERT INTO entries(type,name,year_id,sort_index,${monthColumnsSql}) VALUES (?,?,?,?,${monthPlaceholders})`
+  );
+  const info = stmt.run(type, name, yr.id, mx + 1, ...zeroValues);
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 app.patch('/api/entries/:id', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { id } = req.params;
   const payload = req.body || {};
   const fields = ['name','comment','sort_index','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const sets = [], vals = [];
   for (const f of fields) if (f in payload) {
     const col = (f==='Dec') ? '"Dec"' : f;
+    let value = payload[f];
+    if (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].includes(f)) {
+      value = encryptNumber(value);
+    }
     sets.push(`${col}=?`);
-    vals.push(payload[f]);
+    vals.push(value);
   }
   if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
   vals.push(id);
@@ -120,12 +216,14 @@ app.patch('/api/entries/:id', (req,res)=>{
   res.json({ ok: true, updated: info.changes });
 });
 app.delete('/api/entries', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length===0) return res.status(400).json({ error: 'No ids' });
   const info = db.prepare(`DELETE FROM entries WHERE id IN (${ids.map(()=>'?').join(',')})`).run(...ids);
   res.json({ ok: true, removed: info.changes });
 });
 app.post('/api/entries/reorder', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { orderedIds } = req.body;
   if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds required' });
   const stmt = db.prepare('UPDATE entries SET sort_index=? WHERE id=?');
@@ -137,6 +235,7 @@ app.post('/api/entries/reorder', (req,res)=>{
 
 // Savings
 app.get('/api/savings', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { year } = req.query;
   const yr = getYearRow(year);
   if (!yr) {
@@ -164,21 +263,25 @@ app.get('/api/savings', (req,res)=>{
       id: item.id,
       goalId: item.goalId,
       name: item.name ?? '',
-      value: Number(item.value ?? 0),
+      value: item.value,
       sortIndex: item.sort_index ?? item.sortIndex ?? 0,
     });
   }
   const response = goals.map((goal) => ({
     id: goal.id,
     name: goal.name,
-    targetValue: goal.targetValue == null ? null : Number(goal.targetValue),
+    targetValue: goal.targetValue == null ? null : decryptToNumber(goal.targetValue),
     sortIndex: goal.sort_index ?? goal.sortIndex ?? 0,
-    items: grouped.get(goal.id) ?? [],
+    items: (grouped.get(goal.id) ?? []).map(item => ({
+      ...item,
+      value: decryptToNumber(item.value),
+    })),
   }));
   res.json({ goals: response });
 });
 
 app.post('/api/savings', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { year, name, targetValue } = req.body || {};
   const yr = getYearRow(year);
   if (!yr) return res.status(400).json({ error: 'Invalid or unknown year' });
@@ -188,7 +291,7 @@ app.post('/api/savings', (req,res)=>{
   if (targetValue !== undefined && targetValue !== null && targetValue !== '') {
     const n = Number(targetValue);
     if (!Number.isFinite(n)) return res.status(400).json({ error: 'Invalid target value' });
-    target = n;
+    target = encryptNumber(n);
   }
   const mx = db
     .prepare('SELECT COALESCE(MAX(sort_index), 0) AS mx FROM savings_goals WHERE year_id=?')
@@ -200,6 +303,7 @@ app.post('/api/savings', (req,res)=>{
 });
 
 app.patch('/api/savings/:goalId', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { goalId } = req.params;
   const payload = req.body || {};
   const sets = [];
@@ -218,7 +322,7 @@ app.patch('/api/savings/:goalId', (req,res)=>{
       const num = Number(payload.targetValue);
       if (!Number.isFinite(num)) return res.status(400).json({ error: 'Invalid target value' });
       sets.push('target_value=?');
-      vals.push(num);
+      vals.push(encryptNumber(num));
     }
   }
   if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
@@ -228,12 +332,14 @@ app.patch('/api/savings/:goalId', (req,res)=>{
 });
 
 app.delete('/api/savings/:goalId', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { goalId } = req.params;
   const info = db.prepare('DELETE FROM savings_goals WHERE id=?').run(goalId);
   res.json({ ok: true, removed: info.changes });
 });
 
 app.post('/api/savings/:goalId/items', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { goalId } = req.params;
   const goal = db.prepare('SELECT id FROM savings_goals WHERE id=?').get(goalId);
   if (!goal) return res.status(404).json({ error: 'Goal not found' });
@@ -245,11 +351,12 @@ app.post('/api/savings/:goalId/items', (req,res)=>{
     .mx;
   const info = db
     .prepare('INSERT INTO savings_items(goal_id, name, value, sort_index) VALUES (?,?,?,?)')
-    .run(goalId, trimmedName || null, numericValue, Number(mx ?? 0) + 1);
+    .run(goalId, trimmedName || null, encryptNumber(numericValue), Number(mx ?? 0) + 1);
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
 app.patch('/api/savings/items/:itemId', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { itemId } = req.params;
   const payload = req.body || {};
   const sets = [];
@@ -263,7 +370,7 @@ app.patch('/api/savings/items/:itemId', (req,res)=>{
     const num = Number(payload.value);
     if (!Number.isFinite(num)) return res.status(400).json({ error: 'Invalid value' });
     sets.push('value=?');
-    vals.push(num);
+    vals.push(encryptNumber(num));
   }
   if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
   vals.push(itemId);
@@ -272,6 +379,7 @@ app.patch('/api/savings/items/:itemId', (req,res)=>{
 });
 
 app.delete('/api/savings/items/:itemId', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { itemId } = req.params;
   const info = db.prepare('DELETE FROM savings_items WHERE id=?').run(itemId);
   res.json({ ok: true, removed: info.changes });
@@ -279,6 +387,7 @@ app.delete('/api/savings/items/:itemId', (req,res)=>{
 
 // Export
 app.post('/api/export', async (req,res)=>{
+  if (guardKeyMismatch(res)) return;
   const { years } = req.body;
   if (!Array.isArray(years) || years.length===0) return res.status(400).json({ error: 'No years' });
   const wb = await exportYearsToWorkbook(years);
@@ -286,6 +395,45 @@ app.post('/api/export', async (req,res)=>{
   res.setHeader('Content-Disposition', 'attachment; filename="mopay_export.xlsx"');
   await wb.xlsx.write(res);
   res.end();
+});
+
+// Encryption status for migration notice
+app.get('/api/encryption/status', (_req,res)=>{
+  const migrated = db.prepare("SELECT value FROM meta WHERE key='enc_migrated'").get();
+  const notice = db.prepare("SELECT value FROM meta WHERE key='enc_notice_pending'").get();
+  res.json({
+    encryptionEnabled: true,
+    migrationRan: migrated?.value === '1',
+    showNotice: notice?.value === '1',
+    keyMismatch,
+  });
+});
+
+app.post('/api/encryption/notice-ack', (_req,res)=>{
+  db.prepare("INSERT OR REPLACE INTO meta(key,value) VALUES('enc_notice_pending','0')").run();
+  res.json({ ok: true });
+});
+
+app.post('/api/encryption/reset', (req,res)=>{
+  if (!keyMismatch) return res.status(400).json({ error: 'Reset not available', message: 'Encryption key mismatch not detected.' });
+  const { confirm } = req.body || {};
+  if (confirm !== true) {
+    return res.status(400).json({ error: 'ConfirmationRequired', message: 'Reset confirmation flag is required.' });
+  }
+  const resetTx = db.transaction(() => {
+    db.prepare('DELETE FROM entries').run();
+    db.prepare('DELETE FROM savings_items').run();
+    db.prepare('DELETE FROM savings_goals').run();
+    db.prepare('DELETE FROM years').run();
+    setMetaValue('enc_migrated', '1');
+    setMetaValue('enc_notice_pending', '0');
+    setMetaValue('enc_key_mismatch', '0');
+    setMetaValue('enc_key_fingerprint', KEY_FINGERPRINT);
+  });
+  resetTx();
+  keyMismatch = false;
+  console.warn('All Mopay data has been deleted after encryption key reset confirmation.');
+  res.json({ ok: true });
 });
 
 // Static frontend
