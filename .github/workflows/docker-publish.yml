@@ -1,4 +1,4 @@
-name: Publish Docker image to GHCR
+name: Mopay Publish Docker image to GHCR
 
 #Below auto build based on push executed to main. Auto build only if changes are in listed paths
 #on:
