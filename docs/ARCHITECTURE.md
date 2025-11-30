@@ -50,7 +50,7 @@ The app is split into:
 
 ## **4\. Backend**
 
-### **4.1 Data encryption
+### **4.1 Data encryption**
 Mopay stores all application data in a local SQLite database. Starting from version 1.1, all sensitive numeric data is encrypted at the application level using a symmetric key provided via environment variables.
 
 #### Encryption model
