@@ -1,7 +1,7 @@
 {
   "name": "MOPAY",
   "short_name": "MOPAY",
-  "description": "Aplikacja MOPAY - Progressive Web App",
+  "description": "MOPAY application - Progressive Web App",
   "display": "standalone",
   "start_url": "/",
   "scope": "/",

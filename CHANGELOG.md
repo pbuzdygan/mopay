@@ -1,3 +1,9 @@
+## 1.1.1 – UI language adjustments
+
+- Translated remaining Polish UI strings (PWA install banner, offline mode bullet) to English.
+- Updated PWA manifest description and encryption notice text files to match the new copy.
+- README screenshot captions now use English labels (Savings, Reports, Settings).
+
 ## 1.1 – Data encryption
 
 - Added transparent encryption for all monetary data:

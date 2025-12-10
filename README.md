@@ -29,20 +29,20 @@
 
 ### Savings
 <p align="center">
-  <img src="branding/2_dark.png" width="45%" alt="Oszczędności Dark">
-  <img src="branding/2_light.png" width="45%" alt="Oszczędności Light">
+  <img src="branding/2_dark.png" width="45%" alt="Savings Dark">
+  <img src="branding/2_light.png" width="45%" alt="Savings Light">
 </p>
 
 ### Reports
 <p align="center">
-  <img src="branding/3_dark.png" width="45%" alt="Raporty Dark">
-  <img src="branding/3_light.png" width="45%" alt="Raporty Light">
+  <img src="branding/3_dark.png" width="45%" alt="Reports Dark">
+  <img src="branding/3_light.png" width="45%" alt="Reports Light">
 </p>
 
 ### Settings
 <p align="center">
-  <img src="branding/4_dark.png" width="45%" alt="Ustawienia Dark">
-  <img src="branding/4_light.png" width="45%" alt="Ustawienia Light">
+  <img src="branding/4_dark.png" width="45%" alt="Settings Dark">
+  <img src="branding/4_light.png" width="45%" alt="Settings Light">
 </p>
 
 ---
@@ -54,7 +54,7 @@
 - Generate **reports and summaries**
 - Track **savings goals** and progress
 - **PIN guard** built-in (secure access)
-- **Offline** mode (PWA, cache zasobów)
+- **Offline** mode (PWA, asset caching)
 - **Data encryption** - your incomes and expeneses values are secured with encryption key
 
 ---

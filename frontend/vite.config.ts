@@ -27,7 +27,7 @@ export default defineConfig({
       manifest: {
         name: "MOPAY",
         short_name: "MOPAY",
-        description: "Aplikacja MOPAY - Progressive Web App",
+        description: "MOPAY application - Progressive Web App",
         theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",

@@ -37,14 +37,14 @@ export default function AddToHomeScreen() {
       <div className="bg-white shadow-xl rounded-xl p-4 flex items-center gap-4 border">
         <img src="/android-chrome-192x192.png" className="w-10 h-10" />
         <div className="flex flex-col">
-          <span className="font-semibold">Dodaj MOPAY do ekranu głównego</span>
-          <span className="text-sm text-gray-600">Pełny tryb offline, szybkie uruchamianie</span>
+          <span className="font-semibold">Add MOPAY to your home screen</span>
+          <span className="text-sm text-gray-600">Full offline mode, instant launch</span>
         </div>
         <button
           className="px-3 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
           onClick={onInstallClick}
         >
-          Dodaj
+          Install
         </button>
       </div>
     </div>
