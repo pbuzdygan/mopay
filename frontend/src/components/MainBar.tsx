@@ -64,30 +64,30 @@ export function MainBar() {
   const renderUtilityControls = (mode: 'mobile' | 'desktop' = 'desktop') => {
     const compact = mode === 'mobile';
     return (
-      <>
-        <SoftButton
-          variant="ghost"
-          className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
-          aria-label="Lock session"
-          onClick={lockSession}
-        >
-          🔒
-        </SoftButton>
-        <SoftButton
-          variant="ghost"
-          className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
-          aria-label="Toggle theme"
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        >
-          <span key={theme} className="theme-icon inline-block">
-            {theme === 'light' ? '🌙' : '☀️'}
-          </span>
-        </SoftButton>
-        <div className={`flex flex-col ${compact ? 'items-stretch w-full gap-1' : 'items-end gap-1'} min-w-[120px]`}>
+      <div className={`utility-cluster ${compact ? 'utility-cluster-sm' : ''}`}>
+        <div className={`utility-row ${compact ? 'utility-row-sm' : ''}`}>
+          <SoftButton
+            variant="ghost"
+            className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
+            aria-label="Lock session"
+            onClick={lockSession}
+          >
+            🔒
+          </SoftButton>
+          <SoftButton
+            variant="ghost"
+            className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
+            aria-label="Toggle theme"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          >
+            <span key={theme} className="theme-icon inline-block">
+              {theme === 'light' ? '🌙' : '☀️'}
+            </span>
+          </SoftButton>
           <DropdownMenu
             label="Menu"
             align="right"
-            buttonClassName={`utility-menu-btn ${compact ? 'utility-menu-btn-sm w-full' : ''}`}
+            buttonClassName={`utility-menu-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
           >
             {({ close }) => (
               <>
@@ -103,9 +103,11 @@ export function MainBar() {
               </>
             )}
           </DropdownMenu>
+        </div>
+        <div className={`version-indicator-slot ${compact ? 'version-indicator-slot-sm' : ''}`}>
           <VersionIndicator compact={compact} />
         </div>
-      </>
+      </div>
     );
   };
 

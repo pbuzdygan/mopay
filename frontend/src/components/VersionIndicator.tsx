@@ -68,22 +68,42 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
     return (
       <a
         href={href}
-        className={`${baseClass} update`}
+        className={`${baseClass} update link`}
         target="_blank"
         rel="noreferrer"
         title={`Update available (${latestVersion})`}
       >
         <span className="pulse-dot" aria-hidden="true" />
-        Update available · {formatVersion(latestVersion)}
+        Update {formatVersion(latestVersion)}
       </a>
     );
   }
 
   if (!version) {
-    return <span className={`${baseClass} muted`}>dev build</span>;
+    return (
+      <span className={baseClass}>
+        <span className="status-dot" aria-hidden="true" />
+        Dev build
+      </span>
+    );
   }
 
-  return <span className={`${baseClass} muted`}>{formatVersion(version)}</span>;
+  const href = REPO_SLUG ? `https://github.com/${REPO_SLUG}/releases/tag/${formatVersion(version)}` : undefined;
+
+  const body = (
+    <>
+      <span className="status-dot" aria-hidden="true" />
+      Version {formatVersion(version)}
+    </>
+  );
+
+  return href ? (
+    <a className={`${baseClass} link`} href={href} target="_blank" rel="noreferrer" title={`Release ${version}`}>
+      {body}
+    </a>
+  ) : (
+    <span className={baseClass}>{body}</span>
+  );
 }
 
 function formatVersion(value: string) {

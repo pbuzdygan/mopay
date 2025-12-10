@@ -588,36 +588,71 @@ html {
   z-index: 60;
 }
 
-.version-indicator {
-  font-size: 0.75rem;
-  line-height: 1;
+.utility-cluster {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.utility-cluster-sm {
+  width: 100%;
+  align-items: stretch;
+}
+
+.utility-row {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
+  gap: 0.35rem;
+}
+
+.utility-row-sm {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.version-indicator-slot,
+.version-indicator-slot-sm {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.version-indicator {
+  font-size: 0.72rem;
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--soft-border);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  color: var(--textPrim);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1);
 }
 
 .version-indicator.compact {
-  font-size: 0.68rem;
-}
-
-.version-indicator.muted {
-  color: color-mix(in srgb, var(--textSec) 85%, white 5%);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.65rem;
 }
 
 .version-indicator.update {
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
-  font-size: 0.8rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .version-indicator.compact.update {
-  padding: 0.25rem 0.65rem;
-  font-size: 0.72rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.68rem;
+}
+
+.version-indicator.link {
+  color: inherit;
 }
 
 .pulse-dot {
@@ -647,6 +682,14 @@ html {
     transform: scale(2.5);
     opacity: 0;
   }
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--textSec) 70%, white 10%);
+  display: inline-block;
 }
 
 .year-trigger {
