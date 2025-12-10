@@ -107,5 +107,5 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
 }
 
 function formatVersion(value: string) {
-  return value.startsWith("v") ? value : `v${value}`;
+  return value;
 }
