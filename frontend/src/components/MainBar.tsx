@@ -46,6 +46,13 @@ export function MainBar() {
     if (years.length > 0 && initiateYear) closeModal('initiateYear');
   }, [yearsQ.isSuccess, years, initiateYear, openModal, closeModal]);
 
+  useEffect(() => {
+    if (!years.length) return;
+    if (!year || !years.includes(year)) {
+      setYear(years[years.length - 1]);
+    }
+  }, [years, year, setYear]);
+
   const viewTitle =
     tab === 'incomes'
       ? 'Income overview'

@@ -68,13 +68,13 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
     return (
       <a
         href={href}
-        className={`${baseClass} update link`}
+        className={`${baseClass} update`}
         target="_blank"
         rel="noreferrer"
         title={`Update available (${latestVersion})`}
       >
         <span className="pulse-dot" aria-hidden="true" />
-        Update {formatVersion(latestVersion)}
+        Update available · {formatVersion(latestVersion)}
       </a>
     );
   }
@@ -98,7 +98,7 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
   );
 
   return href ? (
-    <a className={`${baseClass} link`} href={href} target="_blank" rel="noreferrer" title={`Release ${version}`}>
+    <a className={baseClass} href={href} target="_blank" rel="noreferrer" title={`Release ${version}`}>
       {body}
     </a>
   ) : (

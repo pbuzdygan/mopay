@@ -1,3 +1,8 @@
+## 1.2.2 – Corrections of Version awareness feature and year selector
+
+- adjusting style of VA feature (Version awareness)
+- adjusting handling default year selector in "missing-cache" scenario
+
 ## 1.2.1 – Version awareness feature relocation in UI
 
 - Relocation of Version awareness feature from footer are to banner area for better visibility

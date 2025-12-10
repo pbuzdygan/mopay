@@ -633,6 +633,7 @@ html {
   background: color-mix(in srgb, var(--panel) 96%, transparent);
   color: var(--textPrim);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
 }
 
 .version-indicator.compact {
@@ -649,10 +650,6 @@ html {
 .version-indicator.compact.update {
   padding: 0.22rem 0.55rem;
   font-size: 0.68rem;
-}
-
-.version-indicator.link {
-  color: inherit;
 }
 
 .pulse-dot {
