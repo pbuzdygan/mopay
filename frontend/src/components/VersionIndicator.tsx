@@ -71,7 +71,6 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
         className={`${baseClass} update`}
         target="_blank"
         rel="noreferrer"
-        title={`Update available (${latestVersion})`}
       >
         <span className="pulse-dot" aria-hidden="true" />
         Update available · {formatVersion(latestVersion)}
@@ -98,7 +97,7 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
   );
 
   return href ? (
-    <a className={baseClass} href={href} target="_blank" rel="noreferrer" title={`Release ${version}`}>
+    <a className={baseClass} href={href} target="_blank" rel="noreferrer">
       {body}
     </a>
   ) : (

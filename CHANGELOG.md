@@ -1,3 +1,8 @@
+## v1.2.4 – Adjusting VA feature and mobile view
+
+- removing hover tip on VA feature
+- normalizing year selector style in mobile view
+
 ## v1.2.3 – Minor adjustment of VA feature
 
 - correcting tag string building

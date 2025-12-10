@@ -267,7 +267,7 @@ export function MainBar() {
                 years={years}
                 value={year}
                 onChange={(y) => setYear(y)}
-                className="flex-1 mainbar-year-dropdown"
+                className="mainbar-year-dropdown"
               />
               <div className="flex items-center gap-2 shrink-0 utility-group mobile">
                 {renderUtilityControls('mobile')}
