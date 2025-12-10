@@ -15,6 +15,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT || 8010);
 const APP_PIN = process.env.APP_PIN || '';
+const APP_VERSION = process.env.APP_VERSION || 'dev';
+const APP_REPO = process.env.APP_REPO || 'pbuzdygan/mopay';
 let keyMismatch = false;
 
 const getMetaValue = (key) => db.prepare('SELECT value FROM meta WHERE key=?').get(key);
@@ -93,6 +95,10 @@ app.use(morgan('dev'));
 
 // Health check
 app.get('/health', (_req,res)=> res.json({ status: 'ok' }));
+
+app.get('/api/meta', (_req, res) => {
+  res.json({ version: APP_VERSION, repo: APP_REPO });
+});
 
 // Pin verification
 app.post('/api/pin/verify', (req,res)=>{

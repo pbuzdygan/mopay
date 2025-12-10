@@ -2,6 +2,10 @@
 # 1️⃣ BUILD STAGE – build frontend
 # ───────────────────────────────────────────────
 FROM node:20-bookworm-slim AS build
+ARG APP_VERSION=dev
+ARG APP_REPO=pbuzdygan/mopay
+ENV VITE_APP_VERSION=$APP_VERSION
+ENV VITE_GITHUB_REPO=$APP_REPO
 
 WORKDIR /app
 
@@ -33,6 +37,10 @@ RUN cd frontend && npm run build || \
 # 2️⃣ RUNTIME STAGE – backend + built frontend
 # ───────────────────────────────────────────────
 FROM node:20-bookworm-slim AS runtime
+ARG APP_VERSION=dev
+ARG APP_REPO=pbuzdygan/mopay
+ENV APP_VERSION=$APP_VERSION
+ENV APP_REPO=$APP_REPO
 
 WORKDIR /app
 
@@ -57,4 +65,3 @@ COPY --from=build /app/frontend/dist /app/public
 RUN mkdir -p /data
 
 CMD ["node", "server.js"]
-

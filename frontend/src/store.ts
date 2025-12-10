@@ -1,6 +1,29 @@
 import { create } from 'zustand';
 import type { ReportId } from './reports/config';
 
+function normalizeVersion(value: string | null | undefined) {
+  if (!value) return null;
+  return value.trim().replace(/^v/i, '');
+}
+
+function compareVersions(a: string | null, b: string | null) {
+  const left = normalizeVersion(a);
+  const right = normalizeVersion(b);
+  if (!left && !right) return 0;
+  if (!left) return -1;
+  if (!right) return 1;
+  const leftParts = left.split('.').map((part) => Number(part) || 0);
+  const rightParts = right.split('.').map((part) => Number(part) || 0);
+  const len = Math.max(leftParts.length, rightParts.length);
+  for (let i = 0; i < len; i++) {
+    const la = leftParts[i] ?? 0;
+    const rb = rightParts[i] ?? 0;
+    if (la > rb) return 1;
+    if (la < rb) return -1;
+  }
+  return 0;
+}
+
 function load<T>(k: string, fallback: T): T {
   try {
     const v = localStorage.getItem(k);
@@ -37,6 +60,9 @@ type State = {
   goalModal: { open: boolean; goalId: number | null };
   migrationNotice: { open: boolean; message: string };
   keyMismatch: boolean;
+  appVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
   setTab: (t: Tab) => void;
   setYear: (y: number | null) => void;
   setTheme: (m: 'light' | 'dark') => void;
@@ -53,6 +79,8 @@ type State = {
   closeGoalModal: () => void;
   setMigrationNotice: (open: boolean, message?: string) => void;
   setKeyMismatch: (active: boolean) => void;
+  setAppVersion: (version: string | null) => void;
+  setLatestVersion: (version: string | null) => void;
 };
 
 export const useAppStore = create<State>((set, get) => ({
@@ -74,6 +102,9 @@ export const useAppStore = create<State>((set, get) => ({
   goalModal: { open: false, goalId: null },
   migrationNotice: { open: false, message: '' },
   keyMismatch: false,
+  appVersion: null,
+  latestVersion: null,
+  updateAvailable: false,
 
   setTab: (tab) => {
     save('tab', tab);
@@ -158,4 +189,16 @@ export const useAppStore = create<State>((set, get) => ({
     }),
 
   setKeyMismatch: (active) => set({ keyMismatch: active }),
+
+  setAppVersion: (version) =>
+    set((state) => ({
+      appVersion: version,
+      updateAvailable: compareVersions(version, state.latestVersion) < 0,
+    })),
+
+  setLatestVersion: (version) =>
+    set((state) => ({
+      latestVersion: version,
+      updateAvailable: compareVersions(state.appVersion, version) < 0,
+    })),
 }));

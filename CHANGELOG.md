@@ -1,3 +1,9 @@
+## 1.2 – PWA prompt tweaks & Version awareness
+
+- Restyled the add-to-home-screen notification to align with the core UI buttons/fonts and added a Skip action with session persistence.
+- Docker build now injects the release/tag into the image, exposing `/api/meta` with backend/app version data.
+- UI footer displays the running Mopay version and pings GitHub Releases to show an “Update available” badge when a newer tag exists.
+
 ## 1.1.1 – UI language adjustments
 
 - Translated remaining Polish UI strings (PWA install banner, offline mode bullet) to English.

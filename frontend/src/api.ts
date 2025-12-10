@@ -5,6 +5,7 @@ export async function api(path: string, init?: RequestInit) {
   return res.headers.get('content-type')?.includes('json') ? res.json() : res;
 }
 export const Api = {
+  meta: () => api('/api/meta'),
   verifyPin: (pin: string) => api('/api/pin/verify', { method: 'POST', body: JSON.stringify({ pin }) }),
   years: { list: () => api('/api/years'), exists: () => api('/api/years/exists'), add: (year: number) => api('/api/years', { method: 'POST', body: JSON.stringify({ year }) }), remove: (years: number[]) => api('/api/years', { method: 'DELETE', body: JSON.stringify({ years }) }) },
   entries: {
