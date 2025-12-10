@@ -16,7 +16,7 @@ function useEntries() {
 }
 
 const GRID_TEMPLATE =
-  'grid grid-cols-[44px_minmax(160px,220px)_repeat(12,minmax(58px,72px))_minmax(84px,100px)_minmax(84px,100px)]';
+  'grid grid-cols-[44px_minmax(150px,1.3fr)_repeat(12,minmax(40px,1fr))_minmax(70px,1fr)_minmax(70px,1fr)]';
 
 function Row({
   e,

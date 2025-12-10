@@ -1,3 +1,7 @@
+## v1.2.5 – UI alignment fixes
+
+- tightened year dropdown menu/button sizing and made tables stretch correctly across months
+
 ## v1.2.4 – Adjusting VA feature and mobile view
 
 - removing hover tip on VA feature

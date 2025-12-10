@@ -5,9 +5,10 @@ type Props = {
   value: number | null;
   onChange: (y: number) => void;
   className?: string;
+  triggerClassName?: string;
 };
 
-export function YearDropdown({ years, value, onChange, className }: Props) {
+export function YearDropdown({ years, value, onChange, className, triggerClassName }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -25,21 +26,30 @@ export function YearDropdown({ years, value, onChange, className }: Props) {
   const label = value?.toString() ?? "Select year";
 
   return (
-    <div className={`relative ${className ?? ''}`.trim()} ref={ref}>
+    <div className={`relative inline-flex items-center ${className ?? ''}`.trim()} ref={ref}>
+      {/*
+        We reuse the same trigger classes as other buttons (e.g., Menu) by letting callers pass utility classes.
+        When no custom classes are provided we fall back to the soft-button styling for desktop contexts.
+      */}
       <button
-        className="soft-button year-trigger type-body"
+        className={[
+          'year-trigger',
+          'type-body',
+          triggerClassName ? '' : 'soft-button',
+          triggerClassName ?? '',
+        ].join(' ').trim().replace(/\s+/g, ' ')}
         onClick={() => setOpen((o) => !o)}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         {label}
-        <span className="opacity-60 text-sm">{open ? "▲" : "▼"}</span>
+        <span className="year-trigger-caret opacity-60 text-xs">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
         <div
-          className="dropdown-panel year-panel absolute left-0 mt-2 z-50 animate-dropdown"
+          className="dropdown-panel year-panel absolute top-full left-0 mt-2 z-50 animate-dropdown"
           role="listbox"
         >
           {years.map((y) => (

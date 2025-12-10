@@ -692,15 +692,26 @@ html {
 .year-trigger {
   min-width: 150px;
   justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.year-trigger-caret {
+  margin-left: 0.1rem;
 }
 
 .year-panel {
-  width: min(220px, 60vw);
+  width: max-content;
+  min-width: 5.5rem;
+  max-width: calc(100vw - 2rem);
 }
 
 .mainbar-year-dropdown .year-trigger {
   width: 100%;
   min-width: 0;
+}
+
+.mainbar-year-dropdown-mobile {
+  flex: 0 0 auto;
 }
 
 .details-soft summary {

@@ -68,7 +68,11 @@ export function MainBar() {
     setPinSession(false);
   };
 
-  const renderUtilityControls = (mode: 'mobile' | 'desktop' = 'desktop') => {
+  const renderUtilityControls = (
+    mode: 'mobile' | 'desktop' = 'desktop',
+    options: { includeMenu?: boolean } = {}
+  ) => {
+    const includeMenu = options.includeMenu ?? true;
     const compact = mode === 'mobile';
     return (
       <div className={`utility-cluster ${compact ? 'utility-cluster-sm' : ''}`}>
@@ -91,29 +95,33 @@ export function MainBar() {
               {theme === 'light' ? '🌙' : '☀️'}
             </span>
           </SoftButton>
-          <DropdownMenu
-            label="Menu"
-            align="right"
-            buttonClassName={`utility-menu-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
-          >
-            {({ close }) => (
-              <>
-                <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-                  Year operations
-                </DropdownItem>
-                <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-                  Export data
-                </DropdownItem>
-                <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-                  Settings
-                </DropdownItem>
-              </>
-            )}
-          </DropdownMenu>
+          {includeMenu && (
+            <DropdownMenu
+              label="Menu"
+              align="right"
+              buttonClassName={`utility-menu-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
+            >
+              {({ close }) => (
+                <>
+                  <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
+                    Year operations
+                  </DropdownItem>
+                  <DropdownItem onSelect={() => { openModal('export'); close(); }}>
+                    Export data
+                  </DropdownItem>
+                  <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
+                    Settings
+                  </DropdownItem>
+                </>
+              )}
+            </DropdownMenu>
+          )}
         </div>
-        <div className={`version-indicator-slot ${compact ? 'version-indicator-slot-sm' : ''}`}>
-          <VersionIndicator compact={compact} />
-        </div>
+        {mode === 'desktop' && (
+          <div className={`version-indicator-slot ${compact ? 'version-indicator-slot-sm' : ''}`}>
+            <VersionIndicator compact={compact} />
+          </div>
+        )}
       </div>
     );
   };
@@ -242,7 +250,7 @@ export function MainBar() {
             />
           </div>
           <div className="hidden md:flex items-center gap-2 justify-end md:justify-self-end utility-group">
-            {renderUtilityControls()}
+            {renderUtilityControls('desktop', { includeMenu: false })}
           </div>
         </div>
 
@@ -262,24 +270,83 @@ export function MainBar() {
             ))}
           </div>
           <div className="flex flex-col gap-2 w-full md:w-auto">
-            <div className="flex items-center gap-2 md:hidden utility-group mobile">
-              <YearDropdown
-                years={years}
-                value={year}
-                onChange={(y) => setYear(y)}
-                className="mainbar-year-dropdown"
-              />
-              <div className="flex items-center gap-2 shrink-0 utility-group mobile">
-                {renderUtilityControls('mobile')}
+            <div className="flex flex-col gap-2 md:hidden">
+              <div className="flex flex-wrap items-center gap-2">
+                <YearDropdown
+                  years={years}
+                  value={year}
+                  onChange={(y) => setYear(y)}
+                  className="mainbar-year-dropdown mainbar-year-dropdown-mobile"
+                  triggerClassName="utility-menu-btn utility-menu-btn-sm soft-button"
+                />
+                <DropdownMenu
+                  label="Menu"
+                  align="right"
+                  buttonClassName="utility-menu-btn utility-menu-btn-sm"
+                >
+                  {({ close }) => (
+                    <>
+                      <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
+                        Year operations
+                      </DropdownItem>
+                      <DropdownItem onSelect={() => { openModal('export'); close(); }}>
+                        Export data
+                      </DropdownItem>
+                      <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
+                        Settings
+                      </DropdownItem>
+                    </>
+                  )}
+                </DropdownMenu>
+                <SoftButton
+                  variant="ghost"
+                  className="utility-button utility-button-sm"
+                  aria-label="Lock session"
+                  onClick={lockSession}
+                >
+                  🔒
+                </SoftButton>
+                <SoftButton
+                  variant="ghost"
+                  className="utility-button utility-button-sm"
+                  aria-label="Toggle theme"
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                >
+                  <span key={theme} className="theme-icon inline-block">
+                    {theme === 'light' ? '🌙' : '☀️'}
+                  </span>
+                </SoftButton>
+              </div>
+              <div className="flex justify-end w-full">
+                <VersionIndicator compact />
               </div>
             </div>
-            <div className="hidden md:block md:max-w-xs">
+            <div className="hidden md:flex items-center gap-2 md:max-w-xs">
               <YearDropdown
                 years={years}
                 value={year}
                 onChange={(y) => setYear(y)}
                 className="w-full mainbar-year-dropdown"
               />
+              <DropdownMenu
+                label="Menu"
+                align="right"
+                buttonClassName="utility-menu-btn"
+              >
+                {({ close }) => (
+                  <>
+                    <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
+                      Year operations
+                    </DropdownItem>
+                    <DropdownItem onSelect={() => { openModal('export'); close(); }}>
+                      Export data
+                    </DropdownItem>
+                    <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
+                      Settings
+                    </DropdownItem>
+                  </>
+                )}
+              </DropdownMenu>
             </div>
           </div>
         </div>
