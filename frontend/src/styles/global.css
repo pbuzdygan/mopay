@@ -700,8 +700,7 @@ html {
 }
 
 .year-panel {
-  width: max-content;
-  min-width: 5.5rem;
+  width: 6rem;
   max-width: calc(100vw - 2rem);
 }
 
@@ -749,6 +748,11 @@ html {
 .dropdown-item.active {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: color-mix(in srgb, var(--accent-hover) 80%, white);
+}
+
+.year-panel .dropdown-item {
+  text-align: center;
+  justify-content: center;
 }
 
 .table-shell {
