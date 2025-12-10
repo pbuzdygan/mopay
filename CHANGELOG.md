@@ -1,3 +1,7 @@
+## v1.2.3 – Minor adjustment of VA feature
+
+- correcting tag string building
+
 ## 1.2.2 – Corrections of Version awareness feature and year selector
 
 - adjusting style of VA feature (Version awareness)
