@@ -597,6 +597,10 @@ html {
   font-weight: 500;
 }
 
+.version-indicator.compact {
+  font-size: 0.68rem;
+}
+
 .version-indicator.muted {
   color: color-mix(in srgb, var(--textSec) 85%, white 5%);
 }
@@ -609,6 +613,11 @@ html {
   font-size: 0.8rem;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+}
+
+.version-indicator.compact.update {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.72rem;
 }
 
 .pulse-dot {

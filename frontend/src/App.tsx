@@ -18,7 +18,6 @@ import { SavingsGoalModal } from "./components/modals/SavingsGoalModal";
 import { EncryptionMigrationModal } from "./components/modals/EncryptionMigrationModal";
 import { EncryptionKeyMismatchModal } from "./components/modals/EncryptionKeyMismatchModal";
 import AddToHomeScreen from "./components/AddToHomeScreen";
-import { VersionIndicator } from "./components/VersionIndicator";
 
 // style globalne
 import "./styles/global.css";
@@ -94,12 +93,6 @@ export default function App() {
             : <TableView />}
         </div>
       </main>
-
-      <footer className="py-4">
-        <div className="app-container flex justify-end">
-          <VersionIndicator />
-        </div>
-      </footer>
 
       <InitiateYearModal />
       <AddEntryModal />

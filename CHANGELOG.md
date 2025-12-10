@@ -1,3 +1,7 @@
+## 1.2.1 – Version awareness feature relocation in UI
+
+- Relocation of Version awareness feature from footer are to banner area for better visibility
+
 ## 1.2 – PWA prompt tweaks & Version awareness
 
 - Restyled the add-to-home-screen notification to align with the core UI buttons/fonts and added a Skip action with session persistence.

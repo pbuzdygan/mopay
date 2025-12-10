@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownItem } from './DropdownMenu';
 import { SoftButton } from './SoftButton';
 import { Surface } from './Surface';
 import { REPORT_DEFINITIONS } from '../reports/config';
+import { VersionIndicator } from './VersionIndicator';
 
 const TABS: Array<{ id: 'expenses' | 'incomes' | 'savings' | 'reports'; label: string }> = [
   { id: 'expenses', label: 'Expenses' },
@@ -60,47 +61,53 @@ export function MainBar() {
     setPinSession(false);
   };
 
-  const renderUtilityControls = (mode: 'mobile' | 'desktop' = 'desktop') => (
-    <>
-      <SoftButton
-        variant="ghost"
-        className={`utility-button ${mode === 'mobile' ? 'utility-button-sm' : ''}`}
-        aria-label="Lock session"
-        onClick={lockSession}
-      >
-        🔒
-      </SoftButton>
-      <SoftButton
-        variant="ghost"
-        className={`utility-button ${mode === 'mobile' ? 'utility-button-sm' : ''}`}
-        aria-label="Toggle theme"
-        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-      >
-        <span key={theme} className="theme-icon inline-block">
-          {theme === 'light' ? '🌙' : '☀️'}
-        </span>
-      </SoftButton>
-      <DropdownMenu
-        label="Menu"
-        align="right"
-        buttonClassName={`utility-menu-btn ${mode === 'mobile' ? 'utility-menu-btn-sm' : ''}`}
-      >
-        {({ close }) => (
-          <>
-            <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-              Year operations
-            </DropdownItem>
-            <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-              Export data
-            </DropdownItem>
-            <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-              Settings
-            </DropdownItem>
-          </>
-        )}
-      </DropdownMenu>
-    </>
-  );
+  const renderUtilityControls = (mode: 'mobile' | 'desktop' = 'desktop') => {
+    const compact = mode === 'mobile';
+    return (
+      <>
+        <SoftButton
+          variant="ghost"
+          className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
+          aria-label="Lock session"
+          onClick={lockSession}
+        >
+          🔒
+        </SoftButton>
+        <SoftButton
+          variant="ghost"
+          className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
+          aria-label="Toggle theme"
+          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+        >
+          <span key={theme} className="theme-icon inline-block">
+            {theme === 'light' ? '🌙' : '☀️'}
+          </span>
+        </SoftButton>
+        <div className={`flex flex-col ${compact ? 'items-stretch w-full gap-1' : 'items-end gap-1'} min-w-[120px]`}>
+          <DropdownMenu
+            label="Menu"
+            align="right"
+            buttonClassName={`utility-menu-btn ${compact ? 'utility-menu-btn-sm w-full' : ''}`}
+          >
+            {({ close }) => (
+              <>
+                <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
+                  Year operations
+                </DropdownItem>
+                <DropdownItem onSelect={() => { openModal('export'); close(); }}>
+                  Export data
+                </DropdownItem>
+                <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
+                  Settings
+                </DropdownItem>
+              </>
+            )}
+          </DropdownMenu>
+          <VersionIndicator compact={compact} />
+        </div>
+      </>
+    );
+  };
 
   const primaryActions = (
     <>

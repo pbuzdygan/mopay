@@ -5,7 +5,11 @@ import { Api } from "../api";
 const POLL_INTERVAL_MS = 1000 * 60 * 60 * 6; // 6 hours
 const REPO_SLUG = import.meta.env.VITE_GITHUB_REPO || "pbuzdygan/mopay";
 
-export function VersionIndicator() {
+type VersionIndicatorProps = {
+  compact?: boolean;
+};
+
+export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
   const version = useAppStore((s) => s.appVersion);
   const latestVersion = useAppStore((s) => s.latestVersion);
   const updateAvailable = useAppStore((s) => s.updateAvailable);
@@ -57,12 +61,14 @@ export function VersionIndicator() {
     };
   }, [setLatestVersion]);
 
+  const baseClass = ["version-indicator", compact ? "compact" : ""].filter(Boolean).join(" ");
+
   if (updateAvailable && latestVersion) {
     const href = REPO_SLUG ? `https://github.com/${REPO_SLUG}/releases/latest` : "#";
     return (
       <a
         href={href}
-        className="version-indicator update"
+        className={`${baseClass} update`}
         target="_blank"
         rel="noreferrer"
         title={`Update available (${latestVersion})`}
@@ -74,10 +80,10 @@ export function VersionIndicator() {
   }
 
   if (!version) {
-    return <span className="version-indicator muted">dev build</span>;
+    return <span className={`${baseClass} muted`}>dev build</span>;
   }
 
-  return <span className="version-indicator muted">{formatVersion(version)}</span>;
+  return <span className={`${baseClass} muted`}>{formatVersion(version)}</span>;
 }
 
 function formatVersion(value: string) {
