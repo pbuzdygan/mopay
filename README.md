@@ -13,6 +13,7 @@
 - ✅ Manage multiple years, entries, reports, and savings goals
 - ✅ Designed for self-hosting (Docker, docker-compose, reverse proxy friendly)
 - ✅ Secured with encryption key
+- ✅ Tagging
 
 ---
 ## Demo / Screenshots
@@ -56,6 +57,7 @@
 - **PIN guard** built-in (secure access)
 - **Offline** mode (PWA, asset caching)
 - **Data encryption** - your incomes and expeneses values are secured with encryption key
+- **Tagging** on board - tag element with color and comment
 
 ---
 
