@@ -1,3 +1,7 @@
+## v1.3.1 – Tagging implementation
+
+- small correction to the implemented tagging feature
+
 ## v1.3 – Tagging implementation
 
 - Added structured tags per entry/month with Tag Builder mode (color highlight + hover details).
