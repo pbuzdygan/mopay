@@ -150,6 +150,17 @@ Tables:
     -   value (numeric)
     -   sort\_index
 
+-   entry\_tags
+    
+    -   id (PK)
+    -   entry\_id (FK → entries.id, ON DELETE CASCADE)
+    -   month (TEXT, constrained to Jan…Dec)
+    -   color (`green`, `orange`, `red`, legacy `grey`)
+    -   text (optional short note)
+    -   created\_at / updated\_at timestamps
+    
+    Provisioned by `tagsMigration.js`, which runs separately from the encryption migration and logs whether tagging setup was required.
+
 Indexes exist on (year\_id, type) and savings foreign keys for performance.
 
 ### **4.3 Express Server (**<span style="color: rgb(77, 170, 252)">**backend/server.js**</span>**)**
@@ -270,6 +281,21 @@ All APIs return JSON unless stated otherwise.
     
     -   Deletes an individual item.
 
+#### Tags
+
+-   GET /api/tags?year=YYYY
+    
+    -   Returns `{ tags: Array<{ id, entryId, month, color, text }> }` for all entries in the given year (both incomes and expenses).
+-   POST /api/tags
+    
+    -   Input: { entryId: number, month: string, color: 'green' | 'orange' | 'red' | 'grey', text?: string }
+    -   Upserts a tag (per entry + month) and timestamps updates.
+-   DELETE /api/tags?entryId=ID&month=Mon
+    
+    -   Removes a tag for the specified entry/month combination.
+
+All tag endpoints respect the encryption key guard—if the encryption key mismatches, they return HTTP 409 like other data APIs.
+
 #### Export
 
 -   POST /api/export
@@ -291,7 +317,9 @@ All APIs return JSON unless stated otherwise.
     -   Renders sections in order:
         
         1.  Incomes table (all income entries, monthly columns + sum/avg/comment)
+            -   Tagged months inherit UI highlight colors (green/orange/red) and embed tag note text as native spreadsheet comments.
         2.  Expenses table (same structure)
+            -   Same tagging behavior as incomes.
         3.  Savings section:
             
             -   Renders each goal as a mini‑table with:
@@ -316,7 +344,7 @@ Zustand store holds core application state:
     -   tab: 'expenses' | 'incomes' | 'savings' | 'reports'
     -   year: number | null – active year
     -   theme: 'light' | 'dark'
-    -   editMode: null | 'name' | 'order' | 'remove'
+    -   editMode: null | 'name' | 'order' | 'remove' | 'tag'
     -   pinSession: boolean – whether PIN has been verified
 -   Selection state:
     
@@ -350,6 +378,7 @@ Zustand store holds core application state:
     -   entries.list(type, year), <span style="color: rgb(77, 170, 252)">.add(...)</span>, .patch(id, payload), .remove(ids), .reorder(orderedIds)
     -   savings.list(year), <span style="color: rgb(77, 170, 252)">.addGoal(...)</span>, .updateGoal(id, payload), .removeGoal(id),  
         .addItem(goalId), .updateItem(itemId, payload), .removeItem(itemId)
+    -   tags.list(year), tags.save({ entryId, month, color, text }), tags.remove(entryId, month)
     -   exportYears(years) – calls /api/export and triggers XLSX download in the browser.
 
 All screen components use Api via React Query hooks for data fetching/invalidation.
@@ -392,8 +421,9 @@ All screen components use Api via React Query hooks for data fetching/invalidati
     
     -   Expenses/Incomes:
         
-        -   Default: “Add entry” and “Edit entries” dropdown (change name/order/remove).
-        -   In edit mode: “Remove selected” or “Exit mode”.
+        -   Default: “Add entry” and “Edit entries” dropdown (change name/order/remove/tag).
+        -   Tagging mode adds a Tagging button state and switches primary action to “Exit mode”.
+        -   In remove mode the primary buttons swap to “Exit mode” + “Remove selected”.
     -   Savings:
         
         -   “Add goal” button (opens SavingsGoalModal).
@@ -413,7 +443,13 @@ All screen components use Api via React Query hooks for data fetching/invalidati
         
         -   Click name to edit (in name edit mode).
         -   Click monthly amount to edit it (with currency input parsing).
-    -   Drag‑and‑drop (@dnd-kit):
+    -   Tagging mode:
+        
+        -   Fetches tags via `Api.tags.list(year)` and maps them to cell highlights/tooltips.
+        -   When editMode === 'tag', clicking a cell opens TagEditorPopover (color chips + note input anchored near the cell).
+        -   Tagged cells are styled inline; exports reuse the same metadata.
+        -   While any edit mode (name/order/tag/remove) is active, numeric inputs are disabled to avoid accidental edits.
+    -   Drag-and-drop (@dnd-kit):
         
         -   “Change order” mode allows reordering rows.
         -   Persisted via /api/entries/reorder.

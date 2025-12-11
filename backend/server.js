@@ -7,6 +7,7 @@ import db from './db.js';
 import { exportYearsToWorkbook } from './export.js';
 import { encryptNumber, decryptToNumber, KEY_FINGERPRINT } from './encryption.js';
 import { runEncryptionMigration, evaluateEncryptionState, repairEncryptionState } from './migration.js';
+import { runTagsMigration } from './tagsMigration.js';
 import { initializePin, verifyPinValue } from './pin.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,6 +38,12 @@ const guardKeyMismatch = (res) => {
 };
 const migrationInfo = runEncryptionMigration(db);
 console.log(migrationInfo.migrationRan ? 'Encryption migration executed on startup' : 'Encryption migration not required');
+const tagsMigrationInfo = runTagsMigration(db);
+console.log(
+  tagsMigrationInfo.created
+    ? 'Tagging migration executed (entry_tags table ready)'
+    : 'Tagging migration not required'
+);
 initializePin(db, APP_PIN);
 const fingerprintRow = getMetaValue('enc_key_fingerprint');
 if (!fingerprintRow?.value) {
@@ -79,6 +86,7 @@ if (!keyMismatch) {
 }
 
 const MONTH_COLUMNS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const TAG_COLORS = new Set(['grey','green','orange','red']);
 
 const clampText = (value, max = 80) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -200,6 +208,55 @@ app.post('/api/entries', (req,res)=>{
   );
   const info = stmt.run(type, name, yr.id, mx + 1, ...zeroValues);
   res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+const normalizeMonth = (month) => {
+  if (typeof month !== 'string') return null;
+  const match = MONTH_COLUMNS.find((m) => m.toLowerCase() === month.toLowerCase());
+  return match ?? null;
+};
+
+app.get('/api/tags', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
+  const y = Number(req.query.year);
+  if (!Number.isInteger(y)) return res.status(400).json({ error: 'Invalid year' });
+  const rows = db.prepare(
+    `SELECT t.id, t.entry_id as entryId, t.month, t.color, t.text
+     FROM entry_tags t
+     JOIN entries e ON e.id = t.entry_id
+     JOIN years y ON y.id = e.year_id
+     WHERE y.year=?`
+  ).all(y);
+  res.json({ tags: rows });
+});
+
+app.post('/api/tags', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
+  const { entryId, month, color, text } = req.body || {};
+  if (!Number.isInteger(entryId)) return res.status(400).json({ error: 'Invalid entryId' });
+  const normalizedMonth = normalizeMonth(month);
+  if (!normalizedMonth) return res.status(400).json({ error: 'Invalid month' });
+  if (typeof color !== 'string' || !TAG_COLORS.has(color)) return res.status(400).json({ error: 'Invalid color' });
+  const entry = db.prepare('SELECT id FROM entries WHERE id=?').get(entryId);
+  if (!entry) return res.status(404).json({ error: 'Entry not found' });
+  const tagText = clampText(text ?? '', 200);
+  db.prepare(
+    `INSERT INTO entry_tags(entry_id, month, color, text, created_at, updated_at)
+     VALUES (@entryId, @month, @color, @text, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     ON CONFLICT(entry_id, month)
+     DO UPDATE SET color=excluded.color, text=excluded.text, updated_at=CURRENT_TIMESTAMP`
+  ).run({ entryId, month: normalizedMonth, color, text: tagText });
+  res.json({ ok: true });
+});
+
+app.delete('/api/tags', (req,res)=>{
+  if (guardKeyMismatch(res)) return;
+  const entryId = Number(req.query.entryId);
+  const normalizedMonth = normalizeMonth(req.query.month);
+  if (!Number.isInteger(entryId)) return res.status(400).json({ error: 'Invalid entryId' });
+  if (!normalizedMonth) return res.status(400).json({ error: 'Invalid month' });
+  db.prepare('DELETE FROM entry_tags WHERE entry_id=? AND month=?').run(entryId, normalizedMonth);
+  res.json({ ok: true });
 });
 app.patch('/api/entries/:id', (req,res)=>{
   if (guardKeyMismatch(res)) return;

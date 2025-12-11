@@ -1,4 +1,11 @@
-## v1.2.5 – UI alignment fixes
+## 1.3 – Tagging implementation
+
+- Added structured tags per entry/month with Tag Builder mode (color highlight + hover details).
+- Introduced backend `entry_tags` table, migration, and `/api/tags` endpoints.
+- Updated UI (TableView, Edit menu) plus docs (`ARCHITECTURE.md`).
+- Excel export now reflects tag colors and embeds tag notes as spreadsheet comments.
+
+## 1.2.5 – UI alignment fixes
 
 - tightened year dropdown menu/button sizing and made tables stretch correctly across months
 

@@ -40,6 +40,12 @@ const fills = {
   total: { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb(palette.total) } },
 };
 
+const TAG_COLOR_MAP = {
+  green: 'CDEFD6',
+  orange: 'FFE4C4',
+  red: 'F8D1D1',
+};
+
 function styleTableRow(row, variant = 'body', textColumns = [1]) {
   const fill =
     variant === 'header'
@@ -85,10 +91,26 @@ function renderEntriesSection(sheet, year, type, startRow) {
   styleTableRow(headerRow, 'header', [1, commentColumnIndex]);
 
   const rows = db.prepare(
-    `SELECT name, comment, Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, "Dec" as Decm
+    `SELECT e.id, name, comment, Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, "Dec" as Decm
      FROM entries e JOIN years y ON e.year_id=y.id
      WHERE y.year=? AND type=? ORDER BY sort_index, e.id`
   ).all(year, type);
+
+  const tagRows = db
+    .prepare(
+      `SELECT t.entry_id as entryId, t.month, t.color, t.text
+       FROM entry_tags t
+       JOIN entries e ON e.id = t.entry_id
+       JOIN years y ON y.id = e.year_id
+       WHERE y.year=? AND e.type=?`
+    )
+    .all(year, type);
+
+  const tagsByEntry = new Map();
+  for (const tag of tagRows) {
+    if (!tagsByEntry.has(tag.entryId)) tagsByEntry.set(tag.entryId, {});
+    tagsByEntry.get(tag.entryId)[tag.month] = { color: tag.color, text: tag.text?.trim() };
+  }
 
   const monthlyTotals = new Array(MONTHS.length).fill(0);
   for (const entry of rows) {
@@ -103,6 +125,26 @@ function renderEntriesSection(sheet, year, type, startRow) {
     const avg = values.length ? sum / values.length : 0;
     const dataRow = sheet.addRow([entry.name, ...values, sum, avg, entry.comment ?? '']);
     styleTableRow(dataRow, 'body', [1, commentColumnIndex]);
+
+    const entryTags = tagsByEntry.get(entry.id);
+    if (entryTags) {
+      MONTHS.forEach((month, monthIdx) => {
+        const tag = entryTags[month];
+        if (!tag) return;
+        const colorHex = TAG_COLOR_MAP[tag.color];
+        if (!colorHex) return;
+        const cellIndex = 2 + monthIdx;
+        const cell = dataRow.getCell(cellIndex);
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: toArgb(colorHex) },
+        };
+        if (tag.text) {
+          cell.note = tag.text;
+        }
+      });
+    }
   }
 
   const totalSum = monthlyTotals.reduce((acc, val) => acc + val, 0);
