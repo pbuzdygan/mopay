@@ -29,6 +29,13 @@ export const Api = {
     noticeAck: () => api('/api/encryption/notice-ack', { method: 'POST', body: JSON.stringify({}) }),
     resetData: () => api('/api/encryption/reset', { method: 'POST', body: JSON.stringify({ confirm: true }) }),
   },
+  tags: {
+    list: (year: number) => api(`/api/tags?year=${year}`),
+    save: (payload: { entryId: number; month: string; color: string; text: string }) =>
+      api('/api/tags', { method: 'POST', body: JSON.stringify(payload) }),
+    remove: (entryId: number, month: string) =>
+      api(`/api/tags?entryId=${entryId}&month=${month}`, { method: 'DELETE' }),
+  },
   exportYears: async (years: number[]) => {
     const res = await fetch(`${BASE}/api/export`, { method: 'POST', body: JSON.stringify({ years }), headers: { 'Content-Type': 'application/json' } });
     const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a');

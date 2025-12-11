@@ -45,7 +45,7 @@ type State = {
   tab: Tab;
   year: number | null;
   theme: 'light' | 'dark';
-  editMode: null | 'name' | 'order' | 'remove';
+  editMode: null | 'name' | 'order' | 'remove' | 'tag';
   pinSession: boolean;
   removeSelection: Set<number>;
   selectedReports: ReportId[];

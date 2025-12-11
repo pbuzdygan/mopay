@@ -37,3 +37,16 @@ CREATE TABLE IF NOT EXISTS savings_items (
 
 CREATE INDEX IF NOT EXISTS idx_savings_goals_year ON savings_goals(year_id);
 CREATE INDEX IF NOT EXISTS idx_savings_items_goal ON savings_items(goal_id);
+
+CREATE TABLE IF NOT EXISTS entry_tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entry_id INTEGER NOT NULL,
+  month TEXT NOT NULL,
+  color TEXT NOT NULL,
+  text TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entry_tags_entry_month ON entry_tags(entry_id, month);
+CREATE INDEX IF NOT EXISTS idx_entry_tags_entry ON entry_tags(entry_id);
