@@ -1,3 +1,7 @@
+## v1.3.2 – Minor corrections to the UI
+
+- small dropdown menus corrections - improving UI clarity
+
 ## v1.3.1 – Tagging implementation
 
 - small correction to the implemented tagging feature
