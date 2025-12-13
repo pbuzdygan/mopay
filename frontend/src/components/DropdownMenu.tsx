@@ -57,7 +57,7 @@ export function DropdownMenu({
 
       {open && (
         <div
-          className={`dropdown-panel animate-dropdown absolute mt-2 min-w-[12rem] ${
+          className={`dropdown-panel animate-dropdown absolute top-full mt-2 min-w-[12rem] ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >
