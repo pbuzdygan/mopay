@@ -92,7 +92,7 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
   const body = (
     <>
       <span className="status-dot" aria-hidden="true" />
-      Version {formatVersion(version)}
+      Build {formatVersion(version)}
     </>
   );
 
