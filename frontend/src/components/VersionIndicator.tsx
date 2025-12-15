@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAppStore } from "../store";
+import { useAppStore, compareVersions } from "../store";
 import { Api } from "../api";
 
 const POLL_INTERVAL_MS = 1000 * 60 * 60 * 6; // 6 hours
@@ -137,10 +137,20 @@ function isDevRelease(release: GitHubRelease) {
 }
 
 function selectReleaseForChannel(releases: GitHubRelease[], channel: string) {
+  if (!releases.length) return null;
   const normalized = (channel || "main").toLowerCase();
   const predicate =
     normalized === "dev"
       ? (release: GitHubRelease) => isDevRelease(release)
       : (release: GitHubRelease) => !isDevRelease(release);
-  return releases.find(predicate) ?? releases[0];
+  const candidates = releases.filter(predicate);
+  if (!candidates.length) {
+    return releases[0];
+  }
+  candidates.sort((a, b) => compareVersions(releaseVersion(b), releaseVersion(a)));
+  return candidates[0];
+}
+
+function releaseVersion(release: GitHubRelease) {
+  return release.tag_name ?? release.name ?? null;
 }

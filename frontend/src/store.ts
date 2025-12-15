@@ -17,7 +17,7 @@ function extractDevVersionIndex(value: string | null) {
   return match ? Number(match[1]) || 0 : 0;
 }
 
-function compareVersions(a: string | null, b: string | null) {
+export function compareVersions(a: string | null, b: string | null) {
   const left = normalizeVersion(a);
   const right = normalizeVersion(b);
   const leftIsDev = isDevVersion(left);
