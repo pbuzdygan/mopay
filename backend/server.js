@@ -18,6 +18,7 @@ const PORT = Number(process.env.PORT || 8010);
 const APP_PIN = process.env.APP_PIN || '';
 const APP_VERSION = process.env.APP_VERSION || 'dev';
 const APP_REPO = process.env.APP_REPO || 'pbuzdygan/mopay';
+const APP_CHANNEL = process.env.APP_CHANNEL || 'main';
 let keyMismatch = false;
 
 const getMetaValue = (key) => db.prepare('SELECT value FROM meta WHERE key=?').get(key);
@@ -105,7 +106,7 @@ app.use(morgan('dev'));
 app.get('/health', (_req,res)=> res.json({ status: 'ok' }));
 
 app.get('/api/meta', (_req, res) => {
-  res.json({ version: APP_VERSION, repo: APP_REPO });
+  res.json({ version: APP_VERSION, repo: APP_REPO, channel: APP_CHANNEL });
 });
 
 // Pin verification

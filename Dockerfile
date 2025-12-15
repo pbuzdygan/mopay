@@ -4,8 +4,10 @@
 FROM node:20-bookworm-slim AS build
 ARG APP_VERSION=dev
 ARG APP_REPO=pbuzdygan/mopay
+ARG APP_CHANNEL=main
 ENV VITE_APP_VERSION=$APP_VERSION
 ENV VITE_GITHUB_REPO=$APP_REPO
+ENV VITE_APP_CHANNEL=$APP_CHANNEL
 
 WORKDIR /app
 
@@ -39,8 +41,10 @@ RUN cd frontend && npm run build || \
 FROM node:20-bookworm-slim AS runtime
 ARG APP_VERSION=dev
 ARG APP_REPO=pbuzdygan/mopay
+ARG APP_CHANNEL=main
 ENV APP_VERSION=$APP_VERSION
 ENV APP_REPO=$APP_REPO
+ENV APP_CHANNEL=$APP_CHANNEL
 
 WORKDIR /app
 

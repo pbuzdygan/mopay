@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "../store";
 import { Api } from "../api";
 
@@ -13,8 +13,11 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
   const version = useAppStore((s) => s.appVersion);
   const latestVersion = useAppStore((s) => s.latestVersion);
   const updateAvailable = useAppStore((s) => s.updateAvailable);
+  const releaseChannel = useAppStore((s) => s.releaseChannel);
   const setAppVersion = useAppStore((s) => s.setAppVersion);
   const setLatestVersion = useAppStore((s) => s.setLatestVersion);
+  const setReleaseChannel = useAppStore((s) => s.setReleaseChannel);
+  const [latestReleaseUrl, setLatestReleaseUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,6 +26,7 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
         const meta = await Api.meta();
         if (!cancelled) {
           setAppVersion(meta?.version ?? null);
+          setReleaseChannel(meta?.channel ?? "main");
         }
       } catch {
         // ignore – keep previous value
@@ -32,39 +36,48 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
     return () => {
       cancelled = true;
     };
-  }, [setAppVersion]);
+  }, [setAppVersion, setReleaseChannel]);
 
   useEffect(() => {
-    if (!REPO_SLUG) return;
+    if (!REPO_SLUG || !releaseChannel) return;
     let cancelled = false;
 
     const fetchLatest = async () => {
       try {
-        const res = await fetch(`https://api.github.com/repos/${REPO_SLUG}/releases/latest`, {
+        const res = await fetch(`https://api.github.com/repos/${REPO_SLUG}/releases?per_page=30`, {
           headers: { Accept: "application/vnd.github+json" },
         });
         if (!res.ok) return;
-        const data = await res.json();
+        const data = (await res.json()) as GitHubRelease[];
+        if (!Array.isArray(data)) return;
+        const release = selectReleaseForChannel(data, releaseChannel);
         if (!cancelled) {
-          setLatestVersion(data?.tag_name ?? data?.name ?? null);
+          if (release) {
+            setLatestVersion(release.tag_name ?? release.name ?? null);
+            setLatestReleaseUrl(release.html_url ?? null);
+          } else {
+            setLatestVersion(null);
+            setLatestReleaseUrl(null);
+          }
         }
       } catch {
         // ignore – will retry on next interval
       }
     };
 
+    setLatestReleaseUrl(null);
     fetchLatest();
     const interval = window.setInterval(fetchLatest, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [setLatestVersion]);
+  }, [releaseChannel, setLatestVersion]);
 
   const baseClass = ["version-indicator", compact ? "compact" : ""].filter(Boolean).join(" ");
 
   if (updateAvailable && latestVersion) {
-    const href = REPO_SLUG ? `https://github.com/${REPO_SLUG}/releases/latest` : "#";
+    const href = latestReleaseUrl ?? (REPO_SLUG ? `https://github.com/${REPO_SLUG}/releases` : "#");
     return (
       <a
         href={href}
@@ -107,4 +120,27 @@ export function VersionIndicator({ compact = false }: VersionIndicatorProps) {
 
 function formatVersion(value: string) {
   return value;
+}
+
+type GitHubRelease = {
+  tag_name?: string | null;
+  name?: string | null;
+  target_commitish?: string | null;
+  html_url?: string | null;
+};
+
+function isDevRelease(release: GitHubRelease) {
+  const tag = release.tag_name?.toLowerCase() ?? "";
+  const name = release.name?.toLowerCase() ?? "";
+  const branch = release.target_commitish?.toLowerCase() ?? "";
+  return tag.startsWith("dev") || name.startsWith("dev") || branch === "dev";
+}
+
+function selectReleaseForChannel(releases: GitHubRelease[], channel: string) {
+  const normalized = (channel || "main").toLowerCase();
+  const predicate =
+    normalized === "dev"
+      ? (release: GitHubRelease) => isDevRelease(release)
+      : (release: GitHubRelease) => !isDevRelease(release);
+  return releases.find(predicate) ?? releases[0];
 }

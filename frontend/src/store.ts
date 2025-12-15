@@ -6,9 +6,32 @@ function normalizeVersion(value: string | null | undefined) {
   return value.trim().replace(/^v/i, '');
 }
 
+function isDevVersion(value: string | null) {
+  if (!value) return false;
+  return /^dev/i.test(value);
+}
+
+function extractDevVersionIndex(value: string | null) {
+  if (!value) return 0;
+  const match = value.match(/^dev[-_]?(\d+)/i);
+  return match ? Number(match[1]) || 0 : 0;
+}
+
 function compareVersions(a: string | null, b: string | null) {
   const left = normalizeVersion(a);
   const right = normalizeVersion(b);
+  const leftIsDev = isDevVersion(left);
+  const rightIsDev = isDevVersion(right);
+
+  if (leftIsDev || rightIsDev) {
+    if (leftIsDev && !rightIsDev) return -1;
+    if (!leftIsDev && rightIsDev) return 1;
+    const diff = extractDevVersionIndex(left) - extractDevVersionIndex(right);
+    if (diff > 0) return 1;
+    if (diff < 0) return -1;
+    return (left || '').localeCompare(right || '');
+  }
+
   if (!left && !right) return 0;
   if (!left) return -1;
   if (!right) return 1;
@@ -62,6 +85,7 @@ type State = {
   keyMismatch: boolean;
   appVersion: string | null;
   latestVersion: string | null;
+  releaseChannel: string;
   updateAvailable: boolean;
   setTab: (t: Tab) => void;
   setYear: (y: number | null) => void;
@@ -81,6 +105,7 @@ type State = {
   setKeyMismatch: (active: boolean) => void;
   setAppVersion: (version: string | null) => void;
   setLatestVersion: (version: string | null) => void;
+  setReleaseChannel: (channel: string | null) => void;
 };
 
 export const useAppStore = create<State>((set, get) => ({
@@ -104,6 +129,7 @@ export const useAppStore = create<State>((set, get) => ({
   keyMismatch: false,
   appVersion: null,
   latestVersion: null,
+  releaseChannel: 'main',
   updateAvailable: false,
 
   setTab: (tab) => {
@@ -201,4 +227,13 @@ export const useAppStore = create<State>((set, get) => ({
       latestVersion: version,
       updateAvailable: compareVersions(state.appVersion, version) < 0,
     })),
+
+  setReleaseChannel: (channel) =>
+    set((state) => {
+      const normalized = channel ?? 'main';
+      if (state.releaseChannel === normalized) {
+        return {};
+      }
+      return { releaseChannel: normalized, latestVersion: null, updateAvailable: false };
+    }),
 }));
