@@ -1,3 +1,8 @@
+## v1.3.4 – Mobile modals & VA fixes
+
+- improvements in compacted modal layout on mobile/responsive screens (less padding/spacing, desktop untouched)
+- Version Awareness now consistently picks the newest release per channel (dev/main) instead of relying on API order
+
 ## v1.3.3 – Dev channel & VA refinements
 
 - release workflow tags dev builds improvements (devN and latest at the same time)
