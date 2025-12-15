@@ -61,7 +61,7 @@ export function MainBar() {
       ? 'Savings goals'
       : 'Expense overview';
   const scopeCaption = year
-    ? `Working on year ${year}.`
+    ? `Working on year ${year}`
     : 'Pick a year to unlock entries.';
 
   const lockSession = () => {

@@ -44,7 +44,8 @@ export function SettingsModal(){
           //description="Clear PIN session and show lock screen."
         >
           <SoftButton
-            variant="ghost"
+            block
+            justify="between"
             onClick={() => {
               sessionStorage.removeItem('pin-ok');
               useAppStore.getState().setPinSession(false);
@@ -52,6 +53,7 @@ export function SettingsModal(){
             }}
           >
             Lock application
+            <span className="text-lg" role="img" aria-hidden="true">🔒</span>
           </SoftButton>
         </FormSection>
 
