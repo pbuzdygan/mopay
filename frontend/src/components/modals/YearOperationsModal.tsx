@@ -88,7 +88,7 @@ export function YearOperationsModal(){
     <ModalBase
       open={open}
       title="Year operations"
-      subtitle="At least one year is required."
+      subtitle="At least one year is required"
       icon="📅"
       onClose={() => closeModal("yearOps")}
     >
