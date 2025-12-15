@@ -1,3 +1,9 @@
+## v1.3.3 – Dev channel & VA refinements
+
+- release workflow tags dev builds improvements (devN and latest at the same time)
+- backend/frontend version awareness now detects whether the instance runs on `main`/`latest` or `dev_latest` and only suggests upgrades from the matching branch
+- polished the settings modal lock button and “Working on year …” caption to align with the rest of the UI
+
 ## v1.3.2 – Minor corrections to the UI
 
 - small dropdown menus corrections - improving UI clarity
