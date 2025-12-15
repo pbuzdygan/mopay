@@ -24,7 +24,7 @@ export function ExportModal(){
       onClose={() => closeModal("export")}
       size="md"
     >
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <FormSection
           //label="Data scope"
           title="Choose years to export"

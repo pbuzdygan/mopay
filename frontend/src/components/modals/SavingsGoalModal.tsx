@@ -91,7 +91,7 @@ export function SavingsGoalModal() {
       title={editingId ? 'Edit savings goal' : 'Add savings goal'}
       size="sm"
     >
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <FormSection title="Goal basics">
           <div className="field-stack">
             <label className="field-label" htmlFor="goal-name-input">

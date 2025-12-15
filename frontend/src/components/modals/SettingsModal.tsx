@@ -17,7 +17,7 @@ export function SettingsModal(){
       onClose={() => closeModal("settings")}
       size="md"
     >
-      <div className="stack">
+      <div className="space-y-3 sm:space-y-4">
         <FormSection
           //label="Appearance"
           title="Theme mode"

@@ -52,7 +52,7 @@ export function AddEntryModal() {
       }}
       size="sm"
     >
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <FormSection
           //label="Details"
           title="Entry name"

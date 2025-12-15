@@ -1561,6 +1561,70 @@ html.theme-changing * {
   padding-top: 0.75rem;
 }
 
+@media (max-width: 640px) {
+  .modal-card-premium {
+    padding: var(--space-3) var(--space-3);
+    border-radius: 1.1rem;
+    margin: 0 var(--space-3);
+  }
+
+  .modal-header-premium {
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .modal-card-premium .stack-sm {
+    gap: var(--space-1);
+  }
+
+  .modal-body-premium {
+    padding-top: 0.5rem;
+  }
+
+  .modal-icon-premium {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 1.15rem;
+    font-size: 1rem;
+  }
+
+  .modal-section {
+    padding: var(--space-3);
+    border-radius: 1rem;
+    gap: var(--space-2);
+  }
+
+  .modal-section-body {
+    gap: var(--space-2);
+  }
+
+  .modal-section-title {
+    font-size: 1rem;
+  }
+
+  .field-stack {
+    gap: 0.25rem;
+  }
+
+  .field-row {
+    gap: var(--space-2);
+  }
+
+  .selection-card {
+    padding: 0.25rem;
+  }
+
+  .selection-row {
+    padding: 0.45rem 0.65rem;
+  }
+
+  .modal-footer-premium {
+    margin-top: 0.25rem;
+    padding-top: 0.5rem;
+  }
+}
+
 /* Savings */
 .savings-grid {
   display: grid;
