@@ -54,3 +54,9 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/}
           docker tag ghcr.io/${{ github.repository }}:latest ghcr.io/${{ github.repository }}:$VERSION
           docker push ghcr.io/${{ github.repository }}:$VERSION
+
+      - name: Tag dev latest alias
+        if: github.event.release.target_commitish == 'dev'
+        run: |
+          docker tag ghcr.io/${{ github.repository }}:latest ghcr.io/${{ github.repository }}:dev_latest
+          docker push ghcr.io/${{ github.repository }}:dev_latest
