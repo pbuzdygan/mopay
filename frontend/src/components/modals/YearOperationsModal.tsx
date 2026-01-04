@@ -107,7 +107,7 @@ export function YearOperationsModal(){
       icon="📅"
       onClose={() => closeModal("yearOps")}
     >
-      <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-3 sm:space-y-4 modal-compact-mobile">
         <FormSection
           label="Create year"
         >

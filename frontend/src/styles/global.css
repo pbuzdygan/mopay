@@ -343,6 +343,10 @@ html {
   gap: 0.35rem;
 }
 
+.year-selection-grid .selection-empty {
+  grid-column: 1 / -1;
+}
+
 .year-tile {
   border-radius: 0.85rem;
   border: 1px solid var(--soft-border);
@@ -384,6 +388,45 @@ html {
 @media (max-width: 640px) {
   .year-selection-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .modal-compact-mobile .modal-section {
+    padding: var(--space-2);
+  }
+
+  .modal-compact-mobile .modal-section-body {
+    gap: var(--space-1);
+  }
+
+  .modal-compact-mobile .field-row {
+    gap: var(--space-1);
+  }
+
+  .modal-compact-mobile .selection-card {
+    padding: 0.2rem;
+    max-height: 220px;
+  }
+
+  .modal-compact-mobile .year-tile {
+    padding: 0.45rem 0.35rem;
+    font-size: 0.9rem;
+  }
+
+  .modal-compact-mobile .modal-footer-premium {
+    margin-top: 0.2rem;
+    padding-top: 0.4rem;
+  }
+
+  .modal-compact-mobile .btn,
+  .modal-compact-mobile .soft-button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .modal-compact-mobile .btn-ghost-premium {
+    padding: 0.3rem 0.65rem;
   }
 }
 
