@@ -136,13 +136,6 @@ export function YearOperationsModal(){
                 Add year
               </button>
             </div>
-          <div className="min-h-[28px]">
-            {message && (
-              <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
-                {message.text}
-              </div>
-            )}
-          </div>
         </FormSection>
 
         <FormSection
@@ -198,7 +191,14 @@ export function YearOperationsModal(){
           </div>
         </FormSection>
 
-        <div className="modal-footer-premium flex justify-end">
+        <div className="modal-footer-premium flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            {message && (
+              <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
+                {message.text}
+              </div>
+            )}
+          </div>
           <SoftButton variant="ghost" onClick={()=>closeModal('yearOps')}>
             Close
           </SoftButton>
