@@ -93,6 +93,10 @@ export function YearOperationsModal(){
   useEffect(() => {
     if (!open) setConfirmingDelete(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) setSel([]);
+  }, [open]);
   
 
   return (
@@ -132,11 +136,13 @@ export function YearOperationsModal(){
                 Add year
               </button>
             </div>
-          {message && (
-            <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
-              {message.text}
-            </div>
-          )}
+          <div className="min-h-[28px]">
+            {message && (
+              <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
+                {message.text}
+              </div>
+            )}
+          </div>
         </FormSection>
 
         <FormSection
