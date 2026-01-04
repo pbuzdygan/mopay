@@ -16,6 +16,7 @@ export function YearOperationsModal(){
   const [newYear, setNewYear] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<null | { type: "ok" | "err"; text: string }>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
 
   async function add() {
@@ -82,6 +83,16 @@ export function YearOperationsModal(){
       clearTimeout(tm);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    const tm = setTimeout(() => setConfirmingDelete(false), 4000);
+    return () => clearTimeout(tm);
+  }, [confirmingDelete]);
+
+  useEffect(() => {
+    if (!open) setConfirmingDelete(false);
+  }, [open]);
   
 
   return (
@@ -137,7 +148,10 @@ export function YearOperationsModal(){
                 <input
                   type="checkbox"
                   checked={sel.includes(y)}
-                  onChange={()=> setSel(p=> p.includes(y)? p.filter(v=>v!==y) : [...p, y]) }
+                  onChange={() => {
+                    setConfirmingDelete(false);
+                    setSel((p) => (p.includes(y) ? p.filter((v) => v !== y) : [...p, y]));
+                  }}
                 />
                 <span className="type-body font-medium">{y}</span>
               </label>
@@ -152,7 +166,10 @@ export function YearOperationsModal(){
             <SoftButton
               type="button"
               variant="ghost"
-              onClick={() => setSel([])}
+              onClick={() => {
+                setConfirmingDelete(false);
+                setSel([]);
+              }}
               disabled={!sel.length}
             >
               Clear selection
@@ -161,9 +178,16 @@ export function YearOperationsModal(){
               type="button"
               variant="danger"
               disabled={!sel.length}
-              onClick={remove}
+              onClick={() => {
+                if (!confirmingDelete) {
+                  setConfirmingDelete(true);
+                  return;
+                }
+                setConfirmingDelete(false);
+                remove();
+              }}
             >
-              Delete {sel.length ? `${sel.length} year(s)` : 'years'}
+              {confirmingDelete ? 'Confirm' : `Delete ${sel.length ? `${sel.length} year(s)` : 'years'}`}
             </SoftButton>
           </div>
         </FormSection>
