@@ -51,6 +51,7 @@ export function AddEntryModal() {
         setName("");
       }}
       size="sm"
+      mobileAlign="top"
     >
       <div className="space-y-3 sm:space-y-4">
         <FormSection

@@ -12,6 +12,7 @@ type ModalBaseProps = {
   onClose: () => void;
   disableClose?: boolean;
   size?: ModalSize;
+  mobileAlign?: "center" | "top";
 };
 
 export function ModalBase({
@@ -23,15 +24,18 @@ export function ModalBase({
   onClose,
   disableClose = false,
   size = "md",
+  mobileAlign = "center",
 }: ModalBaseProps) {
   const widthClass =
     size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-2xl" : "max-w-lg";
+  const overlayClass =
+    mobileAlign === "top" ? "modal-overlay-premium modal-overlay-top-mobile" : "modal-overlay-premium";
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-center justify-center modal-overlay-premium"
+          className={`fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-center justify-center ${overlayClass}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

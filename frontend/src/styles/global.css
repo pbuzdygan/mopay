@@ -1655,6 +1655,12 @@ html.theme-changing * {
 }
 
 @media (max-width: 640px) {
+  .modal-overlay-top-mobile {
+    align-items: flex-start;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
+
   .modal-card-premium {
     padding: var(--space-3) var(--space-3);
     border-radius: 1.1rem;
