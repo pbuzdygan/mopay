@@ -141,19 +141,20 @@ export function YearOperationsModal(){
         <FormSection
           label="Cleanup"
         >
-          <div className="selection-card">
+          <div className="selection-card year-selection-grid">
             {years.map(y=> (
-              <label key={y} className="selection-row">
-                <input
-                  type="checkbox"
-                  checked={sel.includes(y)}
-                  onChange={() => {
-                    setConfirmingDelete(false);
-                    setSel((p) => (p.includes(y) ? p.filter((v) => v !== y) : [...p, y]));
-                  }}
-                />
-                <span className="type-body font-medium">{y}</span>
-              </label>
+              <button
+                key={y}
+                type="button"
+                className={`year-tile ${sel.includes(y) ? 'is-selected' : ''}`}
+                aria-pressed={sel.includes(y)}
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  setSel((p) => (p.includes(y) ? p.filter((v) => v !== y) : [...p, y]));
+                }}
+              >
+                {y}
+              </button>
             ))}
             {!years.length && (
               <div className="selection-empty">

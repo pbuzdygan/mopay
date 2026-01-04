@@ -337,6 +337,56 @@ html {
   background: color-mix(in srgb, var(--panel) 90%, transparent);
 }
 
+.year-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.year-tile {
+  border-radius: 0.85rem;
+  border: 1px solid var(--soft-border);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  padding: 0.6rem 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--textPrim);
+  text-align: center;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+
+.year-tile:hover {
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+
+.year-tile:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, white 10%);
+  outline-offset: 2px;
+}
+
+.year-tile.is-selected {
+  border-color: color-mix(in srgb, #ff5a5a 70%, transparent);
+  background: color-mix(in srgb, #ff5a5a 18%, transparent);
+  color: color-mix(in srgb, #ff5a5a 90%, white 10%);
+  box-shadow: 0 6px 14px rgba(255, 90, 90, 0.16);
+}
+
+.year-tile.is-selected:hover {
+  background: color-mix(in srgb, #ff5a5a 26%, transparent);
+}
+
+@media (max-width: 768px) {
+  .year-selection-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .year-selection-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .selection-empty {
   padding: 0.9rem;
   color: var(--textSec);
