@@ -111,7 +111,6 @@ export function SavingsGoalModal() {
                 if (ev.key === 'Enter') submit();
               }}
             />
-            <p className="field-helper">Give this goal a short label.</p>
           </div>
 
           <div className="field-stack">
