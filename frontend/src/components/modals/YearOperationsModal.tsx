@@ -16,6 +16,7 @@ export function YearOperationsModal(){
   const [newYear, setNewYear] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<null | { type: "ok" | "err"; text: string }>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
 
   async function add() {
@@ -82,6 +83,20 @@ export function YearOperationsModal(){
       clearTimeout(tm);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    const tm = setTimeout(() => setConfirmingDelete(false), 4000);
+    return () => clearTimeout(tm);
+  }, [confirmingDelete]);
+
+  useEffect(() => {
+    if (!open) setConfirmingDelete(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setSel([]);
+  }, [open]);
   
 
   return (
@@ -121,26 +136,25 @@ export function YearOperationsModal(){
                 Add year
               </button>
             </div>
-          {message && (
-            <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
-              {message.text}
-            </div>
-          )}
         </FormSection>
 
         <FormSection
           label="Cleanup"
         >
-          <div className="selection-card">
+          <div className="selection-card year-selection-grid">
             {years.map(y=> (
-              <label key={y} className="selection-row">
-                <input
-                  type="checkbox"
-                  checked={sel.includes(y)}
-                  onChange={()=> setSel(p=> p.includes(y)? p.filter(v=>v!==y) : [...p, y]) }
-                />
-                <span className="type-body font-medium">{y}</span>
-              </label>
+              <button
+                key={y}
+                type="button"
+                className={`year-tile ${sel.includes(y) ? 'is-selected' : ''}`}
+                aria-pressed={sel.includes(y)}
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  setSel((p) => (p.includes(y) ? p.filter((v) => v !== y) : [...p, y]));
+                }}
+              >
+                {y}
+              </button>
             ))}
             {!years.length && (
               <div className="selection-empty">
@@ -152,7 +166,10 @@ export function YearOperationsModal(){
             <SoftButton
               type="button"
               variant="ghost"
-              onClick={() => setSel([])}
+              onClick={() => {
+                setConfirmingDelete(false);
+                setSel([]);
+              }}
               disabled={!sel.length}
             >
               Clear selection
@@ -161,14 +178,28 @@ export function YearOperationsModal(){
               type="button"
               variant="danger"
               disabled={!sel.length}
-              onClick={remove}
+              onClick={() => {
+                if (!confirmingDelete) {
+                  setConfirmingDelete(true);
+                  return;
+                }
+                setConfirmingDelete(false);
+                remove();
+              }}
             >
-              Delete {sel.length ? `${sel.length} year(s)` : 'years'}
+              {confirmingDelete ? 'Confirm' : `Delete ${sel.length ? `${sel.length} year(s)` : 'years'}`}
             </SoftButton>
           </div>
         </FormSection>
 
-        <div className="modal-footer-premium flex justify-end">
+        <div className="modal-footer-premium flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            {message && (
+              <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
+                {message.text}
+              </div>
+            )}
+          </div>
           <SoftButton variant="ghost" onClick={()=>closeModal('yearOps')}>
             Close
           </SoftButton>

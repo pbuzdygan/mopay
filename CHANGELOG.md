@@ -1,3 +1,11 @@
+# Changelog
+
+## v1.3.5 - Year operations modal imprvements
+
+- correcting year deletion behavior (now with confirmation)
+- relocating operation confirmation (for year removal and add) - no more inconsistent window
+- new year picker area - now marking year for deletion shows visible "red" as warning also list of years builds horizontally to safe space/optimize window
+
 ## v1.3.4 – Mobile modals & VA fixes
 
 - improvements in compacted modal layout on mobile/responsive screens (less padding/spacing, desktop untouched)
