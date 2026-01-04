@@ -13,6 +13,10 @@ export function ExportModal(){
   const years = (yearsQ.data?.years ?? []) as number[];
   const [sel, setSel] = useState<number[]>([]);
 
+  useEffect(() => {
+    if (!open) setSel([]);
+  }, [open]);
+
   async function doExport(){ if (sel.length) await Api.exportYears(sel); }
 
   return (

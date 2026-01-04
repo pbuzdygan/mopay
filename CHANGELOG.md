@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.5 - UI improvements
+
+- compact mobile view - better adjustments of spacings and improvements
+- compact na full view improvments
+- settings menu improvement - more compact in "settings style" with toggles
+
 ## v1.3.5 - Year operations modal imprvements
 
 - correcting year deletion behavior (now with confirmation)
