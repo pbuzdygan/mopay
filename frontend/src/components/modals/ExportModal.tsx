@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
 import { Api } from '../../api';
