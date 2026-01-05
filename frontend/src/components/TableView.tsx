@@ -115,7 +115,7 @@ function Row({
       data-entry-id={e.id}
       style={style}
       className={`${GRID_TEMPLATE}
-                  table-row-premium gap-1.5 px-3 py-2 items-center text-[0.72rem]
+                  table-row-premium gap-1.5 px-3 py-1.5 items-center text-[0.72rem]
                   ${isDragging ? 'dragging' : ''}
                   ${editMode === 'remove' && removeSelection.has(e.id) ? 'row-remove-selected' : ''}
                   ${removingIds.includes(e.id) ? 'fade-out' : ''}`}

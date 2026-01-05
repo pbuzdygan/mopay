@@ -897,7 +897,7 @@ html {
   border-radius: 0.9rem;
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
-  padding: 0.4rem 0.2rem 0.4rem 0.45rem;
+  padding: 0.3rem 0.2rem 0.3rem 0.4rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
   transition: border var(--transition), box-shadow var(--transition), background var(--transition);
@@ -914,7 +914,7 @@ html {
   text-align: left;
   width: 100%;
   border-radius: 0.75rem;
-  padding: 0.25rem 0.35rem;
+  padding: 0.2rem 0.3rem;
   font-weight: 400;
   transition: color var(--transition), background var(--transition);
 }
@@ -934,7 +934,7 @@ html {
   justify-content: center;
   width: 100%;
   border-radius: 0.9rem;
-  padding: 0.4rem 0.5rem;
+  padding: 0.3rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   transition: border var(--transition), background var(--transition), color var(--transition);
 }
@@ -953,7 +953,7 @@ html {
   display: block;
   width: 100%;
   text-align: right;
-  padding: 0.35rem 0.15rem 0.35rem 0.35rem;
+  padding: 0.25rem 0.15rem 0.25rem 0.3rem;
   border-radius: 0.75rem;
   color: var(--textPrim);
   font-weight: 400;

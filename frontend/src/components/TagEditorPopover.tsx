@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export type TagColor = 'grey' | 'green' | 'orange' | 'red';
@@ -23,6 +23,31 @@ type Props = {
 };
 
 export function TagEditorPopover({ month, color, text, anchor, saving, onChange, onSave, onClear, onClose }: Props) {
+  const [position, setPosition] = useState(() => {
+    const viewportHeight = window.visualViewport?.height ?? document.documentElement.clientHeight;
+    const viewportWidth = window.visualViewport?.width ?? document.documentElement.clientWidth;
+    const isMobile = viewportWidth <= 640;
+    const estimatedHeight = 260;
+    if (isMobile) {
+      const offsetTop = window.visualViewport?.offsetTop ?? 0;
+      const availableHeight = viewportHeight;
+      const top = offsetTop + Math.max(12, (availableHeight - estimatedHeight) / 2);
+      const left = Math.max(12, (viewportWidth - 280) / 2);
+      return { top, left, mode: 'fixed' as const };
+    }
+    let top = anchor.bottom + window.scrollY + 8;
+    if (top + estimatedHeight - window.scrollY > viewportHeight) {
+      top = anchor.top + window.scrollY - estimatedHeight - 8;
+    }
+    if (top < window.scrollY + 12) {
+      top = window.scrollY + 12;
+    }
+    let left = anchor.left + window.scrollX;
+    left = Math.min(left, window.scrollX + viewportWidth - 300);
+    left = Math.max(left, window.scrollX + 12);
+    return { top, left, mode: 'absolute' as const };
+  });
+
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') onClose();
@@ -40,24 +65,48 @@ export function TagEditorPopover({ month, color, text, anchor, saving, onChange,
     };
   }, [onClose]);
 
-  const viewportHeight = document.documentElement.clientHeight;
-  const viewportWidth = document.documentElement.clientWidth;
-  const estimatedHeight = 260;
-  let top = anchor.bottom + window.scrollY + 8;
-  if (top + estimatedHeight - window.scrollY > viewportHeight) {
-    top = anchor.top + window.scrollY - estimatedHeight - 8;
-  }
-  if (top < window.scrollY + 12) {
-    top = window.scrollY + 12;
-  }
-  let left = anchor.left + window.scrollX;
-  left = Math.min(left, window.scrollX + viewportWidth - 300);
-  left = Math.max(left, window.scrollX + 12);
+  useLayoutEffect(() => {
+    const computePosition = () => {
+      const viewportHeight = window.visualViewport?.height ?? document.documentElement.clientHeight;
+      const viewportWidth = window.visualViewport?.width ?? document.documentElement.clientWidth;
+      const isMobile = viewportWidth <= 640;
+      const estimatedHeight = 260;
+      if (isMobile) {
+        const offsetTop = window.visualViewport?.offsetTop ?? 0;
+        const keyboardLikelyOpen = viewportHeight < document.documentElement.clientHeight - 80;
+        const top = keyboardLikelyOpen
+          ? offsetTop + 12
+          : offsetTop + Math.max(12, (viewportHeight - estimatedHeight) / 2);
+        const left = Math.max(12, (viewportWidth - 280) / 2);
+        setPosition({ top, left, mode: 'fixed' });
+        return;
+      }
+      let top = anchor.bottom + window.scrollY + 8;
+      if (top + estimatedHeight - window.scrollY > viewportHeight) {
+        top = anchor.top + window.scrollY - estimatedHeight - 8;
+      }
+      if (top < window.scrollY + 12) {
+        top = window.scrollY + 12;
+      }
+      let left = anchor.left + window.scrollX;
+      left = Math.min(left, window.scrollX + viewportWidth - 300);
+      left = Math.max(left, window.scrollX + 12);
+      setPosition({ top, left, mode: 'absolute' });
+    };
+    computePosition();
+    const viewport = window.visualViewport;
+    window.addEventListener('resize', computePosition);
+    viewport?.addEventListener('resize', computePosition);
+    return () => {
+      window.removeEventListener('resize', computePosition);
+      viewport?.removeEventListener('resize', computePosition);
+    };
+  }, [anchor]);
 
   return createPortal(
     <div
       className="tag-editor-popover"
-      style={{ top: `${top}px`, left: `${left}px` }}
+      style={{ top: `${position.top}px`, left: `${position.left}px`, position: position.mode }}
     >
       <div className="tag-editor-header">
         <span className="tag-editor-title">Tag {month}</span>
@@ -86,6 +135,12 @@ export function TagEditorPopover({ month, color, text, anchor, saving, onChange,
           value={text}
           maxLength={160}
           onChange={(ev) => onChange({ text: ev.target.value })}
+          onKeyDown={(ev) => {
+            if (ev.key === 'Enter') {
+              ev.preventDefault();
+              onSave();
+            }
+          }}
         />
       </div>
       <div className="tag-editor-actions">
