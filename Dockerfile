@@ -22,17 +22,13 @@ ENV NODE_ENV=development
 COPY frontend/package*.json ./frontend/
 
 RUN cd frontend && \
-    (npm ci --no-audit --prefer-offline || npm install --legacy-peer-deps --no-audit --no-fund)
+    npm ci --no-audit --prefer-offline
 
 # Copy frontend sources
 COPY frontend ./frontend
 
 # Build frontend
-RUN cd frontend && npm run build || \
-  (echo "⚠️ Frontend build failed" && \
-   mkdir -p dist && \
-   printf '<!doctype html><html><body><h1>Frontend build error</h1></body></html>' > dist/index.html)
-
+RUN cd frontend && npm run build
 
 
 # ───────────────────────────────────────────────
