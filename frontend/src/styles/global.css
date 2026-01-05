@@ -1732,7 +1732,7 @@ html.theme-changing * {
   width: calc(50% - 6px);
   height: calc(100% - 6px);
   border-radius: 999px;
-  background: white;
+  background: color-mix(in srgb, var(--accent) 70%, white 30%);
   box-shadow: 0 8px 20px rgba(0,0,0,0.18);
   transition: transform var(--transition), background var(--transition);
 }
@@ -1745,7 +1745,7 @@ html.theme-changing * {
 
 .settings-toggle.is-on .settings-toggle-knob {
   transform: translateX(100%);
-  background: color-mix(in srgb, var(--panel) 75%, black 25%);
+  background: color-mix(in srgb, var(--accent) 70%, white 30%);
 }
 
 .settings-toggle.is-on .settings-toggle-label-right {
@@ -1762,7 +1762,7 @@ html.theme-changing * {
 }
 
 .settings-toggle-lock.is-on .settings-toggle-knob {
-  background: color-mix(in srgb, #ff5a5a 28%, black 72%);
+  background: color-mix(in srgb, var(--accent) 70%, white 30%);
 }
 
 .settings-badge {
