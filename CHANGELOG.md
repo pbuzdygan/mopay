@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.7 - Tagging feature improvements
+
+- addjusting/improving mobile operations on **Tagging** feature
+
 ## v1.3.6 - UI improvements
 
 - compact mobile view - better adjustments of spacings and improvements
