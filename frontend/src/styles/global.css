@@ -1657,7 +1657,7 @@ html.theme-changing * {
 .settings-list {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.35rem;
 }
 
 .settings-row {
@@ -1665,10 +1665,7 @@ html.theme-changing * {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  border: 1px solid var(--soft-border);
+  padding: 0.35rem 0;
 }
 
 .settings-text {
@@ -1695,7 +1692,7 @@ html.theme-changing * {
   padding: 0;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
   color: var(--textSec);
   font-size: 0.82rem;
   font-weight: 600;
@@ -1711,7 +1708,24 @@ html.theme-changing * {
   padding: 0 0.6rem;
 }
 
+.settings-toggle-track::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--panel) 95%, transparent) 0%,
+    color-mix(in srgb, var(--panel) 95%, transparent) 100%
+  );
+  z-index: 0;
+  opacity: 0.9;
+  transition: background var(--transition);
+}
+
 .settings-toggle-label {
+  position: relative;
+  z-index: 1;
   text-align: center;
   transition: color var(--transition);
 }
@@ -1730,13 +1744,23 @@ html.theme-changing * {
 
 .settings-toggle.is-on {
   border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--textPrim);
 }
 
 .settings-toggle.is-on .settings-toggle-knob {
   transform: translateX(100%);
-  background: color-mix(in srgb, var(--accent) 20%, white 80%);
+  background: color-mix(in srgb, var(--accent) 22%, white 78%);
+}
+
+.settings-toggle.is-on .settings-toggle-track::before {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--panel) 95%, transparent) 0%,
+    color-mix(in srgb, var(--panel) 95%, transparent) 50%,
+    color-mix(in srgb, var(--panel) 88%, black 18%) 50%,
+    color-mix(in srgb, var(--panel) 88%, black 18%) 100%
+  );
 }
 
 .settings-toggle.is-on .settings-toggle-label-right {
@@ -1749,7 +1773,7 @@ html.theme-changing * {
 
 .settings-toggle-lock.is-on {
   border-color: color-mix(in srgb, #ff5a5a 55%, transparent);
-  background: color-mix(in srgb, #ff5a5a 16%, transparent);
+  background: color-mix(in srgb, #ff5a5a 14%, transparent);
 }
 
 .settings-toggle-lock.is-on .settings-toggle-knob {
@@ -1757,7 +1781,13 @@ html.theme-changing * {
 }
 
 .settings-badge {
-  padding: 0.35rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+  height: 36px;
+  padding: 0 0.75rem;
+  box-sizing: border-box;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 95%, transparent);

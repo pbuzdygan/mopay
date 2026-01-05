@@ -40,7 +40,6 @@ export function SettingsModal(){
             <div className="settings-row">
               <div className="settings-text">
                 <div className="settings-title">Theme mode</div>
-                <div className="settings-subtitle">Light or dark appearance.</div>
               </div>
               <button
                 type="button"
@@ -59,7 +58,6 @@ export function SettingsModal(){
             <div className="settings-row">
               <div className="settings-text">
                 <div className="settings-title">Lock your screen</div>
-                <div className="settings-subtitle">Require PIN to continue.</div>
               </div>
               <button
                 type="button"
@@ -78,7 +76,6 @@ export function SettingsModal(){
             <div className="settings-row">
               <div className="settings-text">
                 <div className="settings-title">Language</div>
-                <div className="settings-subtitle">Choose UI language.</div>
               </div>
               <div className="settings-badge">In development</div>
             </div>

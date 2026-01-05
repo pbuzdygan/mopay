@@ -4,7 +4,7 @@
 
 - compact mobile view - better adjustments of spacings and improvements
 - compact na full view improvments
-- settings menu improvement - more compact in "settings style" with toggles
+- settings menu improvement - settings menu reorganization - more compact in "settings style" with toggles
 
 ## v1.3.5 - Year operations modal imprvements
 
