@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.3.5 - UI improvements
+## v1.3.6 - UI improvements
 
 - compact mobile view - better adjustments of spacings and improvements
 - compact na full view improvments
