@@ -1675,6 +1675,16 @@ html.theme-changing * {
 .settings-title {
   font-weight: 600;
   color: var(--textPrim);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
 }
 
 .settings-subtitle {
@@ -1708,21 +1718,6 @@ html.theme-changing * {
   padding: 0 0.6rem;
 }
 
-.settings-toggle-track::before {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--panel) 95%, transparent) 0%,
-    color-mix(in srgb, var(--panel) 95%, transparent) 100%
-  );
-  z-index: 0;
-  opacity: 0.9;
-  transition: background var(--transition);
-}
-
 .settings-toggle-label {
   position: relative;
   z-index: 1;
@@ -1750,21 +1745,11 @@ html.theme-changing * {
 
 .settings-toggle.is-on .settings-toggle-knob {
   transform: translateX(100%);
-  background: color-mix(in srgb, var(--accent) 22%, white 78%);
-}
-
-.settings-toggle.is-on .settings-toggle-track::before {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--panel) 95%, transparent) 0%,
-    color-mix(in srgb, var(--panel) 95%, transparent) 50%,
-    color-mix(in srgb, var(--panel) 88%, black 18%) 50%,
-    color-mix(in srgb, var(--panel) 88%, black 18%) 100%
-  );
+  background: color-mix(in srgb, var(--panel) 75%, black 25%);
 }
 
 .settings-toggle.is-on .settings-toggle-label-right {
-  color: var(--textPrim);
+  color: white;
 }
 
 .settings-toggle:not(.is-on) .settings-toggle-label-left {
@@ -1777,7 +1762,7 @@ html.theme-changing * {
 }
 
 .settings-toggle-lock.is-on .settings-toggle-knob {
-  background: color-mix(in srgb, #ff5a5a 20%, white 80%);
+  background: color-mix(in srgb, #ff5a5a 28%, black 72%);
 }
 
 .settings-badge {
