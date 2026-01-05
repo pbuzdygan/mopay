@@ -343,6 +343,10 @@ html {
   gap: 0.35rem;
 }
 
+.year-selection-grid .selection-empty {
+  grid-column: 1 / -1;
+}
+
 .year-tile {
   border-radius: 0.85rem;
   border: 1px solid var(--soft-border);
@@ -384,6 +388,45 @@ html {
 @media (max-width: 640px) {
   .year-selection-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.modal-compact-mobile .modal-section {
+  padding: var(--space-2);
+}
+
+.modal-compact-mobile .modal-section-body {
+  gap: var(--space-1);
+}
+
+.modal-compact-mobile .field-row {
+  gap: var(--space-1);
+}
+
+.modal-compact-mobile .selection-card {
+  padding: 0.2rem;
+  max-height: 220px;
+}
+
+.modal-compact-mobile .year-tile {
+  padding: 0.45rem 0.35rem;
+  font-size: 0.9rem;
+}
+
+.modal-compact-mobile .modal-footer-premium {
+  margin-top: 0.2rem;
+  padding-top: 0.4rem;
+}
+
+@media (max-width: 640px) {
+  .modal-compact-mobile .btn,
+  .modal-compact-mobile .soft-button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .modal-compact-mobile .btn-ghost-premium {
+    padding: 0.3rem 0.65rem;
   }
 }
 
@@ -1611,7 +1654,140 @@ html.theme-changing * {
   padding-top: 0.75rem;
 }
 
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.35rem 0;
+}
+
+.settings-text {
+  min-width: 0;
+}
+
+.settings-title {
+  font-weight: 600;
+  color: var(--textPrim);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.settings-subtitle {
+  font-size: 0.85rem;
+  color: var(--textSec);
+}
+
+.settings-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  color: var(--textSec);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.settings-toggle-track {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  padding: 0 0.6rem;
+}
+
+.settings-toggle-label {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  transition: color var(--transition);
+}
+
+.settings-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 6px);
+  height: calc(100% - 6px);
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+  transition: transform var(--transition), background var(--transition);
+}
+
+.settings-toggle.is-on {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--textPrim);
+}
+
+.settings-toggle.is-on .settings-toggle-knob {
+  transform: translateX(100%);
+  background: var(--accent);
+}
+
+.settings-toggle.is-on .settings-toggle-label-right {
+  color: white;
+}
+
+.settings-toggle:not(.is-on) .settings-toggle-label-left {
+  color: var(--textPrim);
+}
+
+.settings-toggle-lock.is-on {
+  border-color: color-mix(in srgb, #ff5a5a 55%, transparent);
+  background: color-mix(in srgb, #ff5a5a 14%, transparent);
+}
+
+.settings-toggle-lock.is-on .settings-toggle-knob {
+  background: var(--accent);
+}
+
+.settings-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+  height: 36px;
+  padding: 0 0.75rem;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel) 95%, transparent);
+  color: var(--textSec);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 @media (max-width: 640px) {
+  .modal-overlay-top-mobile {
+    align-items: flex-start;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
+
   .modal-card-premium {
     padding: var(--space-3) var(--space-3);
     border-radius: 1.1rem;

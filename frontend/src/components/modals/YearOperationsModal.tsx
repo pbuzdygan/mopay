@@ -106,8 +106,9 @@ export function YearOperationsModal(){
       subtitle="At least one year is required"
       icon="📅"
       onClose={() => closeModal("yearOps")}
+      mobileAlign="top"
     >
-      <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-3 sm:space-y-4 modal-compact-mobile">
         <FormSection
           label="Create year"
         >

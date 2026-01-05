@@ -90,8 +90,9 @@ export function SavingsGoalModal() {
       onClose={handleClose}
       title={editingId ? 'Edit savings goal' : 'Add savings goal'}
       size="sm"
+      mobileAlign="top"
     >
-      <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-3 sm:space-y-4 modal-compact-mobile">
         <FormSection title="Goal basics">
           <div className="field-stack">
             <label className="field-label" htmlFor="goal-name-input">
@@ -110,7 +111,6 @@ export function SavingsGoalModal() {
                 if (ev.key === 'Enter') submit();
               }}
             />
-            <p className="field-helper">Give this goal a short label.</p>
           </div>
 
           <div className="field-stack">

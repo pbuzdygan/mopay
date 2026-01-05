@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
 import { FormSection } from '../FormSection';
@@ -7,6 +8,22 @@ export function SettingsModal(){
   const { modals, closeModal, theme, setTheme } = useAppStore();
   const open = modals.settings;
   const nextTheme = theme === 'light' ? 'dark' : 'light';
+  const [locking, setLocking] = useState(false);
+
+  useEffect(() => {
+    if (!open) setLocking(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!locking) return;
+    const tm = setTimeout(() => {
+      sessionStorage.removeItem('pin-ok');
+      useAppStore.getState().setPinSession(false);
+      closeModal('settings');
+      setLocking(false);
+    }, 160);
+    return () => clearTimeout(tm);
+  }, [locking, closeModal]);
 
   return (
     <ModalBase
@@ -17,45 +34,60 @@ export function SettingsModal(){
       onClose={() => closeModal("settings")}
       size="md"
     >
-      <div className="space-y-3 sm:space-y-4">
-        <FormSection
-          //label="Appearance"
-          title="Theme mode"
-          //description="Switch between light and dark."
-        >
-          <div className="flex flex-col gap-2">
-            <p className="field-helper">
-              Current: <span className="font-medium text-textPrim">{theme}</span>
-            </p>
-            <SoftButton
-              block
-              justify="between"
-              onClick={()=> setTheme(nextTheme)}
+      <div className="space-y-3 sm:space-y-4 modal-compact-mobile">
+        <div className="settings-list">
+          <div className="settings-row">
+            <div className="settings-text">
+              <div className="settings-title">
+                <span className="settings-icon" aria-hidden="true">🌓</span>
+                Theme mode
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`settings-toggle ${theme === 'dark' ? 'is-on' : ''}`}
+              aria-pressed={theme === 'dark'}
+              onClick={() => setTheme(nextTheme)}
             >
-              Switch to {nextTheme}
-              <span className="text-lg">{nextTheme === 'dark' ? '🌙' : '☀️'}</span>
-            </SoftButton>
+              <span className="settings-toggle-track">
+                <span className="settings-toggle-label settings-toggle-label-left">Light</span>
+                <span className="settings-toggle-label settings-toggle-label-right">Dark</span>
+              </span>
+              <span className="settings-toggle-knob" aria-hidden="true" />
+            </button>
           </div>
-        </FormSection>
 
-        <FormSection
-          //label="Session"
-          title="Lock Your screen"
-          //description="Clear PIN session and show lock screen."
-        >
-          <SoftButton
-            block
-            justify="between"
-            onClick={() => {
-              sessionStorage.removeItem('pin-ok');
-              useAppStore.getState().setPinSession(false);
-              closeModal('settings');
-            }}
-          >
-            Lock application
-            <span className="text-lg" role="img" aria-hidden="true">🔒</span>
-          </SoftButton>
-        </FormSection>
+          <div className="settings-row">
+            <div className="settings-text">
+              <div className="settings-title">
+                <span className="settings-icon" aria-hidden="true">🔒</span>
+                Lock your screen
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`settings-toggle settings-toggle-lock ${locking ? 'is-on' : ''}`}
+              aria-pressed={locking}
+              onClick={() => setLocking(true)}
+            >
+              <span className="settings-toggle-track">
+                <span className="settings-toggle-label settings-toggle-label-left">Lock</span>
+                <span className="settings-toggle-label settings-toggle-label-right">Locked</span>
+              </span>
+              <span className="settings-toggle-knob" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-text">
+              <div className="settings-title">
+                <span className="settings-icon" aria-hidden="true">🌐</span>
+                Language
+              </div>
+            </div>
+            <div className="settings-badge">In development</div>
+          </div>
+        </div>
 
         <div className="modal-footer-premium flex justify-end">
           <SoftButton variant="ghost" onClick={()=>closeModal('settings')}>Close</SoftButton>
