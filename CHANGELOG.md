@@ -2,6 +2,7 @@
 
 ## v1.3.7 - Tagging feature improvements
 
+- security fix for frontend and backend based on npm audit results
 - addjusting/improving mobile operations on **Tagging** feature
 - UI improvement - main table has more narrow entries heights
 
