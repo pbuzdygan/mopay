@@ -3,6 +3,7 @@
 ## v1.3.7 - Tagging feature improvements
 
 - addjusting/improving mobile operations on **Tagging** feature
+- UI improvement - main table has more narrow entries heights
 
 ## v1.3.6 - UI improvements
 
