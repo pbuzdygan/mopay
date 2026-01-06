@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.4.0
+
+- :fire::boom: **Import feature** has been implemented - Import flow with template download, validation, year overwrite confirmation, and progress/status feedback.
+- security fix for exceljs library and its dependencies
+
 ## v1.3.7 - Tagging feature improvements
 
 - security fix for frontend and backend based on npm audit results

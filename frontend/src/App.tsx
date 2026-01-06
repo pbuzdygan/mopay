@@ -13,6 +13,7 @@ import { AddEntryModal } from "./components/modals/AddEntryModal";
 import { CommentModal } from "./components/modals/CommentModal";
 import { YearOperationsModal } from "./components/modals/YearOperationsModal";
 import { ExportModal } from "./components/modals/ExportModal";
+import { ImportModal } from "./components/modals/ImportModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { SavingsGoalModal } from "./components/modals/SavingsGoalModal";
 import { EncryptionMigrationModal } from "./components/modals/EncryptionMigrationModal";
@@ -99,6 +100,7 @@ export default function App() {
       <CommentModal />
       <YearOperationsModal />
       <ExportModal />
+      <ImportModal />
       <SettingsModal />
       <SavingsGoalModal />
       <EncryptionMigrationModal />

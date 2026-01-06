@@ -77,6 +77,7 @@ type State = {
     comment: { open: boolean; id: number | null; text: string };
     yearOps: boolean;
     export: boolean;
+    import: boolean;
     settings: boolean;
     initiateYear: boolean;
   };
@@ -121,6 +122,7 @@ export const useAppStore = create<State>((set, get) => ({
     comment: { open: false, id: null, text: '' },
     yearOps: false,
     export: false,
+    import: false,
     settings: false,
     initiateYear: false,
   },

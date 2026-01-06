@@ -4,7 +4,8 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
-import { exportYearsToWorkbook } from './export.js';
+import ExcelJS from 'exceljs';
+import { exportYearsToWorkbook, exportImportTemplateWorkbook } from './export.js';
 import { encryptNumber, decryptToNumber, KEY_FINGERPRINT } from './encryption.js';
 import { runEncryptionMigration, evaluateEncryptionState, repairEncryptionState } from './migration.js';
 import { runTagsMigration } from './tagsMigration.js';
@@ -92,6 +93,140 @@ const TAG_COLORS = new Set(['grey','green','orange','red']);
 const clampText = (value, max = 80) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
 
+const getCellText = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if ('richText' in value) return value.richText.map((chunk) => chunk.text).join('').trim();
+    if ('text' in value) return String(value.text).trim();
+    if ('result' in value) return getCellText(value.result);
+  }
+  return '';
+};
+
+const getCellNumber = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/\s+/g, '').replace(',', '.');
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof value === 'object') {
+    if ('result' in value) return getCellNumber(value.result);
+    if ('text' in value) return getCellNumber(value.text);
+  }
+  return 0;
+};
+
+const parseImportWorkbook = async (buffer) => {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const sheets = wb.worksheets;
+  if (!sheets.length) {
+    const err = new Error('NO_SHEETS');
+    err.code = 'NO_SHEETS';
+    throw err;
+  }
+  const sheetNamePattern = /^\d{4}$/;
+  const entries = [];
+  for (const sheet of sheets) {
+    if (!sheetNamePattern.test(sheet.name)) {
+      const err = new Error('INVALID_SHEET_NAME');
+      err.code = 'INVALID_SHEET_NAME';
+      throw err;
+    }
+    const cellValue = sheet.getCell(1, 1).value;
+    const text = getCellText(cellValue);
+    if (text !== 'Mopay Import Template') {
+      const err = new Error('INVALID_HEADER');
+      err.code = 'INVALID_HEADER';
+      throw err;
+    }
+    entries.push({ year: Number(sheet.name), sheet });
+  }
+  return entries;
+};
+
+const findSectionRow = (sheet, label) => {
+  let rowIndex = null;
+  sheet.getColumn(1).eachCell((cell, rowNumber) => {
+    if (getCellText(cell.value) === label) rowIndex = rowNumber;
+  });
+  return rowIndex;
+};
+
+const parseEntriesSection = (sheet, label, type, yearId) => {
+  const sectionRow = findSectionRow(sheet, label);
+  if (!sectionRow) return [];
+  const data = [];
+  const commentColumnIndex = 14;
+  let row = sectionRow + 2;
+  while (row <= sheet.rowCount) {
+    const nameText = getCellText(sheet.getCell(row, 1).value);
+    if (nameText === 'Total') break;
+    const months = MONTH_COLUMNS.map((_, idx) => getCellNumber(sheet.getCell(row, 2 + idx).value));
+    const comment = getCellText(sheet.getCell(row, commentColumnIndex).value);
+    if (nameText) {
+      data.push({
+        type,
+        name: clampText(nameText, 80),
+        comment: clampText(comment, 240),
+        months,
+        yearId,
+      });
+    }
+    row += 1;
+  }
+  return data;
+};
+
+const parseSavingsSection = (sheet) => {
+  const savingsRow = findSectionRow(sheet, 'Savings');
+  if (!savingsRow) return [];
+  const startCols = [1, 4, 7, 10];
+  const goals = [];
+  for (let row = savingsRow + 2; row <= sheet.rowCount; row += 1) {
+    for (const startCol of startCols) {
+      const title = getCellText(sheet.getCell(row, startCol).value);
+      if (!title || title === 'Target' || title === 'Name' || title === 'Total') continue;
+      const targetLabel = getCellText(sheet.getCell(row + 1, startCol).value);
+      const headerLabel = getCellText(sheet.getCell(row + 2, startCol).value);
+      const valueHeader = getCellText(sheet.getCell(row + 2, startCol + 1).value);
+      if (targetLabel !== 'Target' || headerLabel !== 'Name' || valueHeader !== 'Value') continue;
+
+      const targetValue = getCellNumber(sheet.getCell(row + 1, startCol + 1).value);
+      const items = [];
+      for (let r = row + 3; r <= sheet.rowCount; r += 1) {
+        const nameText = getCellText(sheet.getCell(r, startCol).value);
+        if (nameText === 'Total') break;
+        const value = getCellNumber(sheet.getCell(r, startCol + 1).value);
+        if (!nameText && value === 0) continue;
+        items.push({
+          name: clampText(nameText || '', 80),
+          value,
+        });
+      }
+      goals.push({
+        name: clampText(title, 80),
+        targetValue,
+        items,
+      });
+    }
+  }
+  return goals;
+};
+
+const clearYearData = (yearId) => {
+  db.prepare('DELETE FROM entries WHERE year_id=?').run(yearId);
+  const goalIds = db.prepare('SELECT id FROM savings_goals WHERE year_id=?').all(yearId).map((row) => row.id);
+  if (goalIds.length) {
+    db.prepare(`DELETE FROM savings_items WHERE goal_id IN (${goalIds.map(() => '?').join(',')})`).run(...goalIds);
+    db.prepare(`DELETE FROM savings_goals WHERE id IN (${goalIds.map(() => '?').join(',')})`).run(...goalIds);
+  }
+};
+
 const getYearRow = (yearValue) => {
   const numericYear = Number(yearValue);
   if (!Number.isInteger(numericYear)) return null;
@@ -99,7 +234,7 @@ const getYearRow = (yearValue) => {
 };
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(morgan('dev'));
 
 // Health check
@@ -459,6 +594,149 @@ app.post('/api/export', async (req,res)=>{
   res.setHeader('Content-Disposition', 'attachment; filename="mopay_export.xlsx"');
   await wb.xlsx.write(res);
   res.end();
+});
+
+app.get('/api/import/template', async (_req,res)=>{
+  if (guardKeyMismatch(res)) return;
+  const wb = await exportImportTemplateWorkbook();
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="mopay_import_template.xlsx"');
+  await wb.xlsx.write(res);
+  res.end();
+});
+
+app.post('/api/import/validate', async (req,res)=>{
+  if (guardKeyMismatch(res)) return;
+  const { name, data } = req.body || {};
+  if (name !== 'mopay_import_template.xlsx') {
+    return res.status(400).json({ ok: false, error: 'INVALID_NAME' });
+  }
+  if (!data || typeof data !== 'string') {
+    return res.status(400).json({ ok: false, error: 'MISSING_DATA' });
+  }
+
+  try {
+    const buffer = Buffer.from(data, 'base64');
+    const sheets = await parseImportWorkbook(buffer);
+    const years = sheets.map(({ year }) => year);
+    const existing = years.length
+      ? db.prepare(`SELECT year FROM years WHERE year IN (${years.map(() => '?').join(',')})`).all(...years)
+      : [];
+    const existingSet = new Set(existing.map((row) => row.year));
+    res.json({
+      ok: true,
+      years: years.map((year) => ({ year, exists: existingSet.has(year) })),
+    });
+  } catch (err) {
+    console.error('Import template validation failed', err);
+    res.status(400).json({ ok: false, error: 'INVALID_FILE' });
+  }
+});
+
+app.post('/api/import', async (req,res)=>{
+  if (guardKeyMismatch(res)) return;
+  const { name, data, overwriteYears } = req.body || {};
+  if (name !== 'mopay_import_template.xlsx') {
+    return res.status(400).json({ ok: false, error: 'INVALID_NAME' });
+  }
+  if (!data || typeof data !== 'string') {
+    return res.status(400).json({ ok: false, error: 'MISSING_DATA' });
+  }
+  const overwriteSet = new Set(
+    Array.isArray(overwriteYears)
+      ? overwriteYears.map((year) => Number(year)).filter((year) => Number.isInteger(year))
+      : []
+  );
+
+  try {
+    const buffer = Buffer.from(data, 'base64');
+    const sheets = await parseImportWorkbook(buffer);
+    const years = sheets.map(({ year }) => year);
+    const existing = years.length
+      ? db.prepare(`SELECT year FROM years WHERE year IN (${years.map(() => '?').join(',')})`).all(...years)
+      : [];
+    const existingSet = new Set(existing.map((row) => row.year));
+
+    const results = {
+      imported: [],
+      skipped: [],
+      overwritten: [],
+    };
+
+    const importTx = db.transaction(() => {
+      for (const { year, sheet } of sheets) {
+        const exists = existingSet.has(year);
+        const shouldOverwrite = overwriteSet.has(year);
+        if (exists && !shouldOverwrite) {
+          results.skipped.push(year);
+          continue;
+        }
+
+        let yearRow = getYearRow(year);
+        if (exists && yearRow && shouldOverwrite) {
+          clearYearData(yearRow.id);
+          results.overwritten.push(year);
+        }
+        if (!yearRow) {
+          db.prepare('INSERT INTO years(year) VALUES (?)').run(year);
+          yearRow = getYearRow(year);
+        }
+        if (!yearRow) throw new Error('YEAR_CREATE_FAILED');
+
+        const entries = [
+          ...parseEntriesSection(sheet, 'Incomes', 'income', yearRow.id),
+          ...parseEntriesSection(sheet, 'Expenses', 'expense', yearRow.id),
+        ];
+        const monthColumnsSql = MONTH_COLUMNS.map((col) => (col === 'Dec' ? '"Dec"' : col)).join(', ');
+        const monthPlaceholders = MONTH_COLUMNS.map(() => '?').join(', ');
+        const insertEntry = db.prepare(
+          `INSERT INTO entries(type,name,year_id,comment,${monthColumnsSql},sort_index)
+           VALUES (?,?,?, ?, ${monthPlaceholders}, ?)`
+        );
+        let sortIndex = 0;
+        for (const entry of entries) {
+          const months = entry.months.map((value) => encryptNumber(value));
+          insertEntry.run(
+            entry.type,
+            entry.name,
+            entry.yearId,
+            entry.comment || null,
+            ...months,
+            sortIndex
+          );
+          sortIndex += 1;
+        }
+
+        const goals = parseSavingsSection(sheet);
+        const insertGoal = db.prepare(
+          'INSERT INTO savings_goals(year_id, name, target_value, sort_index) VALUES (?,?,?,?)'
+        );
+        const insertItem = db.prepare(
+          'INSERT INTO savings_items(goal_id, name, value, sort_index) VALUES (?,?,?,?)'
+        );
+        goals.forEach((goal, goalIndex) => {
+          const info = insertGoal.run(
+            yearRow.id,
+            goal.name,
+            encryptNumber(goal.targetValue),
+            goalIndex
+          );
+          const goalId = info.lastInsertRowid;
+          goal.items.forEach((item, itemIndex) => {
+            insertItem.run(goalId, item.name || null, encryptNumber(item.value), itemIndex);
+          });
+        });
+
+        results.imported.push(year);
+      }
+    });
+
+    importTx();
+    res.json({ ok: true, ...results });
+  } catch (err) {
+    console.error('Import failed', err);
+    res.status(400).json({ ok: false, error: 'IMPORT_FAILED' });
+  }
 });
 
 // Encryption status for migration notice
