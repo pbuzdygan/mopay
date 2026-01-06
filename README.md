@@ -13,7 +13,8 @@
 - ✅ Manage multiple years, entries, reports, and savings goals
 - ✅ Designed for self-hosting (Docker, docker-compose, reverse proxy friendly)
 - ✅ Secured with encryption key
-- ✅ Tagging
+- ✅ Tagging - tag month with color and text to quickly identify needed informations
+- ✅ Import - speedup on Mopay implementation by preparing data in excel and simply import entire year to mopay
 
 ---
 ## Demo / Screenshots
