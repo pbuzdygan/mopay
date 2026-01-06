@@ -58,6 +58,7 @@
 - **Offline** mode (PWA, asset caching)
 - **Data encryption** - your incomes and expeneses values are secured with encryption key
 - **Tagging** on board - tag element with color and comment
+- :fire:**Import feature**  use new function for **faster data input** or financial data **migration collected in excel sheets**. Import flow with template download, validation, year overwrite confirmation, and progress/status feedback.
 
 ---
 

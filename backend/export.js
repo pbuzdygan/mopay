@@ -156,6 +156,24 @@ function renderEntriesSection(sheet, year, type, startRow) {
   return spacer.number + 1;
 }
 
+function renderTemplateEntriesSection(sheet, type, startRow) {
+  styleSectionTitle(sheet, startRow, type === 'income' ? 'Incomes' : 'Expenses');
+  const headerRow = sheet.addRow(['Name', ...MONTHS, 'Comment']);
+  const commentColumnIndex = 1 + MONTHS.length + 1;
+  styleTableRow(headerRow, 'header', [1, commentColumnIndex]);
+
+  const values = MONTHS.map(() => 0);
+  const name = type === 'income' ? 'Example Income' : 'Example Expense';
+  const dataRow = sheet.addRow([name, ...values, '']);
+  styleTableRow(dataRow, 'body', [1, commentColumnIndex]);
+
+  const totalRow = sheet.addRow(['Total', ...values, '']);
+  styleTableRow(totalRow, 'total', [1, commentColumnIndex]);
+
+  const spacer = sheet.addRow([]);
+  return spacer.number + 1;
+}
+
 function styleSavingsRow(sheet, rowIndex, startCol, endCol, variant = 'body') {
   const fill =
     variant === 'title'
@@ -299,6 +317,16 @@ function renderSavingsSection(sheet, yearId, startRow) {
   return spacer.number + 1;
 }
 
+function renderTemplateSavingsSection(sheet, startRow) {
+  styleSectionTitle(sheet, startRow, 'Savings');
+  const goal = { name: 'Example name', targetValue: 0 };
+  const items = [{ name: 'Example', value: 0 }];
+  const currentRow = startRow + 2;
+  renderGoalTable(sheet, goal, items, currentRow, 1);
+  const spacer = sheet.addRow([]);
+  return spacer.number + 1;
+}
+
 export async function exportYearsToWorkbook(years) {
   const workbook = new ExcelJS.Workbook();
   const yearLookup = db.prepare('SELECT id FROM years WHERE year=?');
@@ -333,6 +361,35 @@ export async function exportYearsToWorkbook(years) {
       { key: 'comment', width: 28 },
     ];
   }
+
+  return workbook;
+}
+
+export async function exportImportTemplateWorkbook() {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('YYYY');
+  sheet.mergeCells(1, 1, 1, 8);
+  const headCell = sheet.getCell(1, 1);
+  headCell.value = 'Mopay Import Template';
+  headCell.font = {
+    bold: true,
+    size: 16,
+    color: { argb: toArgb(palette.textOnAccent) },
+  };
+  headCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  headCell.fill = fills.accent;
+  headCell.border = buildBorder();
+
+  let rowPointer = 3;
+  rowPointer = renderTemplateEntriesSection(sheet, 'income', rowPointer);
+  rowPointer = renderTemplateEntriesSection(sheet, 'expense', rowPointer);
+  rowPointer = renderTemplateSavingsSection(sheet, rowPointer);
+
+  sheet.columns = [
+    { key: 'name', width: 24 },
+    ...Array.from({ length: 12 }, () => ({ width: 10 })),
+    { key: 'comment', width: 28 },
+  ];
 
   return workbook;
 }

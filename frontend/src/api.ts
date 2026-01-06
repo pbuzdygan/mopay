@@ -40,5 +40,19 @@ export const Api = {
     const res = await fetch(`${BASE}/api/export`, { method: 'POST', body: JSON.stringify({ years }), headers: { 'Content-Type': 'application/json' } });
     const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a');
     a.href = url; a.download = 'mopay_export.xlsx'; a.click(); URL.revokeObjectURL(url);
-  }
+  },
+  downloadImportTemplate: async () => {
+    const res = await fetch(`${BASE}/api/import/template`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mopay_import_template.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+  validateImportTemplate: (payload: { name: string; data: string }) =>
+    api('/api/import/validate', { method: 'POST', body: JSON.stringify(payload) }),
+  importData: (payload: { name: string; data: string; overwriteYears: number[] }) =>
+    api('/api/import', { method: 'POST', body: JSON.stringify(payload) }),
 };

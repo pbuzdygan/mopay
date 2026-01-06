@@ -110,6 +110,9 @@ export function MainBar() {
                   <DropdownItem onSelect={() => { openModal('export'); close(); }}>
                     Export data
                   </DropdownItem>
+                  <DropdownItem onSelect={() => { openModal('import'); close(); }}>
+                    Import data
+                  </DropdownItem>
                   <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
                     Settings
                   </DropdownItem>
@@ -311,6 +314,9 @@ export function MainBar() {
                       <DropdownItem onSelect={() => { openModal('export'); close(); }}>
                         Export data
                       </DropdownItem>
+                      <DropdownItem onSelect={() => { openModal('import'); close(); }}>
+                        Import data
+                      </DropdownItem>
                       <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
                         Settings
                       </DropdownItem>
@@ -359,6 +365,9 @@ export function MainBar() {
                     </DropdownItem>
                     <DropdownItem onSelect={() => { openModal('export'); close(); }}>
                       Export data
+                    </DropdownItem>
+                    <DropdownItem onSelect={() => { openModal('import'); close(); }}>
+                      Import data
                     </DropdownItem>
                     <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
                       Settings
