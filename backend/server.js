@@ -164,24 +164,41 @@ const findSectionRow = (sheet, label) => {
   return rowIndex;
 };
 
+const GROUP_PREFIX = 'Group:';
+const buildEndMarker = (sectionLabel) => `End of ${sectionLabel}`;
+
 const parseEntriesSection = (sheet, label, type, yearId) => {
   const sectionRow = findSectionRow(sheet, label);
   if (!sectionRow) return [];
   const data = [];
+  let currentGroupName = null; // null => Ungrouped
+  const endMarker = buildEndMarker(label);
   const commentColumnIndex = 14;
   let row = sectionRow + 2;
   while (row <= sheet.rowCount) {
     const nameText = getCellText(sheet.getCell(row, 1).value);
-    if (nameText === 'Total') break;
+    if (nameText === 'Total' || nameText === endMarker) break;
+    if (nameText?.startsWith(GROUP_PREFIX)) {
+      let rest = nameText.slice(GROUP_PREFIX.length);
+      if (rest.startsWith(' ')) rest = rest.slice(1);
+      const groupName = clampText(rest, 40);
+      currentGroupName = groupName || null;
+      data.push({ kind: 'group', type, name: currentGroupName || 'Ungrouped', yearId });
+      row += 1;
+      continue;
+    }
+
     const months = MONTH_COLUMNS.map((_, idx) => getCellNumber(sheet.getCell(row, 2 + idx).value));
     const comment = getCellText(sheet.getCell(row, commentColumnIndex).value);
     if (nameText) {
       data.push({
+        kind: 'entry',
         type,
         name: clampText(nameText, 80),
         comment: clampText(comment, 240),
         months,
         yearId,
+        groupName: currentGroupName || 'Ungrouped',
       });
     }
     row += 1;
@@ -192,9 +209,11 @@ const parseEntriesSection = (sheet, label, type, yearId) => {
 const parseSavingsSection = (sheet) => {
   const savingsRow = findSectionRow(sheet, 'Savings');
   if (!savingsRow) return [];
+  const endMarkerRow = findSectionRow(sheet, 'End of Savings');
   const startCols = [1, 4, 7, 10];
   const goals = [];
-  for (let row = savingsRow + 2; row <= sheet.rowCount; row += 1) {
+  const lastRow = endMarkerRow ? endMarkerRow - 1 : sheet.rowCount;
+  for (let row = savingsRow + 2; row <= lastRow; row += 1) {
     for (const startCol of startCols) {
       const title = getCellText(sheet.getCell(row, startCol).value);
       if (!title || title === 'Target' || title === 'Name' || title === 'Total') continue;
@@ -207,8 +226,9 @@ const parseSavingsSection = (sheet) => {
       const items = [];
       for (let r = row + 3; r <= sheet.rowCount; r += 1) {
         const nameText = getCellText(sheet.getCell(r, startCol).value);
-        if (nameText === 'Total') break;
+        if (nameText === 'Total' || nameText === 'End of Savings') break;
         const value = getCellNumber(sheet.getCell(r, startCol + 1).value);
+        // Empty rows are ignored; the section ends at 'End of Savings' marker.
         if (!nameText && value === 0) continue;
         items.push({
           name: clampText(nameText || '', 80),
@@ -895,29 +915,58 @@ app.post('/api/import', async (req,res)=>{
         }
         if (!yearRow) throw new Error('YEAR_CREATE_FAILED');
 
-        const entries = [
-          ...parseEntriesSection(sheet, 'Incomes', 'income', yearRow.id),
-          ...parseEntriesSection(sheet, 'Expenses', 'expense', yearRow.id),
-        ];
         const monthColumnsSql = MONTH_COLUMNS.map((col) => (col === 'Dec' ? '"Dec"' : col)).join(', ');
         const monthPlaceholders = MONTH_COLUMNS.map(() => '?').join(', ');
         const insertEntry = db.prepare(
-          `INSERT INTO entries(type,name,year_id,comment,${monthColumnsSql},sort_index)
-           VALUES (?,?,?, ?, ${monthPlaceholders}, ?)`
+          `INSERT INTO entries(type,name,year_id,group_id,comment,${monthColumnsSql},sort_index)
+           VALUES (?,?,?,?, ?, ${monthPlaceholders}, ?)`
         );
-        let sortIndex = 0;
-        for (const entry of entries) {
-          const months = entry.months.map((value) => encryptNumber(value));
-          insertEntry.run(
-            entry.type,
-            entry.name,
-            entry.yearId,
-            entry.comment || null,
-            ...months,
-            sortIndex
-          );
-          sortIndex += 1;
-        }
+        const insertGroup = db.prepare(
+          'INSERT INTO entry_groups(type,name,year_id,sort_index) VALUES (?,?,?,?)'
+        );
+
+        const importEntriesForType = (sectionLabel, entryType) => {
+          const items = parseEntriesSection(sheet, sectionLabel, entryType, yearRow.id);
+          const groupIdByName = new Map();
+          let groupSort = 0;
+          const entrySortByGroup = new Map(); // key: groupId (number) or null
+          let currentGroupId = null;
+
+          const ensureGroupId = (groupName) => {
+            const normalized = clampText(groupName ?? '', 40);
+            if (!normalized || normalized === 'Ungrouped') return null;
+            if (groupIdByName.has(normalized)) return groupIdByName.get(normalized);
+            groupSort += 1;
+            const info = insertGroup.run(entryType, normalized, yearRow.id, groupSort);
+            const id = info.lastInsertRowid;
+            groupIdByName.set(normalized, id);
+            return id;
+          };
+
+          for (const item of items) {
+            if (item.kind === 'group') {
+              currentGroupId = ensureGroupId(item.name);
+              continue;
+            }
+            if (item.kind !== 'entry') continue;
+            const months = item.months.map((value) => encryptNumber(value));
+            const sortKey = currentGroupId ?? null;
+            const nextSort = (entrySortByGroup.get(sortKey) ?? 0) + 1;
+            entrySortByGroup.set(sortKey, nextSort);
+            insertEntry.run(
+              item.type,
+              item.name,
+              item.yearId,
+              currentGroupId,
+              item.comment || null,
+              ...months,
+              nextSort
+            );
+          }
+        };
+
+        importEntriesForType('Incomes', 'income');
+        importEntriesForType('Expenses', 'expense');
 
         const goals = parseSavingsSection(sheet);
         const insertGoal = db.prepare(

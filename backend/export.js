@@ -46,9 +46,31 @@ const TAG_COLOR_MAP = {
   red: 'F8D1D1',
 };
 
+function applyAccentFillAndWhiteText(row) {
+  row.eachCell((cell) => {
+    cell.fill = fills.accent;
+    cell.font = {
+      ...(cell.font ?? {}),
+      bold: true,
+      color: { argb: toArgb(palette.textOnAccent) },
+    };
+  });
+}
+
+function applyAccentFillAndWhiteTextToCell(cell) {
+  cell.fill = fills.accent;
+  cell.font = {
+    ...(cell.font ?? {}),
+    bold: true,
+    color: { argb: toArgb(palette.textOnAccent) },
+  };
+}
+
 function styleTableRow(row, variant = 'body', textColumns = [1]) {
   const fill =
     variant === 'header'
+      ? fills.header
+      : variant === 'group'
       ? fills.header
       : variant === 'total'
       ? fills.total
@@ -89,12 +111,30 @@ function renderEntriesSection(sheet, year, type, startRow) {
   const headerRow = sheet.addRow(['Name', ...MONTHS, 'Sum', 'Avg', 'Comment']);
   const commentColumnIndex = 1 + MONTHS.length + 3;
   styleTableRow(headerRow, 'header', [1, commentColumnIndex]);
+  applyAccentFillAndWhiteText(headerRow);
 
-  const rows = db.prepare(
-    `SELECT e.id, name, comment, Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, "Dec" as Decm
-     FROM entries e JOIN years y ON e.year_id=y.id
-     WHERE y.year=? AND type=? ORDER BY sort_index, e.id`
-  ).all(year, type);
+  const groups = db
+    .prepare(
+      `SELECT g.id, g.name, g.sort_index AS sortIndex
+       FROM entry_groups g
+       JOIN years y ON y.id = g.year_id
+       WHERE y.year=? AND g.type=?
+       ORDER BY g.sort_index, g.id`
+    )
+    .all(year, type);
+
+  const rows = db
+    .prepare(
+      `SELECT e.id, e.name, e.comment, e.group_id AS groupId, e.sort_index,
+              e.Jan, e.Feb, e.Mar, e.Apr, e.May, e.Jun, e.Jul, e.Aug, e.Sep, e.Oct, e.Nov, e."Dec" as Decm,
+              g.sort_index AS groupSortIndex, g.id AS groupJoinId
+       FROM entries e
+       JOIN years y ON e.year_id=y.id
+       LEFT JOIN entry_groups g ON g.id = e.group_id
+       WHERE y.year=? AND e.type=?
+       ORDER BY (e.group_id IS NULL) ASC, g.sort_index ASC, g.id ASC, e.sort_index ASC, e.id ASC`
+    )
+    .all(year, type);
 
   const tagRows = db
     .prepare(
@@ -113,7 +153,20 @@ function renderEntriesSection(sheet, year, type, startRow) {
   }
 
   const monthlyTotals = new Array(MONTHS.length).fill(0);
+  const rowsByGroup = new Map();
   for (const entry of rows) {
+    const key = entry.groupId ?? null;
+    if (!rowsByGroup.has(key)) rowsByGroup.set(key, []);
+    rowsByGroup.get(key).push(entry);
+  }
+
+  const renderGroupRow = (label) => {
+    const empty = new Array(MONTHS.length).fill('');
+    const groupRow = sheet.addRow([`Group: ${label}`, ...empty, '', '', '']);
+    styleTableRow(groupRow, 'group', [1, commentColumnIndex]);
+  };
+
+  const renderEntry = (entry) => {
     const values = MONTHS.map((month) => {
       const raw = month === 'Dec' ? entry.Decm : entry[month];
       return decryptToNumber(raw);
@@ -145,12 +198,30 @@ function renderEntriesSection(sheet, year, type, startRow) {
         }
       });
     }
+  };
+
+  // If grouping isn't used (no groups exist), keep the export identical to pre-grouping versions.
+  if (!groups.length) {
+    for (const entry of rows) renderEntry(entry);
+  } else {
+    // Render created groups (even if empty), then ungrouped last (only if there are entries)
+    for (const g of groups) {
+      renderGroupRow(g.name);
+      const groupEntries = rowsByGroup.get(g.id) ?? [];
+      for (const entry of groupEntries) renderEntry(entry);
+    }
+    const ungroupedEntries = rowsByGroup.get(null) ?? [];
+    if (ungroupedEntries.length) {
+      renderGroupRow('Ungrouped');
+      for (const entry of ungroupedEntries) renderEntry(entry);
+    }
   }
 
   const totalSum = monthlyTotals.reduce((acc, val) => acc + val, 0);
   const totalAvg = monthlyTotals.length ? totalSum / monthlyTotals.length : 0;
   const totalRow = sheet.addRow(['Total', ...monthlyTotals, totalSum, totalAvg, '']);
   styleTableRow(totalRow, 'total', [1, commentColumnIndex]);
+  applyAccentFillAndWhiteText(totalRow);
 
   const spacer = sheet.addRow([]);
   return spacer.number + 1;
@@ -161,14 +232,27 @@ function renderTemplateEntriesSection(sheet, type, startRow) {
   const headerRow = sheet.addRow(['Name', ...MONTHS, 'Comment']);
   const commentColumnIndex = 1 + MONTHS.length + 1;
   styleTableRow(headerRow, 'header', [1, commentColumnIndex]);
+  applyAccentFillAndWhiteText(headerRow);
 
   const values = MONTHS.map(() => 0);
-  const name = type === 'income' ? 'Example Income' : 'Example Expense';
-  const dataRow = sheet.addRow([name, ...values, '']);
+  const exampleName = type === 'income' ? 'Example Income' : 'Example Expense';
+  const exampleUngroupedName = type === 'income' ? 'Example Ungrouped Income' : 'Example Ungrouped Expense';
+
+  const blanks = MONTHS.map(() => '');
+  const groupRow = sheet.addRow(['Group: Example name', ...blanks, '']);
+  styleTableRow(groupRow, 'group', [1, commentColumnIndex]);
+  const dataRow = sheet.addRow([exampleName, ...values, '']);
   styleTableRow(dataRow, 'body', [1, commentColumnIndex]);
 
-  const totalRow = sheet.addRow(['Total', ...values, '']);
-  styleTableRow(totalRow, 'total', [1, commentColumnIndex]);
+  const ungroupedRow = sheet.addRow(['Group: Ungrouped', ...blanks, '']);
+  styleTableRow(ungroupedRow, 'group', [1, commentColumnIndex]);
+  const dataRow2 = sheet.addRow([exampleUngroupedName, ...values, '']);
+  styleTableRow(dataRow2, 'body', [1, commentColumnIndex]);
+
+  const sectionLabel = type === 'income' ? 'Incomes' : 'Expenses';
+  const endRow = sheet.addRow([`End of ${sectionLabel}`, ...blanks, '']);
+  styleTableRow(endRow, 'header', [1, commentColumnIndex]);
+  applyAccentFillAndWhiteText(endRow);
 
   const spacer = sheet.addRow([]);
   return spacer.number + 1;
@@ -219,8 +303,9 @@ function styleSavingsRow(sheet, rowIndex, startCol, endCol, variant = 'body') {
   }
 }
 
-function renderGoalTable(sheet, goal, items, startRow, startCol) {
+function renderGoalTable(sheet, goal, items, startRow, startCol, options = {}) {
   const endCol = startCol + SAVINGS_DATA_COLUMNS - 1;
+  const includeTotal = options.includeTotal !== false;
   const totalValue = items.reduce((sum, item) => sum + decryptToNumber(item.value), 0);
 
   sheet.mergeCells(startRow, startCol, startRow, endCol);
@@ -255,10 +340,12 @@ function renderGoalTable(sheet, goal, items, startRow, startCol) {
     }
   }
 
-  row += 1;
-  sheet.getCell(row, startCol).value = 'Total';
-  sheet.getCell(row, startCol + 1).value = totalValue;
-  styleSavingsRow(sheet, row, startCol, endCol, 'total');
+  if (includeTotal) {
+    row += 1;
+    sheet.getCell(row, startCol).value = 'Total';
+    sheet.getCell(row, startCol + 1).value = totalValue;
+    styleSavingsRow(sheet, row, startCol, endCol, 'total');
+  }
 
   return row - startRow + 1;
 }
@@ -322,7 +409,13 @@ function renderTemplateSavingsSection(sheet, startRow) {
   const goal = { name: 'Example name', targetValue: 0 };
   const items = [{ name: 'Example', value: 0 }];
   const currentRow = startRow + 2;
-  renderGoalTable(sheet, goal, items, currentRow, 1);
+  const height = renderGoalTable(sheet, goal, items, currentRow, 1, { includeTotal: false });
+
+  const marker = sheet.addRow(['End of Savings', '', '', '']);
+  styleTableRow(marker, 'body', [1]);
+  applyAccentFillAndWhiteTextToCell(marker.getCell(1));
+  applyAccentFillAndWhiteTextToCell(marker.getCell(2));
+
   const spacer = sheet.addRow([]);
   return spacer.number + 1;
 }
