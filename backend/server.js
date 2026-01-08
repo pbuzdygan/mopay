@@ -9,6 +9,7 @@ import { exportYearsToWorkbook, exportImportTemplateWorkbook } from './export.js
 import { encryptNumber, decryptToNumber, KEY_FINGERPRINT } from './encryption.js';
 import { runEncryptionMigration, evaluateEncryptionState, repairEncryptionState } from './migration.js';
 import { runTagsMigration } from './tagsMigration.js';
+import { runGroupsMigration } from './groupsMigration.js';
 import { initializePin, verifyPinValue } from './pin.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,6 +46,12 @@ console.log(
   tagsMigrationInfo.created
     ? 'Tagging migration executed (entry_tags table ready)'
     : 'Tagging migration not required'
+);
+const groupsMigrationInfo = runGroupsMigration(db);
+console.log(
+  groupsMigrationInfo.created
+    ? 'Grouping migration completed successfully (entry_groups/group_id ready)'
+    : 'Grouping migration not required'
 );
 initializePin(db, APP_PIN);
 const fingerprintRow = getMetaValue('enc_key_fingerprint');
@@ -88,7 +95,7 @@ if (!keyMismatch) {
 }
 
 const MONTH_COLUMNS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const TAG_COLORS = new Set(['grey','green','orange','red']);
+const TAG_COLORS = new Set(['none', 'grey', 'green', 'orange', 'red']);
 
 const clampText = (value, max = 80) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -220,6 +227,7 @@ const parseSavingsSection = (sheet) => {
 
 const clearYearData = (yearId) => {
   db.prepare('DELETE FROM entries WHERE year_id=?').run(yearId);
+  db.prepare('DELETE FROM entry_groups WHERE year_id=?').run(yearId);
   const goalIds = db.prepare('SELECT id FROM savings_goals WHERE year_id=?').all(yearId).map((row) => row.id);
   if (goalIds.length) {
     db.prepare(`DELETE FROM savings_items WHERE goal_id IN (${goalIds.map(() => '?').join(',')})`).run(...goalIds);
@@ -284,6 +292,7 @@ app.delete('/api/years', (req,res)=>{
   const ids = found.map(x=>x.id);
   if (ids.length) {
     db.prepare(`DELETE FROM entries WHERE year_id IN (${ids.map(()=>'?').join(',')})`).run(...ids);
+    db.prepare(`DELETE FROM entry_groups WHERE year_id IN (${ids.map(()=>'?').join(',')})`).run(...ids);
 
     const goals = db
       .prepare(`SELECT id FROM savings_goals WHERE year_id IN (${ids.map(() => '?').join(',')})`)
@@ -299,6 +308,112 @@ app.delete('/api/years', (req,res)=>{
   res.json({ ok: true, removedYears: found.map(x=>x.year) });
 });
 
+// Entry groups
+app.get('/api/entry-groups', (req, res) => {
+  if (guardKeyMismatch(res)) return;
+  const { type, year } = req.query;
+  if (!['income', 'expense'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
+  const yr = getYearRow(year);
+  if (!yr) {
+    if (!Number.isInteger(Number(year))) return res.status(400).json({ error: 'Invalid year' });
+    return res.json({ groups: [] });
+  }
+  const rows = db
+    .prepare(
+      `SELECT id, name, sort_index AS sortIndex
+       FROM entry_groups
+       WHERE year_id=? AND type=?
+       ORDER BY sort_index, id`
+    )
+    .all(yr.id, type);
+  res.json({ groups: rows });
+});
+
+app.post('/api/entry-groups', (req, res) => {
+  if (guardKeyMismatch(res)) return;
+  const { type, year, name } = req.body || {};
+  if (!['income', 'expense'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
+  const yr = getYearRow(year);
+  if (!yr) return res.status(404).json({ error: 'Year not found' });
+  const trimmed = clampText(name ?? '', 40);
+  if (!trimmed) return res.status(400).json({ error: 'Invalid name' });
+  const mx = db
+    .prepare('SELECT COALESCE(MAX(sort_index),0) mx FROM entry_groups WHERE year_id=? AND type=?')
+    .get(yr.id, type)?.mx;
+  const info = db
+    .prepare('INSERT INTO entry_groups(type,name,year_id,sort_index) VALUES (?,?,?,?)')
+    .run(type, trimmed, yr.id, Number(mx ?? 0) + 1);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+app.patch('/api/entry-groups/order', (req, res) => {
+  if (guardKeyMismatch(res)) return;
+  const { type, year, orderedIds } = req.body || {};
+  if (!['income', 'expense'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return res.status(400).json({ error: 'Invalid orderedIds' });
+  }
+  const yr = getYearRow(year);
+  if (!yr) return res.status(404).json({ error: 'Year not found' });
+  const ids = orderedIds.map((v) => Number(v)).filter((v) => Number.isInteger(v));
+  if (ids.length !== orderedIds.length) return res.status(400).json({ error: 'Invalid orderedIds' });
+  const existing = db
+    .prepare('SELECT id FROM entry_groups WHERE year_id=? AND type=? ORDER BY sort_index, id')
+    .all(yr.id, type)
+    .map((row) => row.id);
+  if (existing.length !== ids.length) return res.status(400).json({ error: 'Invalid orderedIds' });
+  const existingSet = new Set(existing);
+  if (ids.some((id) => !existingSet.has(id))) {
+    return res.status(400).json({ error: 'Invalid orderedIds' });
+  }
+  const tx = db.transaction((order) => {
+    const stmt = db.prepare('UPDATE entry_groups SET sort_index=? WHERE id=?');
+    order.forEach((id, idx) => stmt.run(idx + 1, id));
+  });
+  tx(ids);
+  res.json({ ok: true });
+});
+
+app.patch('/api/entry-groups/:id', (req, res) => {
+  if (guardKeyMismatch(res)) return;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+  const { name, sortIndex } = req.body || {};
+  const sets = [];
+  const vals = [];
+  if (name !== undefined) {
+    const trimmed = clampText(name ?? '', 40);
+    if (!trimmed) return res.status(400).json({ error: 'Invalid name' });
+    sets.push('name=?');
+    vals.push(trimmed);
+  }
+  if (sortIndex !== undefined) {
+    const idx = Number(sortIndex);
+    if (!Number.isFinite(idx)) return res.status(400).json({ error: 'Invalid sortIndex' });
+    sets.push('sort_index=?');
+    vals.push(Math.max(0, Math.floor(idx)));
+  }
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+  vals.push(id);
+  const info = db.prepare(`UPDATE entry_groups SET ${sets.join(', ')} WHERE id=?`).run(...vals);
+  res.json({ ok: true, updated: info.changes });
+});
+
+app.delete('/api/entry-groups', (req, res) => {
+  if (guardKeyMismatch(res)) return;
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'No ids' });
+  const normalizedIds = ids.map((v) => Number(v)).filter((v) => Number.isInteger(v));
+  if (normalizedIds.length === 0) return res.status(400).json({ error: 'No ids' });
+
+  const tx = db.transaction((list) => {
+    db.prepare(`UPDATE entries SET group_id=NULL WHERE group_id IN (${list.map(() => '?').join(',')})`).run(...list);
+    db.prepare(`DELETE FROM entry_groups WHERE id IN (${list.map(() => '?').join(',')})`).run(...list);
+  });
+  tx(normalizedIds);
+  res.json({ ok: true });
+});
+
 // Entries
 app.get('/api/entries', (req,res)=>{
   if (guardKeyMismatch(res)) return;
@@ -309,8 +424,12 @@ app.get('/api/entries', (req,res)=>{
   const yr = db.prepare('SELECT id FROM years WHERE year=?').get(y);
   if (!yr) return res.json({ entries: [] });
   const rows = db.prepare(
-    `SELECT id, name, comment, sort_index, Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, "Dec" as Decm
-     FROM entries WHERE type=? AND year_id=? ORDER BY sort_index, id`
+    `SELECT e.id, e.name, e.comment, e.group_id AS groupId, e.sort_index,
+            e.Jan, e.Feb, e.Mar, e.Apr, e.May, e.Jun, e.Jul, e.Aug, e.Sep, e.Oct, e.Nov, e."Dec" as Decm
+     FROM entries e
+     LEFT JOIN entry_groups g ON g.id = e.group_id
+     WHERE e.type=? AND e.year_id=?
+     ORDER BY (e.group_id IS NULL) ASC, g.sort_index ASC, g.id ASC, e.sort_index ASC, e.id ASC`
   ).all(type, yr.id);
   const decrypted = rows.map((row)=>({
     ...row,
@@ -331,18 +450,36 @@ app.get('/api/entries', (req,res)=>{
 });
 app.post('/api/entries', (req,res)=>{
   if (guardKeyMismatch(res)) return;
-  const { type, year, name } = req.body;
+  const { type, year, name, groupId } = req.body;
   if (!['income','expense'].includes(type) || !name) return res.status(400).json({ error: 'Invalid payload' });
   const yr = db.prepare('SELECT id FROM years WHERE year=?').get(year);
   if (!yr) return res.status(404).json({ error: 'Year not found' });
-  const mx = db.prepare('SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=?').get(yr.id, type).mx;
+  const normalizedGroupId = groupId === null || groupId === undefined ? null : Number(groupId);
+  if (normalizedGroupId !== null && !Number.isInteger(normalizedGroupId)) {
+    return res.status(400).json({ error: 'Invalid groupId' });
+  }
+  if (normalizedGroupId !== null) {
+    const group = db
+      .prepare('SELECT id FROM entry_groups WHERE id=? AND year_id=? AND type=?')
+      .get(normalizedGroupId, yr.id, type);
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+  }
+  const mxRow =
+    normalizedGroupId === null
+      ? db
+          .prepare('SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id IS NULL')
+          .get(yr.id, type)
+      : db
+          .prepare('SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id=?')
+          .get(yr.id, type, normalizedGroupId);
+  const mx = mxRow?.mx ?? 0;
   const monthColumnsSql = MONTH_COLUMNS.map((col) => (col === 'Dec' ? '"Dec"' : col)).join(', ');
   const monthPlaceholders = MONTH_COLUMNS.map(() => '?').join(', ');
   const zeroValues = MONTH_COLUMNS.map(() => encryptNumber(0));
   const stmt = db.prepare(
-    `INSERT INTO entries(type,name,year_id,sort_index,${monthColumnsSql}) VALUES (?,?,?,?,${monthPlaceholders})`
+    `INSERT INTO entries(type,name,year_id,group_id,sort_index,${monthColumnsSql}) VALUES (?,?,?,?,?,${monthPlaceholders})`
   );
-  const info = stmt.run(type, name, yr.id, mx + 1, ...zeroValues);
+  const info = stmt.run(type, name, yr.id, normalizedGroupId, Number(mx) + 1, ...zeroValues);
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
@@ -394,10 +531,82 @@ app.delete('/api/tags', (req,res)=>{
   db.prepare('DELETE FROM entry_tags WHERE entry_id=? AND month=?').run(entryId, normalizedMonth);
   res.json({ ok: true });
 });
+
+function normalizeEntrySortIndexes(yearId, type, groupId) {
+  const ids =
+    groupId === null || groupId === undefined
+      ? db
+          .prepare(
+            'SELECT id FROM entries WHERE year_id=? AND type=? AND group_id IS NULL ORDER BY sort_index, id'
+          )
+          .all(yearId, type)
+          .map((row) => row.id)
+      : db
+          .prepare(
+            'SELECT id FROM entries WHERE year_id=? AND type=? AND group_id=? ORDER BY sort_index, id'
+          )
+          .all(yearId, type, groupId)
+          .map((row) => row.id);
+  const stmt = db.prepare('UPDATE entries SET sort_index=? WHERE id=?');
+  let i = 1;
+  for (const id of ids) {
+    stmt.run(i++, id);
+  }
+}
+
 app.patch('/api/entries/:id', (req,res)=>{
   if (guardKeyMismatch(res)) return;
   const { id } = req.params;
   const payload = req.body || {};
+  const entryId = Number(id);
+  if (!Number.isInteger(entryId)) return res.status(400).json({ error: 'Invalid id' });
+
+  let groupUpdated = false;
+  const patchGroup = ('groupId' in payload) || ('group_id' in payload);
+  if (patchGroup) {
+    const newGroupRaw = 'groupId' in payload ? payload.groupId : payload.group_id;
+    const newGroupId = newGroupRaw === null || newGroupRaw === undefined ? null : Number(newGroupRaw);
+    if (newGroupId !== null && !Number.isInteger(newGroupId)) {
+      return res.status(400).json({ error: 'Invalid groupId' });
+    }
+
+    const entry = db
+      .prepare('SELECT id, year_id AS yearId, type, group_id AS groupId FROM entries WHERE id=?')
+      .get(entryId);
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+    if (newGroupId !== null) {
+      const group = db
+        .prepare('SELECT id FROM entry_groups WHERE id=? AND year_id=? AND type=?')
+        .get(newGroupId, entry.yearId, entry.type);
+      if (!group) return res.status(404).json({ error: 'Group not found' });
+    }
+
+    if ((entry.groupId ?? null) !== newGroupId) {
+      const maxRow =
+        newGroupId === null
+          ? db
+              .prepare(
+                'SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id IS NULL'
+              )
+              .get(entry.yearId, entry.type)
+          : db
+              .prepare(
+                'SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id=?'
+              )
+              .get(entry.yearId, entry.type, newGroupId);
+      const nextIndex = Number(maxRow?.mx ?? 0) + 1;
+
+      const tx = db.transaction(() => {
+        db.prepare('UPDATE entries SET group_id=?, sort_index=? WHERE id=?').run(newGroupId, nextIndex, entryId);
+        normalizeEntrySortIndexes(entry.yearId, entry.type, entry.groupId ?? null);
+        normalizeEntrySortIndexes(entry.yearId, entry.type, newGroupId);
+      });
+      tx();
+      groupUpdated = true;
+    }
+  }
+
   const fields = ['name','comment','sort_index','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const sets = [], vals = [];
   for (const f of fields) if (f in payload) {
@@ -409,8 +618,11 @@ app.patch('/api/entries/:id', (req,res)=>{
     sets.push(`${col}=?`);
     vals.push(value);
   }
-  if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
-  vals.push(id);
+  if (!sets.length) {
+    if (groupUpdated) return res.json({ ok: true, updated: 1 });
+    return res.status(400).json({ error: 'Nothing to update' });
+  }
+  vals.push(entryId);
   const info = db.prepare(`UPDATE entries SET ${sets.join(', ')} WHERE id=?`).run(...vals);
   res.json({ ok: true, updated: info.changes });
 });

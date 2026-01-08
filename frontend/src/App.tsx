@@ -10,6 +10,7 @@ import { SavingsView } from "./components/SavingsView";
 import { PinGuard } from "./components/PinGuard";
 import { InitiateYearModal } from "./components/modals/InitiateYearModal";
 import { AddEntryModal } from "./components/modals/AddEntryModal";
+import { AddGroupModal } from "./components/modals/AddGroupModal";
 import { CommentModal } from "./components/modals/CommentModal";
 import { YearOperationsModal } from "./components/modals/YearOperationsModal";
 import { ExportModal } from "./components/modals/ExportModal";
@@ -19,6 +20,7 @@ import { SavingsGoalModal } from "./components/modals/SavingsGoalModal";
 import { EncryptionMigrationModal } from "./components/modals/EncryptionMigrationModal";
 import { EncryptionKeyMismatchModal } from "./components/modals/EncryptionKeyMismatchModal";
 import AddToHomeScreen from "./components/AddToHomeScreen";
+import { ReleaseStatusProvider } from "./components/ReleaseStatusProvider";
 
 // style globalne
 import "./styles/global.css";
@@ -77,6 +79,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      <ReleaseStatusProvider />
       <PinGuard />
 
       <header className="sticky-glass">
@@ -97,6 +100,7 @@ export default function App() {
 
       <InitiateYearModal />
       <AddEntryModal />
+      <AddGroupModal />
       <CommentModal />
       <YearOperationsModal />
       <ExportModal />

@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-export type TagColor = 'grey' | 'green' | 'orange' | 'red';
+export type TagColor = 'none' | 'grey' | 'green' | 'orange' | 'red';
 
 const COLORS: Array<{ id: TagColor; label: string; className: string }> = [
-  { id: 'grey', label: 'None', className: 'tag-chip grey' },
+  { id: 'none', label: 'None', className: 'tag-chip none' },
+  { id: 'grey', label: 'Grey', className: 'tag-chip grey' },
   { id: 'green', label: 'Green', className: 'tag-chip green' },
   { id: 'orange', label: 'Orange', className: 'tag-chip orange' },
   { id: 'red', label: 'Red', className: 'tag-chip red' },

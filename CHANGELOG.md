@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.1
+
+- :fire: New small feature - grouping
+- update notification improvement - release info moved to Setting menu, update notification visible on navigation bar only when new update released
+- minor UI improvements
+
 ## v1.4.0
 
 - :fire::boom: **Import feature** has been implemented - Import flow with template download, validation, year overwrite confirmation, and progress/status feedback.

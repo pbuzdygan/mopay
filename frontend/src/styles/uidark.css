@@ -3,6 +3,9 @@
   --panel: #26252D;
   --text-prim: #E5E5EA;
   --text-sec: #93939F;
+  /* Aliases used by global.css */
+  --textPrim: var(--text-prim);
+  --textSec: var(--text-sec);
   --accent: #938CE3;
   --accent-hover: #817AD4;
   --border: #4C4A57;

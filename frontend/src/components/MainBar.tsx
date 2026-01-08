@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Api } from '../api';
 import { useAppStore } from '../store';
 import { YearDropdown } from './YearDropdown';
@@ -27,12 +27,14 @@ export function MainBar() {
     editMode,
     setEditMode,
     removeSelection,
+    groupRemoveSelection,
     clearRemove,
     setPinSession,
     selectedReports,
     toggleReport,
     openGoalModal,
   } = useAppStore();
+  const [tagHintVisible, setTagHintVisible] = useState(false);
 
   const yearsQ = useQuery({ queryKey: ['years'], queryFn: Api.years.list });
   const years = (yearsQ.data?.years ?? []) as number[];
@@ -132,11 +134,12 @@ export function MainBar() {
 
   const editLabelMap: Record<string, string> = {
     name: 'Change name',
+    group: 'Change group',
     order: 'Change order',
-    remove: 'Remove entries',
-    tag: 'Tagging',
+    remove: 'Remove entry',
+    tag: 'Tags',
   } as any;
-  const editMenuLabel = editMode ? (editLabelMap[editMode] ?? 'Edit entries') : 'Edit entries';
+  const editMenuLabel = editMode ? (editLabelMap[editMode] ?? 'Edit mode') : 'Edit mode';
 
   const exitEditMode = () => {
     if (editMode === 'remove') {
@@ -147,76 +150,106 @@ export function MainBar() {
 
   const primaryActions = (
     <>
-      {editMode ? (
+      <div className="edit-actions-wrap w-full md:w-auto">
+        <div className={`grid grid-cols-2 gap-2 w-full ${editMode ? 'edit-actions-hidden' : ''}`}>
+          <button
+            type="button"
+            className="btn px-5 py-2 rounded-2xl w-full mobile-primary"
+            onClick={() => useAppStore.getState().openModal('add')}
+          >
+            Add entry
+          </button>
+          {(tab === 'expenses' || tab === 'incomes') ? (
+            <SoftButton
+              type="button"
+              className="w-full mobile-primary"
+              disabled={!year}
+              onClick={() => useAppStore.getState().openModal('addGroup')}
+            >
+              Add group
+            </SoftButton>
+          ) : (
+            <div className="w-full" aria-hidden="true" />
+          )}
+        </div>
+        {editMode && (
+          <SoftButton
+            type="button"
+            variant="warning"
+            className="edit-actions-overlay w-full mobile-primary"
+            onClick={exitEditMode}
+          >
+            Exit mode
+          </SoftButton>
+        )}
+      </div>
+      {editMode === 'remove' ? (
         <SoftButton
           type="button"
-          variant="warning"
+          variant="danger"
           className="w-full md:w-auto mobile-primary"
-          onClick={exitEditMode}
+          disabled={removeSelection.size === 0 && groupRemoveSelection.size === 0}
+          onClick={() => window.dispatchEvent(new CustomEvent('bulk:remove'))}
         >
-          Exit mode
+          Remove selected
         </SoftButton>
       ) : (
-        <button
-          type="button"
-          className="btn px-5 py-2 rounded-2xl w-full md:w-auto mobile-primary"
-          onClick={() => useAppStore.getState().openModal('add')}
-        >
-          Add entry
-        </button>
-      )}
-      {editMode !== 'remove' && (
-        <DropdownMenu
-          label={editMenuLabel}
-          block
-          buttonClassName={`mobile-primary ${editMode ? 'tag-menu-active' : ''}`}
-        >
-          {({ close }) => (
-            <>
-              <DropdownItem onSelect={() => { setEditMode('name'); close(); }}>
-                Change name
-              </DropdownItem>
-              <DropdownItem onSelect={() => { setEditMode('order'); close(); }}>
-                Change order
-              </DropdownItem>
-              <DropdownItem onSelect={() => { setEditMode('tag'); close(); }}>
-                Tagging
-              </DropdownItem>
+        <div className="relative w-full md:w-auto">
+          <DropdownMenu
+            label={editMenuLabel}
+            block
+            buttonClassName={`mobile-primary ${editMode ? 'tag-menu-active' : ''}`}
+          >
+            {({ close }) => (
+              <>
+                <DropdownItem onSelect={() => { setEditMode('name'); close(); }}>
+                  Change name
+                </DropdownItem>
+                <DropdownItem onSelect={() => { setEditMode('group'); close(); }}>
+                  Change group
+                </DropdownItem>
+                <DropdownItem onSelect={() => { setEditMode('order'); close(); }}>
+                  Change order
+                </DropdownItem>
+                <DropdownItem onSelect={() => { setEditMode('tag'); close(); }}>
+                  Tags
+                </DropdownItem>
               <DropdownItem onSelect={() => { setEditMode('remove'); close(); }}>
-                Remove entries
+                Remove entry
               </DropdownItem>
-            </>
+              </>
+            )}
+          </DropdownMenu>
+          {editMode === 'tag' && tagHintVisible && (
+            <span className="feedback-badge ok tag-mode-hint">
+              Tag months by clicking a month cell.
+            </span>
           )}
-        </DropdownMenu>
+        </div>
       )}
     </>
-  );
-
-  const editActions = editMode === 'remove' && (
-    <div className="flex flex-col gap-2 w-full md:flex-row">
-      <SoftButton
-        type="button"
-        variant="warning"
-        className="w-full md:w-auto mobile-primary"
-        onClick={exitEditMode}
-      >
-        Exit mode
-      </SoftButton>
-      <SoftButton
-        type="button"
-        variant="danger"
-        className="w-full md:w-auto mobile-primary"
-        disabled={removeSelection.size === 0}
-        onClick={() => window.dispatchEvent(new CustomEvent('bulk:remove'))}
-      >
-        Remove selected
-      </SoftButton>
-    </div>
   );
 
   useEffect(() => {
     if ((tab === 'reports' || tab === 'savings') && editMode) setEditMode(null);
   }, [tab, editMode, setEditMode]);
+
+  useEffect(() => {
+    if (editMode !== 'tag') {
+      setTagHintVisible(false);
+      return;
+    }
+    const onHint = () => {
+      setTagHintVisible(true);
+      window.clearTimeout((onHint as any)._tm);
+      (onHint as any)._tm = window.setTimeout(() => setTagHintVisible(false), 2800);
+    };
+    window.addEventListener('tags:hint', onHint as EventListener);
+    return () => {
+      window.removeEventListener('tags:hint', onHint as EventListener);
+      window.clearTimeout((onHint as any)._tm);
+    };
+  }, [editMode]);
 
   const reportActions = (
     <div className="report-toggle-group" role="group" aria-label="Reports">
@@ -253,11 +286,11 @@ export function MainBar() {
   const renderActions = () => {
     if (tab === 'reports') return reportActions;
     if (tab === 'savings') return savingsActions;
-    return editMode === 'remove' ? editActions : primaryActions;
+    return primaryActions;
   };
 
   return (
-    <div className="py-3">
+    <div className="py-2">
       <Surface className="stack gap-4 mainbar-shell">
         <div className="flex flex-col gap-3 md:grid md:grid-cols-[1fr_auto_1fr] md:items-start">
           <div className="stack-sm hidden md:flex md:flex-col md:justify-self-start">
