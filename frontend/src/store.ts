@@ -68,9 +68,11 @@ type State = {
   tab: Tab;
   year: number | null;
   theme: 'light' | 'dark';
-  editMode: null | 'name' | 'order' | 'remove' | 'tag';
+  showGroupTotals: boolean;
+  editMode: null | 'name' | 'group' | 'order' | 'remove' | 'tag';
   pinSession: boolean;
   removeSelection: Set<number>;
+  groupRemoveSelection: Set<number>;
   selectedReports: ReportId[];
   modals: {
     add: boolean;
@@ -79,6 +81,7 @@ type State = {
     export: boolean;
     import: boolean;
     settings: boolean;
+    addGroup: boolean;
     initiateYear: boolean;
   };
   goalModal: { open: boolean; goalId: number | null };
@@ -86,6 +89,7 @@ type State = {
   keyMismatch: boolean;
   appVersion: string | null;
   latestVersion: string | null;
+  latestReleaseUrl: string | null;
   releaseChannel: string;
   updateAvailable: boolean;
   setTab: (t: Tab) => void;
@@ -94,6 +98,7 @@ type State = {
   setEditMode: (m: State['editMode']) => void;
   setPinSession: (ok: boolean) => void;
   toggleRemoveId: (id: number) => void;
+  toggleRemoveGroupId: (id: number) => void;
   clearRemove: () => void;
   toggleReport: (id: ReportId) => void;
   clearReports: () => void;
@@ -106,16 +111,20 @@ type State = {
   setKeyMismatch: (active: boolean) => void;
   setAppVersion: (version: string | null) => void;
   setLatestVersion: (version: string | null) => void;
+  setLatestReleaseUrl: (url: string | null) => void;
   setReleaseChannel: (channel: string | null) => void;
+  setShowGroupTotals: (active: boolean) => void;
 };
 
 export const useAppStore = create<State>((set, get) => ({
   tab: load<Tab>('tab', 'expenses'),
   year: load<number | null>('year', null),
   theme: load<'light' | 'dark'>('theme', 'light'),
+  showGroupTotals: load<boolean>('showGroupTotals', false),
   editMode: null,
   pinSession: false,
   removeSelection: new Set<number>(),
+  groupRemoveSelection: new Set<number>(),
   selectedReports: load<ReportId[]>('selectedReports', []),
   modals: {
     add: false,
@@ -124,6 +133,7 @@ export const useAppStore = create<State>((set, get) => ({
     export: false,
     import: false,
     settings: false,
+    addGroup: false,
     initiateYear: false,
   },
   goalModal: { open: false, goalId: null },
@@ -131,6 +141,7 @@ export const useAppStore = create<State>((set, get) => ({
   keyMismatch: false,
   appVersion: null,
   latestVersion: null,
+  latestReleaseUrl: null,
   releaseChannel: 'main',
   updateAvailable: false,
 
@@ -149,6 +160,11 @@ export const useAppStore = create<State>((set, get) => ({
     set({ theme });
   },
 
+  setShowGroupTotals: (showGroupTotals) => {
+    save('showGroupTotals', showGroupTotals);
+    set({ showGroupTotals });
+  },
+
   setEditMode: (editMode) => set({ editMode }),
 
   setPinSession: (pinSession) => set({ pinSession }),
@@ -159,7 +175,13 @@ export const useAppStore = create<State>((set, get) => ({
     set({ removeSelection: s });
   },
 
-  clearRemove: () => set({ removeSelection: new Set<number>() }),
+  toggleRemoveGroupId: (id) => {
+    const s = new Set(get().groupRemoveSelection);
+    s.has(id) ? s.delete(id) : s.add(id);
+    set({ groupRemoveSelection: s });
+  },
+
+  clearRemove: () => set({ removeSelection: new Set<number>(), groupRemoveSelection: new Set<number>() }),
 
   toggleReport: (id) => {
     const current = new Set(get().selectedReports);
@@ -230,12 +252,19 @@ export const useAppStore = create<State>((set, get) => ({
       updateAvailable: compareVersions(state.appVersion, version) < 0,
     })),
 
+  setLatestReleaseUrl: (url) => set({ latestReleaseUrl: url }),
+
   setReleaseChannel: (channel) =>
     set((state) => {
       const normalized = channel ?? 'main';
       if (state.releaseChannel === normalized) {
         return {};
       }
-      return { releaseChannel: normalized, latestVersion: null, updateAvailable: false };
+      return {
+        releaseChannel: normalized,
+        latestVersion: null,
+        latestReleaseUrl: null,
+        updateAvailable: false,
+      };
     }),
 }));

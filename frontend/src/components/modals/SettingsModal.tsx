@@ -3,12 +3,25 @@ import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
 import { FormSection } from '../FormSection';
 import { SoftButton } from '../SoftButton';
+import { buildReleaseInfo } from '../../utils/release';
 
 export function SettingsModal(){
   const { modals, closeModal, theme, setTheme } = useAppStore();
+  const showGroupTotals = useAppStore((s) => s.showGroupTotals);
+  const setShowGroupTotals = useAppStore((s) => s.setShowGroupTotals);
+  const appVersion = useAppStore((s) => s.appVersion);
+  const latestVersion = useAppStore((s) => s.latestVersion);
+  const latestReleaseUrl = useAppStore((s) => s.latestReleaseUrl);
+  const updateAvailable = useAppStore((s) => s.updateAvailable);
   const open = modals.settings;
   const nextTheme = theme === 'light' ? 'dark' : 'light';
   const [locking, setLocking] = useState(false);
+  const releaseInfo = buildReleaseInfo({
+    appVersion,
+    latestVersion,
+    latestReleaseUrl,
+    updateAvailable,
+  });
 
   useEffect(() => {
     if (!open) setLocking(false);
@@ -25,6 +38,11 @@ export function SettingsModal(){
     return () => clearTimeout(tm);
   }, [locking, closeModal]);
 
+  const handleReleaseClick = () => {
+    if (!releaseInfo?.href) return;
+    window.open(releaseInfo.href, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <ModalBase
       open={open}
@@ -39,6 +57,44 @@ export function SettingsModal(){
           <div className="settings-row">
             <div className="settings-text">
               <div className="settings-title">
+                <span className="settings-icon" aria-hidden="true">ℹ️</span>
+                About release
+              </div>
+            </div>
+            <SoftButton
+              type="button"
+              className={`settings-release-button ${releaseInfo?.isUpdate ? 'settings-release-button-update' : ''}`}
+              onClick={handleReleaseClick}
+              disabled={!releaseInfo?.href}
+            >
+              {releaseInfo?.label ?? 'Release info'}
+            </SoftButton>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-text">
+              <div className="settings-title">
+                <span className="settings-icon" aria-hidden="true">🧮</span>
+                Group totals
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`settings-toggle ${showGroupTotals ? 'is-on' : ''}`}
+              aria-pressed={showGroupTotals}
+              onClick={() => setShowGroupTotals(!showGroupTotals)}
+            >
+              <span className="settings-toggle-track">
+                <span className="settings-toggle-label settings-toggle-label-left">Off</span>
+                <span className="settings-toggle-label settings-toggle-label-right">On</span>
+              </span>
+              <span className="settings-toggle-knob" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-text">
+              <div className="settings-title">
                 <span className="settings-icon" aria-hidden="true">🌓</span>
                 Theme mode
               </div>
@@ -50,8 +106,8 @@ export function SettingsModal(){
               onClick={() => setTheme(nextTheme)}
             >
               <span className="settings-toggle-track">
-                <span className="settings-toggle-label settings-toggle-label-left">Light</span>
-                <span className="settings-toggle-label settings-toggle-label-right">Dark</span>
+                <span className="settings-toggle-label settings-toggle-label-left" aria-hidden="true">☀️</span>
+                <span className="settings-toggle-label settings-toggle-label-right" aria-hidden="true">🌙</span>
               </span>
               <span className="settings-toggle-knob" aria-hidden="true" />
             </button>
@@ -61,7 +117,7 @@ export function SettingsModal(){
             <div className="settings-text">
               <div className="settings-title">
                 <span className="settings-icon" aria-hidden="true">🔒</span>
-                Lock your screen
+                Screen Lock
               </div>
             </div>
             <button
@@ -71,8 +127,8 @@ export function SettingsModal(){
               onClick={() => setLocking(true)}
             >
               <span className="settings-toggle-track">
-                <span className="settings-toggle-label settings-toggle-label-left">Lock</span>
-                <span className="settings-toggle-label settings-toggle-label-right">Locked</span>
+                <span className="settings-toggle-label settings-toggle-label-left" aria-hidden="true">🔓</span>
+                <span className="settings-toggle-label settings-toggle-label-right" aria-hidden="true">🔒</span>
               </span>
               <span className="settings-toggle-knob" aria-hidden="true" />
             </button>

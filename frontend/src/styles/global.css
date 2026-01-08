@@ -561,7 +561,7 @@ html {
 }
 
 .mainbar-shell {
-  padding: 1.5rem;
+  padding: 1rem;
 }
 
 .mainbar-tabs {
@@ -587,7 +587,7 @@ html {
 
 @media (max-width: 768px) {
   .mainbar-shell {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 
   .mainbar-tabs-row {
@@ -597,7 +597,7 @@ html {
 
 @media (max-width: 640px) {
   .mainbar-shell {
-    padding: 0.85rem;
+    padding: 0.65rem;
     gap: 1rem;
   }
 
@@ -950,12 +950,146 @@ html {
   border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   transition: background var(--transition), box-shadow var(--transition);
   border-radius: 1rem;
-  animation: appFadeIn 0.35s ease;
+}
+
+.row-leading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.order-handle {
+  width: 26px;
+  height: 26px;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  cursor: grab;
+}
+
+.group-order-handle {
+  width: 22px;
+  height: 22px;
+  background: color-mix(in srgb, #fff 18%, transparent);
+  border-color: color-mix(in srgb, #fff 50%, transparent);
+  color: #fff;
 }
 
 .table-row-premium:hover {
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   box-shadow: var(--shadow-lift);
+}
+
+.table-group-row {
+  background: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 1rem;
+  color: #fff;
+}
+
+.table-group-row .text-textSec {
+  color: color-mix(in srgb, #fff 70%, transparent);
+}
+
+.table-group-row .text-textPrim {
+  color: #fff;
+}
+
+.group-toggle {
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, #fff 15%, transparent);
+  line-height: 1;
+  color: inherit;
+}
+
+.group-select {
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  color: var(--textSec);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  max-width: 120px;
+}
+
+.group-select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.group-picker {
+  width: 26px;
+  height: 26px;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.group-picker-icon {
+  pointer-events: none;
+  line-height: 1;
+}
+
+.group-picker-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tag-mode-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mode-indicator {
+  width: 26px;
+  height: 26px;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  user-select: none;
+}
+
+.tag-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.tag-mode-hint {
+  position: absolute;
+  left: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
 }
 
 .table-input {
@@ -967,6 +1101,54 @@ html {
   text-align: right;
   font-variant-numeric: tabular-nums;
   transition: border var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.table-name-input {
+  width: 100%;
+  height: 26px;
+  box-sizing: border-box;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.1;
+  color: var(--textPrim);
+}
+
+.table-name-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  outline: none;
+  background: color-mix(in srgb, var(--panel) 98%, transparent);
+}
+
+.group-name-input {
+  width: 100%;
+  height: 22px;
+  min-height: 22px;
+  box-sizing: border-box;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.1;
+  color: var(--textPrim);
+}
+
+.group-name-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  outline: none;
+  background: color-mix(in srgb, var(--panel) 98%, transparent);
+}
+
+.table-group-row .group-name-input {
+  /* Solid (non-white) fill so it doesn't look like a white patch on the accent row */
+  background: color-mix(in srgb, var(--accent) 60%, var(--panel) 40%);
+  color: #fff;
+  border-color: color-mix(in srgb, #fff 45%, transparent);
 }
 
 .table-input:focus {
@@ -983,27 +1165,59 @@ html {
   padding: 0.2rem 0.3rem;
   font-weight: 400;
   transition: color var(--transition), background var(--transition);
+  cursor: default;
 }
 
-.table-name:hover {
-  color: var(--accent-hover);
+.table-group-row .table-name.group-name {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.35rem;
+  line-height: 1.1;
+}
+
+.table-group-row .group-name-label {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.35rem;
+  line-height: 1.1;
+}
+
+
+.group-name:hover {
+  color: inherit;
 }
 
 .table-name.is-editable {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--textPrim);
+  cursor: pointer;
+}
+
+.table-group-row .table-name.group-name.is-editable {
+  background: color-mix(in srgb, #fff 14%, transparent);
+  color: #fff;
 }
 
 .table-comment-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  border-radius: 0.9rem;
-  padding: 0.3rem 0.45rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 0.6rem;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   transition: border var(--transition), background var(--transition), color var(--transition);
 }
+
+.mode-enter {
+  animation: appFadeIn 0.2s ease;
+}
+
 
 .table-comment-btn.active {
   border-color: var(--success);
@@ -1091,6 +1305,10 @@ html[data-theme='dark'] .table-value-wrapper .tag-tooltip::after {
 
 .table-value.tag-color-grey {
   background: color-mix(in srgb, var(--textSec) 18%, transparent);
+}
+
+.table-value.tag-color-none {
+  background: transparent;
 }
 
 .table-value.tag-color-green {
@@ -1379,12 +1597,11 @@ html[data-theme='dark'] .sticky-glass.scrolled {
 /* === DND – efekt podświetlenia przeciąganego wiersza === */
 .dragging {
   opacity: 0.8;
-  transform: scale(1.02);
   box-shadow: var(--shadow-drag);
   border-color: color-mix(in srgb, var(--accent) 65%, transparent);
   background: color-mix(in srgb, var(--panel) 90%, transparent);
   z-index: 2;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
 }
 
 .drop-shadow {
@@ -1449,14 +1666,24 @@ html[data-theme='dark'] .row-remove-selected {
 /* === REMOVE MODE CHECKBOX STYLING === */
 .remove-checkbox {
   appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 0.6rem;
   border: 2px solid var(--border);
   background: var(--panel);
   cursor: pointer;
   position: relative;
   transition: all 0.25s ease;
+}
+
+.remove-checkbox-group {
+  width: 22px;
+  height: 22px;
+  border-radius: 0.5rem;
+}
+
+.remove-checkbox-group:checked::after {
+  font-size: 0.75rem;
 }
 
 html[data-theme='dark'] .remove-checkbox {
@@ -1479,10 +1706,10 @@ html[data-theme='dark'] .remove-checkbox {
   color: white;
   font-weight: bold;
   position: absolute;
-  top: 46%;
+  top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 html[data-theme='dark'] .remove-checkbox:checked {
@@ -1881,6 +2108,21 @@ html.theme-changing * {
   font-weight: 600;
 }
 
+.settings-release-button {
+  min-width: 140px;
+  height: 36px;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.settings-release-button-update {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--textPrim);
+}
+
 @media (max-width: 640px) {
   .modal-overlay-top-mobile {
     align-items: flex-start;
@@ -2262,8 +2504,12 @@ html.theme-changing * {
   text-align: center;
 }
 
+.tag-chip.none .tag-chip-swatch {
+  background: transparent;
+}
+
 .tag-chip.grey .tag-chip-swatch {
-  background: color-mix(in srgb, var(--panel) 92%, white 4%);
+  background: color-mix(in srgb, var(--textSec) 45%, var(--panel) 55%);
 }
 .tag-chip.green .tag-chip-swatch { background: color-mix(in srgb, #4caf50 70%, white 15%); }
 .tag-chip.orange .tag-chip-swatch { background: color-mix(in srgb, #ff9800 70%, white 10%); }
@@ -2329,4 +2575,19 @@ html.theme-changing * {
 .tag-menu-active {
   min-width: max-content;
   white-space: nowrap;
+}
+
+.edit-actions-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.edit-actions-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.edit-actions-overlay {
+  position: absolute;
+  inset: 0;
 }

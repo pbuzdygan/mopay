@@ -10,10 +10,20 @@ export const Api = {
   years: { list: () => api('/api/years'), exists: () => api('/api/years/exists'), add: (year: number) => api('/api/years', { method: 'POST', body: JSON.stringify({ year }) }), remove: (years: number[]) => api('/api/years', { method: 'DELETE', body: JSON.stringify({ years }) }) },
   entries: {
     list: (type: 'income'|'expense', year: number) => api(`/api/entries?type=${type}&year=${year}`),
-    add: (payload: { type: 'income'|'expense'; year: number; name: string; }) => api('/api/entries', { method: 'POST', body: JSON.stringify(payload) }),
+    add: (payload: { type: 'income'|'expense'; year: number; name: string; groupId?: number | null }) => api('/api/entries', { method: 'POST', body: JSON.stringify(payload) }),
     patch: (id: number, payload: any) => api(`/api/entries/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     remove: (ids: number[]) => api('/api/entries', { method: 'DELETE', body: JSON.stringify({ ids }) }),
     reorder: (orderedIds: number[]) => api('/api/entries/reorder', { method: 'POST', body: JSON.stringify({ orderedIds }) })
+  },
+  entryGroups: {
+    list: (type: 'income' | 'expense', year: number) => api(`/api/entry-groups?type=${type}&year=${year}`),
+    add: (payload: { type: 'income' | 'expense'; year: number; name: string }) =>
+      api('/api/entry-groups', { method: 'POST', body: JSON.stringify(payload) }),
+    patch: (id: number, payload: { name?: string; sortIndex?: number }) =>
+      api(`/api/entry-groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    remove: (ids: number[]) => api('/api/entry-groups', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+    reorder: (payload: { type: 'income' | 'expense'; year: number; orderedIds: number[] }) =>
+      api('/api/entry-groups/order', { method: 'PATCH', body: JSON.stringify(payload) }),
   },
   savings: {
     list: (year: number) => api(`/api/savings?year=${year}`),

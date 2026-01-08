@@ -2,17 +2,31 @@ CREATE TABLE IF NOT EXISTS years (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   year INTEGER UNIQUE NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS entry_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT CHECK(type IN ('income','expense')) NOT NULL,
+  name TEXT NOT NULL,
+  year_id INTEGER NOT NULL,
+  sort_index INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(year_id) REFERENCES years(id)
+);
+CREATE INDEX IF NOT EXISTS idx_entry_groups_year_type ON entry_groups(year_id, type);
+
 CREATE TABLE IF NOT EXISTS entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   type TEXT CHECK(type IN ('income','expense')) NOT NULL,
   name TEXT NOT NULL,
   year_id INTEGER NOT NULL,
+  group_id INTEGER,
   comment TEXT,
   Jan REAL DEFAULT 0, Feb REAL DEFAULT 0, Mar REAL DEFAULT 0, Apr REAL DEFAULT 0,
   May REAL DEFAULT 0, Jun REAL DEFAULT 0, Jul REAL DEFAULT 0, Aug REAL DEFAULT 0,
   Sep REAL DEFAULT 0, Oct REAL DEFAULT 0, Nov REAL DEFAULT 0, "Dec" REAL DEFAULT 0,
   sort_index INTEGER DEFAULT 0,
-  FOREIGN KEY(year_id) REFERENCES years(id)
+  FOREIGN KEY(year_id) REFERENCES years(id),
+  FOREIGN KEY(group_id) REFERENCES entry_groups(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_entries_year_type ON entries(year_id, type);
 

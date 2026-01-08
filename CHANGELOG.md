@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.0
+
+- :fire: New feature - now incomes and expenses can be moved into collapsible groups. To make life easier, export and import feature now supports grouping also.
+- update notification improvement - release info moved to Setting menu, update notification visible on navigation bar only when new update released
+- UI improvements ended in recreating "Edit mode" menu - all operations in one place
+- minor UI improvements mainly focusing on paddings and properlu using UI's space
+
 ## v1.4.0
 
 - :fire::boom: **Import feature** has been implemented - Import flow with template download, validation, year overwrite confirmation, and progress/status feedback.
