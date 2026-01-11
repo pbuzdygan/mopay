@@ -103,6 +103,7 @@ export function ImportModal() {
   }
 
   const overwriteYears = years.filter((item) => item.exists && item.overwrite).map((item) => item.year);
+  const importYears = years.filter((item) => !item.exists || item.overwrite).map((item) => item.year);
   const hasNewYears = years.some((item) => !item.exists);
   const summaryActive = years.length > 0;
   const canImport =
@@ -117,12 +118,18 @@ export function ImportModal() {
     }
   }, [overwriteYears, confirmOverwrite]);
 
+  useEffect(() => {
+    if (overwriteYears.length && message) {
+      setMessage(null);
+    }
+  }, [overwriteYears.length, message]);
+
   async function handleConfirmImport() {
     if (!payload || !years.length) return;
     setMessage(null);
     setIsImporting(true);
     try {
-      const result = await Api.importData({ name: payload.name, data: payload.data, overwriteYears });
+      const result = await Api.importData({ name: payload.name, data: payload.data, overwriteYears, importYears });
       qc.invalidateQueries({ queryKey: ['years'] });
       setMessage({
         type: 'ok',
@@ -131,11 +138,34 @@ export function ImportModal() {
       setYears([]);
       setPayload(null);
       setConfirmOverwrite(false);
-    } catch {
-      setMessage({
-        type: 'err',
-        text: 'Import failed. Please check the template and try again.',
-      });
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : '';
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.error === 'OVERWRITE_REQUIRED' && Array.isArray(parsed?.years)) {
+          const mustOverwriteYears = parsed.years.map((y: unknown) => Number(y)).filter((y: number) => Number.isInteger(y));
+          setYears((prev) =>
+            prev.map((item) => (mustOverwriteYears.includes(item.year) ? { ...item, exists: true, overwrite: false } : item))
+          );
+          setConfirmOverwrite(false);
+          setMessage({
+            type: 'err',
+            text: `Year(s) already exist: ${mustOverwriteYears.join(', ')}. Mark overwrite or remove them from the file.`,
+          });
+          return;
+        }
+        if (parsed?.error === 'IMPORT_IN_PROGRESS') {
+          setMessage({ type: 'err', text: parsed?.message || 'Another import is currently running. Please wait.' });
+          return;
+        }
+        if (parsed?.error === 'SQLITE_BUSY') {
+          setMessage({ type: 'err', text: parsed?.message || 'Database is busy/locked. Please retry.' });
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      setMessage({ type: 'err', text: 'Import failed. Please check the template and try again.' });
     } finally {
       setIsImporting(false);
     }
@@ -171,19 +201,19 @@ export function ImportModal() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center w-full">
               <button
                 type="button"
-                className="btn min-w-[180px] w-full sm:w-auto"
-                disabled={isValidating}
-                onClick={handleImportClick}
+                className={`btn min-w-[180px] w-full sm:w-auto min-h-[42px] whitespace-nowrap ${
+                  payload ? 'btn-warning' : ''
+                }`}
+                disabled={payload ? !canImport : isValidating}
+                onClick={payload ? handleConfirmImport : handleImportClick}
               >
-                {isValidating ? 'Validating...' : 'Import'}
-              </button>
-              <button
-                type="button"
-                className="btn min-w-[180px] w-full sm:w-auto"
-                disabled={!canImport}
-                onClick={handleConfirmImport}
-              >
-                {isImporting ? 'Importing...' : 'Confirm import'}
+                {payload
+                  ? isImporting
+                    ? 'Importing...'
+                    : 'Confirm import'
+                  : isValidating
+                  ? 'Validating...'
+                  : 'Import'}
               </button>
             </div>
             <input
@@ -232,7 +262,7 @@ export function ImportModal() {
             <div className="legend-stack text-sm text-textSec">
               <div className="legend-row">
                 <span className="year-tile import-existing legend-swatch" aria-hidden="true" />
-                <span>Exists in DB. Confirm data overwrite or skip.</span>
+                <span>Exists in DB - default skip. Overwrite by marking.</span>
               </div>
               <div className="legend-row">
                 <span className="year-tile import-new legend-swatch" aria-hidden="true" />
@@ -252,11 +282,11 @@ export function ImportModal() {
               <label className="flex items-center gap-2 text-sm text-textSec">
                 <input
                   type="checkbox"
-                  className="confirm-checkbox"
+                  className="confirm-checkbox confirm-checkbox-pulse"
                   checked={confirmOverwrite}
                   onChange={(event) => setConfirmOverwrite(event.target.checked)}
                 />
-                <span>Agree to overwrite</span>
+                <span>Agree to overwrite: {overwriteYears.join(', ')}</span>
               </label>
             ) : null}
           </div>

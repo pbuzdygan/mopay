@@ -22,12 +22,17 @@ type MonthStat = {
 };
 
 const monthValue = (entry: EntryRow, month: string) => {
-  if (month === 'Dec') return Number(entry.Decm ?? entry.Dec ?? 0);
-  return Number(entry[month] ?? 0);
+  const raw = month === 'Dec' ? (entry.Decm ?? entry.Dec) : entry[month];
+  if (raw === null || raw === undefined) return null;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : 0;
 };
 
 const entryTotal = (entry: EntryRow) =>
-  MONTHS.reduce((acc, month) => acc + monthValue(entry, month), 0);
+  MONTHS.reduce((acc, month) => {
+    const value = monthValue(entry, month);
+    return acc + (value === null ? 0 : value);
+  }, 0);
 
 function useYearEntries() {
   const year = useAppStore((s) => s.year);
@@ -47,8 +52,14 @@ function useYearEntries() {
 
 function buildMonthStats(incomes: EntryRow[], expenses: EntryRow[]): MonthStat[] {
   return MONTHS.map((month) => {
-    const income = incomes.reduce((sum, entry) => sum + monthValue(entry, month), 0);
-    const expense = expenses.reduce((sum, entry) => sum + monthValue(entry, month), 0);
+    const income = incomes.reduce((sum, entry) => {
+      const value = monthValue(entry, month);
+      return sum + (value === null ? 0 : value);
+    }, 0);
+    const expense = expenses.reduce((sum, entry) => {
+      const value = monthValue(entry, month);
+      return sum + (value === null ? 0 : value);
+    }, 0);
     return { month, income, expense, balance: income - expense };
   });
 }
@@ -225,9 +236,9 @@ function SpendingLeadersCard({ expenses }: { expenses: EntryRow[] }) {
 function IncomeStabilityCard({ incomes }: { incomes: EntryRow[] }) {
   const items = incomes
     .map((entry) => {
-      const values = MONTHS.map((m) => monthValue(entry, m));
-      const avg = values.reduce((sum, v) => sum + v, 0) / (values.length || 1);
-      const variance = values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / (values.length || 1);
+      const values = MONTHS.map((m) => monthValue(entry, m)).filter((v) => v !== null) as number[];
+      const avg = values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+      const variance = values.length ? values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length : 0;
       const deviation = Math.sqrt(variance);
       const ratio = avg > 0 ? deviation / avg : 0;
       return { name: entry.name, deviation, avg, ratio };
@@ -260,9 +271,9 @@ function IncomeStabilityCard({ incomes }: { incomes: EntryRow[] }) {
 function ExpenseStabilityCard({ expenses }: { expenses: EntryRow[] }) {
   const items = expenses
     .map((entry) => {
-      const values = MONTHS.map((m) => monthValue(entry, m));
-      const avg = values.reduce((sum, v) => sum + v, 0) / (values.length || 1);
-      const variance = values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / (values.length || 1);
+      const values = MONTHS.map((m) => monthValue(entry, m)).filter((v) => v !== null) as number[];
+      const avg = values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+      const variance = values.length ? values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length : 0;
       const deviation = Math.sqrt(variance);
       const ratio = avg > 0 ? deviation / avg : 0;
       return { name: entry.name, deviation, avg, ratio };

@@ -41,9 +41,10 @@ const fills = {
 };
 
 const TAG_COLOR_MAP = {
-  green: 'CDEFD6',
-  orange: 'FFE4C4',
-  red: 'F8D1D1',
+  grey: 'D9D9D9',
+  green: '92D050',
+  orange: 'FFC000',
+  red: 'FF0000',
 };
 
 function applyAccentFillAndWhiteText(row) {
@@ -169,14 +170,17 @@ function renderEntriesSection(sheet, year, type, startRow) {
   const renderEntry = (entry) => {
     const values = MONTHS.map((month) => {
       const raw = month === 'Dec' ? entry.Decm : entry[month];
+      if (raw === null || raw === undefined) return null;
       return decryptToNumber(raw);
     });
     values.forEach((value, idx) => {
-      monthlyTotals[idx] += value;
+      if (value !== null) monthlyTotals[idx] += value;
     });
-    const sum = values.reduce((acc, val) => acc + val, 0);
-    const avg = values.length ? sum / values.length : 0;
-    const dataRow = sheet.addRow([entry.name, ...values, sum, avg, entry.comment ?? '']);
+    const numericValues = values.filter((value) => value !== null);
+    const sum = numericValues.reduce((acc, val) => acc + val, 0);
+    const avg = numericValues.length ? sum / numericValues.length : 0;
+    const displayValues = values.map((value) => (value === null ? '-' : value));
+    const dataRow = sheet.addRow([entry.name, ...displayValues, sum, avg, entry.comment ?? '']);
     styleTableRow(dataRow, 'body', [1, commentColumnIndex]);
 
     const entryTags = tagsByEntry.get(entry.id);
@@ -185,17 +189,17 @@ function renderEntriesSection(sheet, year, type, startRow) {
         const tag = entryTags[month];
         if (!tag) return;
         const colorHex = TAG_COLOR_MAP[tag.color];
-        if (!colorHex) return;
         const cellIndex = 2 + monthIdx;
         const cell = dataRow.getCell(cellIndex);
+        if (tag.text) {
+          cell.note = tag.text;
+        }
+        if (!colorHex) return;
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
           fgColor: { argb: toArgb(colorHex) },
         };
-        if (tag.text) {
-          cell.note = tag.text;
-        }
       });
     }
   };

@@ -13,3 +13,10 @@ export function parseCurrencyInput(input: string) {
   const num = Number(normalized);
   return Number.isFinite(num) ? num : 0;
 }
+
+export function parseCurrencyInputNullable(input: string) {
+  if (!input) return 0;
+  const trimmed = input.trim();
+  if (trimmed === '-' || trimmed === '–') return null;
+  return parseCurrencyInput(input);
+}

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
 import { MONTHS } from '../utils/months';
-import { formatCurrency, parseCurrencyInput } from '../utils/currency';
+import { formatCurrency, parseCurrencyInputNullable } from '../utils/currency';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -151,7 +151,7 @@ function Row({
   setEditingNameId: (id: number | null) => void;
   removingIds: number[];
   onNameUpdate: (name: string) => void;
-  onMonthUpdate: (month: string, value: number) => void;
+  onMonthUpdate: (month: string, value: number | null) => void;
   groups: EntryGroup[];
   onGroupChange: (entryId: number, groupId: number | null) => void;
   tags: Record<string, EntryTag | undefined>;
@@ -170,16 +170,16 @@ function Row({
   const canEditValues = !editMode;
 
   const initialNumbers = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, number | null> = {};
     MONTHS.forEach((m) => {
-      const raw = Number(e[m] ?? (m === 'Dec' ? e.Decm : e[m]) ?? 0);
-      map[m] = raw;
+      const raw = m === 'Dec' ? e.Decm : e[m];
+      map[m] = raw === null || raw === undefined ? null : Number(raw);
     });
     return map;
   }, [e]);
 
   const [nameValue, setNameValue] = useState(e.name);
-  const [monthNumbers, setMonthNumbers] = useState<Record<string, number>>(initialNumbers);
+  const [monthNumbers, setMonthNumbers] = useState<Record<string, number | null>>(initialNumbers);
   const [editingMonth, setEditingMonth] = useState<string | null>(null);
   const [monthDraft, setMonthDraft] = useState('');
 
@@ -202,9 +202,9 @@ function Row({
   }, [monthNumbers]);
 
   const rowAvg = useMemo(() => {
-    const totalMonths = MONTHS.length;
-    return totalMonths ? rowSum / totalMonths : 0;
-  }, [rowSum]);
+    const count = MONTHS.reduce((acc, m) => acc + (monthNumbers[m] === null || monthNumbers[m] === undefined ? 0 : 1), 0);
+    return count ? rowSum / count : 0;
+  }, [rowSum, monthNumbers]);
 
   async function saveName() {
     const trimmed = nameValue.trim().slice(0, 40);
@@ -220,7 +220,7 @@ function Row({
   }
 
   async function saveMonth(month: string) {
-    const num = parseCurrencyInput(monthDraft);
+    const num = parseCurrencyInputNullable(monthDraft);
     setMonthNumbers((prev) => ({ ...prev, [month]: num }));
     onMonthUpdate(month, num);
     setEditingMonth(null);
@@ -340,14 +340,14 @@ function Row({
               className="table-input"
               value={monthDraft}
               onChange={(ev)=> {
-                const value = ev.target.value.replace(/[^\d,\s]/g, '');
+                const value = ev.target.value.replace(/[^\d,.\s-]/g, '');
                 setMonthDraft(value);
               }}
               onBlur={()=> saveMonth(m)}
               onKeyDown={(ev)=> {
                 if (ev.key === 'Enter') saveMonth(m);
                 if (ev.key === 'Escape') {
-                  setMonthDraft(formatCurrency(monthNumbers[m] ?? 0));
+                  setMonthDraft(monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0));
                   setEditingMonth(null);
                 }
               }}
@@ -359,16 +359,16 @@ function Row({
               <button
                 className={`table-value ${tagHasColor ? `has-tag tag-color-${tag!.color}` : ''}`}
                 onClick={(ev)=> {
-                  if (isTagMode) {
-                    onRequestTag(e.id, m, ev.currentTarget, tag);
-                    return;
-                  }
-                  if (!canEditValues) return;
-                  setEditingMonth(m);
-                  setMonthDraft(formatCurrency(monthNumbers[m] ?? 0));
-                }}
-              >
-                {formatCurrency(monthNumbers[m] ?? 0)}
+                if (isTagMode) {
+                  onRequestTag(e.id, m, ev.currentTarget, tag);
+                  return;
+                }
+                if (!canEditValues) return;
+                setEditingMonth(m);
+                setMonthDraft(monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0));
+              }}
+            >
+                {monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0)}
               </button>
               {tagText && (
                 <span className="tag-tooltip">{tagText}</span>
@@ -746,13 +746,13 @@ export function TableView() {
                                       setEditingNameId={setEditingNameId}
                                       removingIds={removingIds}
                                       onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                                      onMonthUpdate={(month, value) =>
-                                        setRows((prev) =>
-                                          prev.map((row) =>
-                                            row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                          )
-                                        )
-                                      }
+                                  onMonthUpdate={(month, value) =>
+                                    setRows((prev) =>
+                                      prev.map((row) =>
+                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
+                                      )
+                                    )
+                                  }
                                       groups={sortedGroups}
                                       onGroupChange={handleEntryGroupChange}
                                       tags={tagsByEntry.get(e.id) ?? {}}
@@ -817,13 +817,13 @@ export function TableView() {
                                       setEditingNameId={setEditingNameId}
                                       removingIds={removingIds}
                                       onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                                      onMonthUpdate={(month, value) =>
-                                        setRows((prev) =>
-                                          prev.map((row) =>
-                                            row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                          )
-                                        )
-                                      }
+                                  onMonthUpdate={(month, value) =>
+                                    setRows((prev) =>
+                                      prev.map((row) =>
+                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
+                                      )
+                                    )
+                                  }
                                       groups={sortedGroups}
                                       onGroupChange={handleEntryGroupChange}
                                       tags={tagsByEntry.get(e.id) ?? {}}
@@ -918,13 +918,13 @@ export function TableView() {
                               setEditingNameId={setEditingNameId}
                               removingIds={removingIds}
                               onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                              onMonthUpdate={(month, value) =>
-                                setRows((prev) =>
-                                  prev.map((row) =>
-                                    row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                  )
-                                )
-                              }
+                                  onMonthUpdate={(month, value) =>
+                                    setRows((prev) =>
+                                      prev.map((row) =>
+                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
+                                      )
+                                    )
+                                  }
                               groups={sortedGroups}
                               onGroupChange={handleEntryGroupChange}
                               tags={tagsByEntry.get(e.id) ?? {}}
@@ -980,13 +980,13 @@ export function TableView() {
                               setEditingNameId={setEditingNameId}
                               removingIds={removingIds}
                               onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                              onMonthUpdate={(month, value) =>
-                                setRows((prev) =>
-                                  prev.map((row) =>
-                                    row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                  )
-                                )
-                              }
+                                  onMonthUpdate={(month, value) =>
+                                    setRows((prev) =>
+                                      prev.map((row) =>
+                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
+                                      )
+                                    )
+                                  }
                               groups={sortedGroups}
                               onGroupChange={handleEntryGroupChange}
                               tags={tagsByEntry.get(e.id) ?? {}}
