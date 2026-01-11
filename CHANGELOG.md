@@ -3,6 +3,8 @@
 ## v1.5.2
 
 - UI corrections - fields in the incomes and expense tables dont resizing entire row while in input mode
+- Improvement of mobile view and introducing compact view to simplify using on mobile screens
+- Improvement in UI animations - eliminating places where loading content was causing "blinking" - now transitions are smooth
 
 ## v1.5.1
 

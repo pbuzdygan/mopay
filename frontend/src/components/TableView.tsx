@@ -7,6 +7,7 @@ import { formatCurrency, formatCurrencyPlain, parseCurrencyInputNullable } from 
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { motion, useAnimationControls } from 'framer-motion';
 import { Surface } from './Surface';
 import { TagEditorPopover, type TagColor } from './TagEditorPopover';
 
@@ -91,7 +92,7 @@ function GroupRowSortable({
           onClick={onToggleCollapse}
           aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
         >
-          {isCollapsed ? '▸' : '▾'}
+          <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
         </button>
         {editMode === 'name' && editingGroupId === group.id ? (
           <input
@@ -390,6 +391,8 @@ export function TableView() {
   const groupRemoveSelection = useAppStore((s) => s.groupRemoveSelection);
   const toggleRemoveGroupId = useAppStore((s) => s.toggleRemoveGroupId);
   const qc = useQueryClient();
+  const fadeControls = useAnimationControls();
+  const [hasRendered, setHasRendered] = useState(false);
   const { data } = useEntries();
   const groupsQuery = useQuery({
     enabled: !!year,
@@ -401,9 +404,9 @@ export function TableView() {
     queryKey: ['tags', year],
     queryFn: () => Api.tags.list(year!),
   });
-  const entriesData = (data?.entries ?? []) as any[];
-  const groups = (groupsQuery.data?.groups ?? []) as EntryGroup[];
-  const [rows, setRows] = useState<any[]>(entriesData);
+  const [rows, setRows] = useState<any[]>([]);
+  const [groups, setGroups] = useState<EntryGroup[]>([]);
+  const [tagsList, setTagsList] = useState<EntryTag[]>([]);
   const [editingNameId, setEditingNameId] = useState<number|null>(null);
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [groupNameDraft, setGroupNameDraft] = useState('');
@@ -415,8 +418,42 @@ export function TableView() {
   const [groupOrder, setGroupOrder] = useState<number[] | null>(null);
 
   useEffect(() => {
-    setRows(entriesData);
-  }, [entriesData]);
+    setHasRendered(true);
+  }, []);
+
+  useEffect(() => {
+    if (!data) return;
+    setRows((data.entries ?? []) as any[]);
+  }, [data]);
+
+  useEffect(() => {
+    if (!groupsQuery.data) return;
+    setGroups((groupsQuery.data.groups ?? []) as EntryGroup[]);
+  }, [groupsQuery.data]);
+
+  useEffect(() => {
+    if (!tagsQuery.data) return;
+    setTagsList((tagsQuery.data.tags ?? []) as EntryTag[]);
+  }, [tagsQuery.data]);
+
+  useEffect(() => {
+    if (!hasRendered) return;
+    let cancelled = false;
+    (async () => {
+      await fadeControls.start({
+        opacity: 0.55,
+        transition: { duration: 0.08, ease: 'easeOut' },
+      });
+      if (cancelled) return;
+      await fadeControls.start({
+        opacity: 1,
+        transition: { duration: 0.14, ease: 'easeOut' },
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fadeControls, hasRendered, type, year]);
 
   useEffect(() => {
     setEditingGroupId(null);
@@ -457,13 +494,13 @@ export function TableView() {
 
   const tagsByEntry = useMemo(() => {
     const map = new Map<number, Record<string, EntryTag>>();
-    const list = (tagsQuery.data?.tags ?? []) as EntryTag[];
+    const list = tagsList;
     for (const tag of list) {
       if (!map.has(tag.entryId)) map.set(tag.entryId, {});
       map.get(tag.entryId)![tag.month] = tag;
     }
     return map;
-  }, [tagsQuery.data]);
+  }, [tagsList]);
 
   // Bulk remove (with shake animation)
   useEffect(() => {
@@ -680,11 +717,12 @@ export function TableView() {
   return (
     <div className="stack">
       <Surface variant="table">
-        <div className="overflow-x-auto">
-          <div
-            className="inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
-            style={{ width: 'max-content' }}
-          >
+        <motion.div animate={fadeControls} initial={{ opacity: 1 }}>
+          <div className="overflow-x-auto">
+            <div
+              className="inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
+              style={{ width: 'max-content' }}
+            >
             <div className={`table-header-premium ${GRID_TEMPLATE} gap-1.5 px-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-textSec`}>
               <div className="text-center">💬</div>
               <div>{tab === 'incomes' ? 'Incomes' : 'Expenses'}</div>
@@ -784,7 +822,7 @@ export function TableView() {
                                 onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
                                 aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
                               >
-                                {isCollapsed ? '▸' : '▾'}
+                                <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
                               </button>
                               <span className="font-semibold group-name-label">
                                 <span>Ungrouped</span>
@@ -865,7 +903,7 @@ export function TableView() {
                             onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
                             aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
                           >
-                            {isCollapsed ? '▸' : '▾'}
+                            <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
                           </button>
                           {editMode === 'name' && editingGroupId === g.id ? (
                             <input
@@ -954,7 +992,7 @@ export function TableView() {
                             onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
                             aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
                           >
-                            {isCollapsed ? '▸' : '▾'}
+                            <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
                           </button>
                           <span className="font-semibold group-name-label">
                             <span>Ungrouped</span>
@@ -1012,8 +1050,9 @@ export function TableView() {
               <div className="text-right font-semibold">{formatCurrency(totals.totalSum)}</div>
               <div className="text-right font-semibold">{formatCurrency(totals.totalAvg)}</div>
             </div>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </Surface>
 
       {tagEditor && (
