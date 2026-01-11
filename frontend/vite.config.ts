@@ -53,35 +53,51 @@ export default defineConfig({
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [
-            // Cache tylko assets, nigdy API
-            {
+          // Documents (index.html): NetworkFirst to avoid getting stuck on an old UI after a release.
+          {
+            urlPattern: ({ request }) => request.destination === "document",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "mopay-pages-cache",
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+
+          // Assets: CacheFirst (Vite outputs hashed filenames, so caching won't block updates).
+          {
             urlPattern: ({ request }) =>
-                request.destination === "document" ||
-                request.destination === "script" ||
-                request.destination === "style" ||
-                request.destination === "image" ||
-                request.destination === "font",
+              request.destination === "script" ||
+              request.destination === "style" ||
+              request.destination === "image" ||
+              request.destination === "font",
             handler: "CacheFirst",
             options: {
-                cacheName: "mopay-assets-cache",
-                expiration: {
+              cacheName: "mopay-assets-cache",
+              expiration: {
                 maxEntries: 200,
                 maxAgeSeconds: 60 * 60 * 24 * 30,
-                },
+              },
             },
-            },
+          },
 
-            // API: zawsze tylko sieć
-            {
+          // API: always network-only
+          {
             urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
             handler: "NetworkOnly",
             options: {
-                cacheName: "mopay-api-no-cache",
+              cacheName: "mopay-api-no-cache",
             },
-            }
-            ]
-        },
+          },
+        ],
+      },
     })
   ]
 })

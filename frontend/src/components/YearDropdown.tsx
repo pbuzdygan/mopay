@@ -12,7 +12,7 @@ export function YearDropdown({ years, value, onChange, className, triggerClassNa
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // zamykanie kliknięciem poza dropdown
+  // Close when clicking outside the dropdown
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {

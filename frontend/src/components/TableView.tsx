@@ -465,19 +465,18 @@ export function TableView() {
     return map;
   }, [tagsQuery.data]);
 
-  // Bulk remove
-  // Bulk remove z animacją shake
+  // Bulk remove (with shake animation)
   useEffect(() => {
     const onBulkRemove = async () => {
       const ids = Array.from(removeSelection);
       const groupIds = Array.from(groupRemoveSelection);
       if (!ids.length && !groupIds.length) return;
   
-      // 🔹 Uruchamiamy lokalną animację
+      // Start local animation
       setRemovingIds(ids);
       setRemovingGroupIds(groupIds);
   
-      // 🔹 Odczekaj czas animacji zanim backend faktycznie usunie dane
+      // Wait for animation before actually deleting on the backend
       await new Promise((r) => setTimeout(r, 600));
   
       if (groupIds.length) {
@@ -492,7 +491,7 @@ export function TableView() {
       qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
       if (year) qc.invalidateQueries({ queryKey: ['tags', year] });
   
-      // 🔹 Reset lokalnych flag po chwili
+      // Reset local flags after a moment
       setTimeout(() => {
         setRemovingIds([]);
         setRemovingGroupIds([]);
@@ -526,9 +525,9 @@ export function TableView() {
     setRows((prev) =>
       prev.map((row) => (sortMap.has(row.id) ? { ...row, sort_index: sortMap.get(row.id) } : row))
     );
-    const queryKey = ['entries', type, year]; // ✅ dopasowujemy klucz cache
+    const queryKey = ['entries', type, year]; // keep query key consistent
   
-    // 🔹 natychmiastowy lokalny update w React Query
+    // Immediate local update in React Query
     qc.setQueryData(queryKey, (old: any) => ({
       ...(old ?? {}),
       entries: (old?.entries ?? []).map((row: any) =>
@@ -536,10 +535,10 @@ export function TableView() {
       ),
     }));
 
-    // 🔹 zapis do backendu (bez natychmiastowego refetch)
+    // Persist to backend (without immediate refetch)
     Api.entries.reorder(orderedIds)
       .then(() => {
-        // ⚙️ Czekamy chwilę, żeby backend zapisał, ale nie psujemy wizualnego stanu
+        // Wait a bit for the backend to persist without disrupting the UI state
         setTimeout(() => {
           qc.invalidateQueries({ queryKey, refetchType: 'inactive' });
         }, 1200);

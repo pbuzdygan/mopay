@@ -1633,7 +1633,7 @@ html[data-theme='dark'] .sticky-glass.scrolled {
 .app-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); object-fit: contain; max-height: 72px; height: auto; z-index: 2000; transition: transform 0.25s ease; }
 .app-logo:hover { transform: translate(-50%, -50%) scale(1.05); }
 
-/* === DND – efekt podświetlenia przeciąganego wiersza === */
+/* === DND – dragged row highlight effect === */
 .dragging {
   opacity: 0.8;
   box-shadow: var(--shadow-drag);
@@ -1648,7 +1648,7 @@ html[data-theme='dark'] .sticky-glass.scrolled {
 }
 
 
-/* Mobile – łagodniejszy efekt */
+/* Mobile – softer effect */
 @media (max-width: 768px) {
   .sticky-glass {
     backdrop-filter: saturate(1.2) blur(6px);
@@ -1888,13 +1888,13 @@ html.theme-changing * {
   animation: themePop 0.35s ease forwards;
 }
 
-/* Błąd inputu (np. złe 4 cyfry) */
+/* Input error (e.g. invalid 4 digits) */
 .input-error {
   border-color: #ff4d4d !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, #ff4d4d 30%, transparent);
 }
 
-/* Animacja ikonki motywu */
+/* Theme icon animation */
 @keyframes theme-pop {
   0%   { transform: scale(0.6) rotate(-15deg); opacity: 0; }
   60%  { transform: scale(1.05) rotate(2deg); opacity: 1; }
@@ -1981,7 +1981,7 @@ html.theme-changing * {
 /* === PREMIUM MODAL LOOK === */
 
 .modal-overlay-premium {
-  /* już mamy blur i tło, ale lekko wygładźmy */
+  /* we already have blur and background; smooth it slightly */
   animation: modalOverlayFade 0.18s ease-out;
 }
 
@@ -2014,7 +2014,7 @@ html.theme-changing * {
   font-size: 1.1rem;
 }
 
-/* Ghost button w modalu (Cancel itp.) */
+/* Ghost button inside modal (Cancel, etc.) */
 .btn-ghost-premium {
   background: transparent;
   color: var(--textSec);
@@ -2029,7 +2029,7 @@ html.theme-changing * {
   color: var(--textPrim);
 }
 
-/* Strefa przycisków w stopce modala (ładne wyrównanie) */
+/* Modal footer button area (nice alignment) */
 .modal-footer-premium {
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   margin-top: 0.5rem;
