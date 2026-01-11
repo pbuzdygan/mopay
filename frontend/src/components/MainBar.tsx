@@ -282,10 +282,10 @@ export function MainBar() {
           <button
             key={report.id}
             type="button"
-            className={`report-toggle ${active ? 'active' : ''}`}
+            className={`report-toggle ui-tooltip ${active ? 'active' : ''}`}
             onClick={() => toggleReport(report.id)}
             aria-pressed={active}
-            title={report.tooltip}
+            data-tooltip={report.tooltip}
           >
             <span className="report-icon">{report.icon}</span>
             <span className="report-title">{report.label}</span>

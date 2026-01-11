@@ -10,6 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { motion, useAnimationControls } from 'framer-motion';
 import { Surface } from './Surface';
 import { TagEditorPopover, type TagColor } from './TagEditorPopover';
+import { DropdownItem, DropdownMenu } from './DropdownMenu';
 
 function useEntries() {
   const { tab, year } = useAppStore();
@@ -18,7 +19,7 @@ function useEntries() {
 }
 
 const GRID_TEMPLATE =
-  'grid grid-cols-[44px_160px_repeat(12,72px)_78px_72px]';
+  'grid grid-cols-[28px_176px_repeat(12,72px)_78px_72px]';
 type EntryTag = { id: number; entryId: number; month: string; color: TagColor; text?: string | null };
 type EntryGroup = { id: number; name: string; sortIndex: number };
 
@@ -66,9 +67,9 @@ function GroupRowSortable({
     <div
       ref={setNodeRef}
       style={style}
-      className={`${GRID_TEMPLATE} table-group-row gap-1.5 px-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(group.id) ? 'fade-out' : ''}`}
+      className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(group.id) ? 'fade-out' : ''}`}
     >
-      <div className="col-span-2 flex items-center gap-2 text-textPrim">
+      <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
         {editMode === 'remove' ? (
           <input
             type="checkbox"
@@ -234,7 +235,7 @@ function Row({
       data-entry-id={e.id}
       style={style}
       className={`${GRID_TEMPLATE}
-                  table-row-premium gap-1.5 px-3 py-1.5 items-center text-[0.72rem]
+                  table-row-premium gap-1 pl-0 pr-3 py-1.5 items-center text-[0.72rem]
                   ${isDragging ? 'dragging' : ''}
                   ${editMode === 'remove' && removeSelection.has(e.id) ? 'row-remove-selected' : ''}
                   ${removingIds.includes(e.id) ? 'fade-out' : ''}`}
@@ -252,25 +253,38 @@ function Row({
             ↕
           </button>
         ) : editMode === 'group' ? (
-          <div className="group-picker mode-enter" title="Change group">
-            <span className="group-picker-icon" aria-hidden="true">🔀</span>
-            <select
-              className="group-picker-select"
-              value={e.groupId ?? ''}
-              onChange={(ev) => {
-                const raw = ev.target.value;
-                onGroupChange(e.id, raw ? Number(raw) : null);
-              }}
-              aria-label="Group"
-            >
-              <option value="">Ungrouped</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <DropdownMenu
+            label={<span className="group-picker-icon" aria-hidden="true">🔀</span>}
+            align="left"
+            buttonClassName="group-picker-btn mode-enter"
+            buttonAriaLabel="Change group"
+            buttonTooltip="Change group"
+            showCaret={false}
+          >
+            {({ close }) => (
+              <>
+                <DropdownItem
+                  onSelect={() => {
+                    onGroupChange(e.id, null);
+                    close();
+                  }}
+                >
+                  Ungrouped
+                </DropdownItem>
+                {groups.map((g) => (
+                  <DropdownItem
+                    key={g.id}
+                    onSelect={() => {
+                      onGroupChange(e.id, g.id);
+                      close();
+                    }}
+                  >
+                    {g.name}
+                  </DropdownItem>
+                ))}
+              </>
+            )}
+          </DropdownMenu>
         ) : editMode === 'tag' ? (
           <button
             type="button"
@@ -293,9 +307,10 @@ function Row({
           />
         ) : (
           <button
-            title={e.comment ? 'Has comment' : 'Add comment'}
-            className={`table-comment-btn mode-enter ${e.comment ? 'active' : ''}`}
+            className={`table-comment-btn mode-enter ui-tooltip ${e.comment ? 'active' : ''}`}
             onClick={()=> setComment(e.id, e.comment||'')}
+            aria-label={e.comment ? 'Has comment' : 'Add comment'}
+            data-tooltip={e.comment ? 'Has comment' : 'Add comment'}
           >
             💬
           </button>
@@ -723,8 +738,8 @@ export function TableView() {
               className="inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
               style={{ width: 'max-content' }}
             >
-            <div className={`table-header-premium ${GRID_TEMPLATE} gap-1.5 px-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-textSec`}>
-              <div className="text-center">💬</div>
+            <div className={`table-header-premium ${GRID_TEMPLATE} gap-1 pl-0 pr-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-textSec`}>
+              <div className="text-left">💬</div>
               <div>{tab === 'incomes' ? 'Incomes' : 'Expenses'}</div>
               {MONTHS.map(m=> <div key={m} className="text-right">{m}</div>)}
               <div className="text-right">Sum</div>
@@ -814,8 +829,8 @@ export function TableView() {
                       if (!shouldRender) return null;
                       return (
                         <div key={groupKey} className="space-y-2">
-                          <div className={`${GRID_TEMPLATE} table-group-row gap-1.5 px-3 py-1 items-center text-[0.72rem]`}>
-                            <div className="col-span-2 flex items-center gap-2 text-textPrim">
+                          <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}>
+                            <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
                               <button
                                 type="button"
                                 className="group-toggle"
@@ -887,8 +902,8 @@ export function TableView() {
                   const totals = computeGroupTotals(groupEntries);
                   return (
                     <div key={groupKey} className="space-y-2">
-                      <div className={`${GRID_TEMPLATE} table-group-row gap-1.5 px-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(g.id) ? 'fade-out' : ''}`}>
-                        <div className="col-span-2 flex items-center gap-2 text-textPrim">
+                      <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(g.id) ? 'fade-out' : ''}`}>
+                        <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
                           {editMode === 'remove' ? (
                             <input
                               type="checkbox"
@@ -984,8 +999,8 @@ export function TableView() {
                   if (!shouldRender) return null;
                   return (
                     <div key={groupKey} className="space-y-2">
-                      <div className={`${GRID_TEMPLATE} table-group-row gap-1.5 px-3 py-1 items-center text-[0.72rem]`}>
-                        <div className="col-span-2 flex items-center gap-2 text-textPrim">
+                      <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}>
+                        <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
                           <button
                             type="button"
                             className="group-toggle"
@@ -1039,7 +1054,7 @@ export function TableView() {
               </div>
             )}
 
-            <div className={`table-total-premium ${GRID_TEMPLATE} gap-1.5 px-3 py-2 font-semibold text-[0.72rem]`}>
+            <div className={`table-total-premium ${GRID_TEMPLATE} gap-1 pl-0 pr-3 py-2 font-semibold text-[0.72rem]`}>
               <div />
               <div className="font-semibold">Total</div>
               {totals.sums.map((v,i)=> (
