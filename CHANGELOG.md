@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.2
+
+- UI corrections - fields in the incomes and expense tables dont resizing entire row while in input mode
+
 ## v1.5.1
 
 - :fire: Introducing dash "-" in value fields as "N/A" - gives option to ignore cell in calculations (avg, reports/stability)

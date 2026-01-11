@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
 import { MONTHS } from '../utils/months';
-import { formatCurrency, parseCurrencyInputNullable } from '../utils/currency';
+import { formatCurrency, formatCurrencyPlain, parseCurrencyInputNullable } from '../utils/currency';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -365,7 +365,7 @@ function Row({
                 }
                 if (!canEditValues) return;
                 setEditingMonth(m);
-                setMonthDraft(monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0));
+                setMonthDraft(monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrencyPlain(monthNumbers[m] ?? 0));
               }}
             >
                 {monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0)}
