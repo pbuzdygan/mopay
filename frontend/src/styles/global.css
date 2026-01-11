@@ -1304,7 +1304,7 @@ html[data-theme='dark'] .table-value-wrapper .tag-tooltip::after {
 }
 
 .table-value.tag-color-grey {
-  background: color-mix(in srgb, var(--textSec) 18%, transparent);
+  background: color-mix(in srgb, #D9D9D9 28%, var(--panel));
 }
 
 .table-value.tag-color-none {
@@ -1312,15 +1312,31 @@ html[data-theme='dark'] .table-value-wrapper .tag-tooltip::after {
 }
 
 .table-value.tag-color-green {
-  background: color-mix(in srgb, #4caf50 22%, transparent);
+  background: color-mix(in srgb, #92D050 26%, var(--panel));
 }
 
 .table-value.tag-color-orange {
-  background: color-mix(in srgb, #ff9800 24%, transparent);
+  background: color-mix(in srgb, #FFC000 24%, var(--panel));
 }
 
 .table-value.tag-color-red {
-  background: color-mix(in srgb, #f44336 24%, transparent);
+  background: color-mix(in srgb, #FF0000 20%, var(--panel));
+}
+
+html[data-theme='dark'] .table-value.tag-color-grey {
+  background: color-mix(in srgb, #D9D9D9 14%, var(--panel));
+}
+
+html[data-theme='dark'] .table-value.tag-color-green {
+  background: color-mix(in srgb, #92D050 36%, var(--panel));
+}
+
+html[data-theme='dark'] .table-value.tag-color-orange {
+  background: color-mix(in srgb, #FFC000 20%, var(--panel));
+}
+
+html[data-theme='dark'] .table-value.tag-color-red {
+  background: color-mix(in srgb, #FF0000 18%, var(--panel));
 }
 
 .report-grid {
@@ -1554,6 +1570,27 @@ html[data-theme='dark'] .table-value-wrapper .tag-tooltip::after {
   box-shadow: none;
 }
 
+.btn-warning {
+  border: 1px solid color-mix(in srgb, #ffb74d 60%, transparent);
+  color: color-mix(in srgb, #ff9800 90%, white);
+  background: color-mix(in srgb, #ff9800 18%, transparent);
+  box-shadow: 0 8px 18px rgba(255, 152, 0, 0.18);
+}
+
+.btn-warning:hover {
+  background: color-mix(in srgb, #ff9800 28%, transparent);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(255, 152, 0, 0.28);
+}
+
+.btn-warning:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .card {
   @apply rounded-2xl bg-panel shadow-soft border border-border;
 }
@@ -1749,6 +1786,22 @@ html[data-theme='dark'] .remove-checkbox:checked {
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 0.85rem;
+}
+
+.confirm-checkbox-pulse {
+  animation: confirmPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes confirmPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+  60% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
 }
 
 html[data-theme='dark'] .remove-checkbox:hover {
@@ -2509,11 +2562,27 @@ html.theme-changing * {
 }
 
 .tag-chip.grey .tag-chip-swatch {
-  background: color-mix(in srgb, var(--textSec) 45%, var(--panel) 55%);
+  background: color-mix(in srgb, #D9D9D9 40%, var(--panel));
 }
-.tag-chip.green .tag-chip-swatch { background: color-mix(in srgb, #4caf50 70%, white 15%); }
-.tag-chip.orange .tag-chip-swatch { background: color-mix(in srgb, #ff9800 70%, white 10%); }
-.tag-chip.red .tag-chip-swatch { background: color-mix(in srgb, #f44336 70%, white 10%); }
+.tag-chip.green .tag-chip-swatch { background: color-mix(in srgb, #92D050 40%, var(--panel)); }
+.tag-chip.orange .tag-chip-swatch { background: color-mix(in srgb, #FFC000 40%, var(--panel)); }
+.tag-chip.red .tag-chip-swatch { background: color-mix(in srgb, #FF0000 32%, var(--panel)); }
+
+html[data-theme='dark'] .tag-chip.grey .tag-chip-swatch {
+  background: color-mix(in srgb, #D9D9D9 22%, var(--panel));
+}
+
+html[data-theme='dark'] .tag-chip.green .tag-chip-swatch {
+  background: color-mix(in srgb, #92D050 52%, var(--panel));
+}
+
+html[data-theme='dark'] .tag-chip.orange .tag-chip-swatch {
+  background: color-mix(in srgb, #FFC000 34%, var(--panel));
+}
+
+html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
+  background: color-mix(in srgb, #FF0000 28%, var(--panel));
+}
 .tag-chip.selected {
   border-color: color-mix(in srgb, var(--accent) 70%, white 10%);
   transform: translateY(-1px);

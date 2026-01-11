@@ -63,6 +63,6 @@ export const Api = {
   },
   validateImportTemplate: (payload: { name: string; data: string }) =>
     api('/api/import/validate', { method: 'POST', body: JSON.stringify(payload) }),
-  importData: (payload: { name: string; data: string; overwriteYears: number[] }) =>
+  importData: (payload: { name: string; data: string; overwriteYears: number[]; importYears: number[] }) =>
     api('/api/import', { method: 'POST', body: JSON.stringify(payload) }),
 };

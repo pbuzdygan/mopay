@@ -22,6 +22,23 @@ const APP_VERSION = process.env.APP_VERSION || 'dev';
 const APP_REPO = process.env.APP_REPO || 'pbuzdygan/mopay';
 const APP_CHANNEL = process.env.APP_CHANNEL || 'main';
 let keyMismatch = false;
+let importInProgress = false;
+
+const isSqliteBusyError = (err) => {
+  if (!err) return false;
+  const code = typeof err === 'object' && 'code' in err ? err.code : null;
+  if (code === 'SQLITE_BUSY' || code === 'SQLITE_BUSY_SNAPSHOT' || code === 'SQLITE_LOCKED') return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('SQLITE_BUSY') || msg.includes('SQLITE_LOCKED');
+};
+
+const respondSqliteBusy = (res) =>
+  res.status(503).json({
+    ok: false,
+    error: 'SQLITE_BUSY',
+    message:
+      'Database is busy/locked (SQLITE_BUSY). Please retry in a moment. Recommended: single Mopay process per DB file; avoid NAS/sync storage for the DB.',
+  });
 
 const getMetaValue = (key) => db.prepare('SELECT value FROM meta WHERE key=?').get(key);
 const setMetaValue = (key, value) =>
@@ -53,6 +70,104 @@ console.log(
     ? 'Grouping migration completed successfully (entry_groups/group_id ready)'
     : 'Grouping migration not required'
 );
+
+const runOrphanCleanup = () => {
+  const orphanTagCount = Number(
+    db
+      .prepare(
+        `SELECT COUNT(*) AS cnt
+         FROM entry_tags t
+         LEFT JOIN entries e ON e.id = t.entry_id
+         WHERE e.id IS NULL`
+      )
+      .get()?.cnt ?? 0
+  );
+  if (orphanTagCount > 0) {
+    db.prepare(
+      `DELETE FROM entry_tags
+       WHERE entry_id NOT IN (SELECT id FROM entries)`
+    ).run();
+  }
+
+  const orphanEntryCount = Number(
+    db
+      .prepare(
+        `SELECT COUNT(*) AS cnt
+         FROM entries e
+         LEFT JOIN years y ON y.id = e.year_id
+         WHERE y.id IS NULL`
+      )
+      .get()?.cnt ?? 0
+  );
+  if (orphanEntryCount > 0) {
+    db.prepare(
+      `DELETE FROM entries
+       WHERE year_id NOT IN (SELECT id FROM years)`
+    ).run();
+  }
+
+  const orphanGroupCount = Number(
+    db
+      .prepare(
+        `SELECT COUNT(*) AS cnt
+         FROM entry_groups g
+         LEFT JOIN years y ON y.id = g.year_id
+         WHERE y.id IS NULL`
+      )
+      .get()?.cnt ?? 0
+  );
+  if (orphanGroupCount > 0) {
+    db.prepare(
+      `DELETE FROM entry_groups
+       WHERE year_id NOT IN (SELECT id FROM years)`
+    ).run();
+  }
+
+  const orphanGoalCount = Number(
+    db
+      .prepare(
+        `SELECT COUNT(*) AS cnt
+         FROM savings_goals g
+         LEFT JOIN years y ON y.id = g.year_id
+         WHERE y.id IS NULL`
+      )
+      .get()?.cnt ?? 0
+  );
+  if (orphanGoalCount > 0) {
+    db.prepare(
+      `DELETE FROM savings_goals
+       WHERE year_id NOT IN (SELECT id FROM years)`
+    ).run();
+  }
+
+  const orphanItemCount = Number(
+    db
+      .prepare(
+        `SELECT COUNT(*) AS cnt
+         FROM savings_items i
+         LEFT JOIN savings_goals g ON g.id = i.goal_id
+         WHERE g.id IS NULL`
+      )
+      .get()?.cnt ?? 0
+  );
+  if (orphanItemCount > 0) {
+    db.prepare(
+      `DELETE FROM savings_items
+       WHERE goal_id NOT IN (SELECT id FROM savings_goals)`
+    ).run();
+  }
+
+  console.log(
+    'Maintenance: orphan cleanup finished (removed: ' +
+      `tags=${orphanTagCount}, ` +
+      `entries=${orphanEntryCount}, ` +
+      `groups=${orphanGroupCount}, ` +
+      `goals=${orphanGoalCount}, ` +
+      `items=${orphanItemCount})`
+  );
+};
+
+runOrphanCleanup();
 initializePin(db, APP_PIN);
 const fingerprintRow = getMetaValue('enc_key_fingerprint');
 if (!fingerprintRow?.value) {
@@ -127,6 +242,59 @@ const getCellNumber = (value) => {
   return 0;
 };
 
+const getCellNumberOrNull = (value) => {
+  const text = getCellText(value);
+  if (text === '-' || text === '–') return null;
+  if (text === '') return 0;
+  return getCellNumber(value);
+};
+
+const normalizeHex = (value) => {
+  if (typeof value !== 'string') return null;
+  let hex = value.replace('#', '').trim();
+  if (hex.length === 8) hex = hex.slice(2);
+  if (hex.length !== 6) return null;
+  return hex.toUpperCase();
+};
+
+const TAG_COLOR_HEX_TO_NAME = new Map([
+  ['D9D9D9', 'grey'],
+  ['FF0000', 'red'],
+  ['FFC000', 'orange'],
+  ['92D050', 'green'],
+]);
+
+const getNoteText = (note) => {
+  if (!note) return '';
+  if (typeof note === 'string') return note.trim();
+  if (typeof note === 'object') {
+    if ('text' in note) return String(note.text ?? '').trim();
+    if (Array.isArray(note.texts)) return note.texts.map((chunk) => chunk.text ?? '').join('').trim();
+    if (Array.isArray(note.richText)) return note.richText.map((chunk) => chunk.text ?? '').join('').trim();
+  }
+  return '';
+};
+
+const getCellFillHex = (cell) => {
+  const fill = cell?.fill;
+  if (!fill || fill.type !== 'pattern') return null;
+  const color = fill.fgColor;
+  if (!color) return null;
+  const raw = color.argb || color.value || color.rgb;
+  const hex = normalizeHex(raw);
+  if (!hex || hex === 'FFFFFF') return null;
+  return hex;
+};
+
+const parseTagFromCell = (cell) => {
+  const noteText = getNoteText(cell?.note);
+  const fillHex = getCellFillHex(cell);
+  const color = fillHex ? TAG_COLOR_HEX_TO_NAME.get(fillHex) ?? 'grey' : null;
+  if (!color && !noteText) return null;
+  const resolvedColor = color ?? (noteText ? 'grey' : 'none');
+  return { color: resolvedColor, text: noteText };
+};
+
 const parseImportWorkbook = async (buffer) => {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
@@ -188,7 +356,13 @@ const parseEntriesSection = (sheet, label, type, yearId) => {
       continue;
     }
 
-    const months = MONTH_COLUMNS.map((_, idx) => getCellNumber(sheet.getCell(row, 2 + idx).value));
+    const tags = {};
+    const months = MONTH_COLUMNS.map((month, idx) => {
+      const cell = sheet.getCell(row, 2 + idx);
+      const tag = parseTagFromCell(cell);
+      if (tag) tags[month] = tag;
+      return getCellNumberOrNull(cell.value);
+    });
     const comment = getCellText(sheet.getCell(row, commentColumnIndex).value);
     if (nameText) {
       data.push({
@@ -199,6 +373,7 @@ const parseEntriesSection = (sheet, label, type, yearId) => {
         months,
         yearId,
         groupName: currentGroupName || 'Ungrouped',
+        tags,
       });
     }
     row += 1;
@@ -246,6 +421,10 @@ const parseSavingsSection = (sheet) => {
 };
 
 const clearYearData = (yearId) => {
+  const entryIds = db.prepare('SELECT id FROM entries WHERE year_id=?').all(yearId).map((row) => row.id);
+  if (entryIds.length) {
+    db.prepare(`DELETE FROM entry_tags WHERE entry_id IN (${entryIds.map(() => '?').join(',')})`).run(...entryIds);
+  }
   db.prepare('DELETE FROM entries WHERE year_id=?').run(yearId);
   db.prepare('DELETE FROM entry_groups WHERE year_id=?').run(yearId);
   const goalIds = db.prepare('SELECT id FROM savings_goals WHERE year_id=?').all(yearId).map((row) => row.id);
@@ -451,20 +630,21 @@ app.get('/api/entries', (req,res)=>{
      WHERE e.type=? AND e.year_id=?
      ORDER BY (e.group_id IS NULL) ASC, g.sort_index ASC, g.id ASC, e.sort_index ASC, e.id ASC`
   ).all(type, yr.id);
+  const toNumberOrNull = (value) => (value === null || value === undefined ? null : decryptToNumber(value));
   const decrypted = rows.map((row)=>({
     ...row,
-    Jan: decryptToNumber(row.Jan),
-    Feb: decryptToNumber(row.Feb),
-    Mar: decryptToNumber(row.Mar),
-    Apr: decryptToNumber(row.Apr),
-    May: decryptToNumber(row.May),
-    Jun: decryptToNumber(row.Jun),
-    Jul: decryptToNumber(row.Jul),
-    Aug: decryptToNumber(row.Aug),
-    Sep: decryptToNumber(row.Sep),
-    Oct: decryptToNumber(row.Oct),
-    Nov: decryptToNumber(row.Nov),
-    Decm: decryptToNumber(row.Decm),
+    Jan: toNumberOrNull(row.Jan),
+    Feb: toNumberOrNull(row.Feb),
+    Mar: toNumberOrNull(row.Mar),
+    Apr: toNumberOrNull(row.Apr),
+    May: toNumberOrNull(row.May),
+    Jun: toNumberOrNull(row.Jun),
+    Jul: toNumberOrNull(row.Jul),
+    Aug: toNumberOrNull(row.Aug),
+    Sep: toNumberOrNull(row.Sep),
+    Oct: toNumberOrNull(row.Oct),
+    Nov: toNumberOrNull(row.Nov),
+    Decm: toNumberOrNull(row.Decm),
   }));
   res.json({ entries: decrypted });
 });
@@ -633,6 +813,7 @@ app.patch('/api/entries/:id', (req,res)=>{
     const col = (f==='Dec') ? '"Dec"' : f;
     let value = payload[f];
     if (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].includes(f)) {
+      if (value === '-' || value === '–') value = null;
       value = encryptNumber(value);
     }
     sets.push(`${col}=?`);
@@ -821,11 +1002,16 @@ app.post('/api/export', async (req,res)=>{
   if (guardKeyMismatch(res)) return;
   const { years } = req.body;
   if (!Array.isArray(years) || years.length===0) return res.status(400).json({ error: 'No years' });
-  const wb = await exportYearsToWorkbook(years);
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="mopay_export.xlsx"');
-  await wb.xlsx.write(res);
-  res.end();
+  try {
+    const wb = await exportYearsToWorkbook(years);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="mopay_export.xlsx"');
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    if (isSqliteBusyError(err)) return respondSqliteBusy(res);
+    throw err;
+  }
 });
 
 app.get('/api/import/template', async (_req,res)=>{
@@ -860,6 +1046,7 @@ app.post('/api/import/validate', async (req,res)=>{
       years: years.map((year) => ({ year, exists: existingSet.has(year) })),
     });
   } catch (err) {
+    if (isSqliteBusyError(err)) return respondSqliteBusy(res);
     console.error('Import template validation failed', err);
     res.status(400).json({ ok: false, error: 'INVALID_FILE' });
   }
@@ -867,7 +1054,14 @@ app.post('/api/import/validate', async (req,res)=>{
 
 app.post('/api/import', async (req,res)=>{
   if (guardKeyMismatch(res)) return;
-  const { name, data, overwriteYears } = req.body || {};
+  if (importInProgress) {
+    return res.status(423).json({
+      ok: false,
+      error: 'IMPORT_IN_PROGRESS',
+      message: 'Another import is currently running. Please wait and try again.',
+    });
+  }
+  const { name, data, overwriteYears, importYears } = req.body || {};
   if (name !== 'mopay_import_template.xlsx') {
     return res.status(400).json({ ok: false, error: 'INVALID_NAME' });
   }
@@ -879,15 +1073,31 @@ app.post('/api/import', async (req,res)=>{
       ? overwriteYears.map((year) => Number(year)).filter((year) => Number.isInteger(year))
       : []
   );
+  const importYearSet = new Set(
+    Array.isArray(importYears)
+      ? importYears.map((year) => Number(year)).filter((year) => Number.isInteger(year))
+      : []
+  );
 
   try {
+    importInProgress = true;
     const buffer = Buffer.from(data, 'base64');
-    const sheets = await parseImportWorkbook(buffer);
-    const years = sheets.map(({ year }) => year);
-    const existing = years.length
-      ? db.prepare(`SELECT year FROM years WHERE year IN (${years.map(() => '?').join(',')})`).all(...years)
+    const allSheets = await parseImportWorkbook(buffer);
+    const workbookYears = allSheets.map(({ year }) => year);
+    const yearsToImport = importYearSet.size ? workbookYears.filter((y) => importYearSet.has(y)) : workbookYears;
+    const sheets = allSheets.filter(({ year }) => yearsToImport.includes(year));
+
+    const existing = workbookYears.length
+      ? db.prepare(`SELECT year FROM years WHERE year IN (${workbookYears.map(() => '?').join(',')})`).all(...workbookYears)
       : [];
     const existingSet = new Set(existing.map((row) => row.year));
+
+    if (importYearSet.size) {
+      const missingOverwrite = yearsToImport.filter((year) => existingSet.has(year) && !overwriteSet.has(year));
+      if (missingOverwrite.length) {
+        return res.status(400).json({ ok: false, error: 'OVERWRITE_REQUIRED', years: missingOverwrite });
+      }
+    }
 
     const results = {
       imported: [],
@@ -921,6 +1131,12 @@ app.post('/api/import', async (req,res)=>{
           `INSERT INTO entries(type,name,year_id,group_id,comment,${monthColumnsSql},sort_index)
            VALUES (?,?,?,?, ?, ${monthPlaceholders}, ?)`
         );
+        const insertTag = db.prepare(
+          `INSERT INTO entry_tags(entry_id, month, color, text, created_at, updated_at)
+           VALUES (@entryId, @month, @color, @text, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT(entry_id, month)
+           DO UPDATE SET color=excluded.color, text=excluded.text, updated_at=CURRENT_TIMESTAMP`
+        );
         const insertGroup = db.prepare(
           'INSERT INTO entry_groups(type,name,year_id,sort_index) VALUES (?,?,?,?)'
         );
@@ -953,7 +1169,7 @@ app.post('/api/import', async (req,res)=>{
             const sortKey = currentGroupId ?? null;
             const nextSort = (entrySortByGroup.get(sortKey) ?? 0) + 1;
             entrySortByGroup.set(sortKey, nextSort);
-            insertEntry.run(
+            const info = insertEntry.run(
               item.type,
               item.name,
               item.yearId,
@@ -962,6 +1178,15 @@ app.post('/api/import', async (req,res)=>{
               ...months,
               nextSort
             );
+            const entryId = info.lastInsertRowid;
+            if (item.tags) {
+              for (const [month, tag] of Object.entries(item.tags)) {
+                const color = TAG_COLORS.has(tag.color) ? tag.color : 'none';
+                const tagText = clampText(tag.text ?? '', 200);
+                if (color === 'none' && !tagText) continue;
+                insertTag.run({ entryId, month, color, text: tagText });
+              }
+            }
           }
         };
 
@@ -993,10 +1218,16 @@ app.post('/api/import', async (req,res)=>{
     });
 
     importTx();
+    if (importYearSet.size) {
+      results.skipped = workbookYears.filter((year) => existingSet.has(year) && !overwriteSet.has(year) && !importYearSet.has(year));
+    }
     res.json({ ok: true, ...results });
   } catch (err) {
+    if (isSqliteBusyError(err)) return respondSqliteBusy(res);
     console.error('Import failed', err);
     res.status(400).json({ ok: false, error: 'IMPORT_FAILED' });
+  } finally {
+    importInProgress = false;
   }
 });
 

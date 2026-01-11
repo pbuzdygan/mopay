@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.5.1
+
+- :fire: Introducing dash "-" in value fields as "N/A" - gives option to ignore cell in calculations (avg, reports/stability)
+- import now preserves tag notes from Excel and maps tag colors (unsupported/missing colors with notes fall back to grey)
+  - supported colors (they are the main colors form excel color picker):
+    - #D9D9D9 → grey
+    - #FF0000 → red
+    - #FFC000 → orange
+    - #92D050 → green
+- maintenance cleanup removes orphaned data on startup (logged)
+- improving Import and export menu UI - more consistent, less buttons
+- import overwrite preflight: shows exact years to overwrite and prevents accidental skips when DB changes between validate and import
+- backend now handles `SQLITE_BUSY` more gracefully (busy_timeout + friendly errors) and serializes imports to avoid concurrent overwrite conflicts
+
 ## v1.5.0
 
 - :fire: New feature - now incomes and expenses can be moved into collapsible groups. To make life easier, export and import feature now supports grouping also.

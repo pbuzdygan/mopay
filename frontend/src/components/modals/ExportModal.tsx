@@ -12,12 +12,37 @@ export function ExportModal(){
   const yearsQ = useQuery({ queryKey: ['years'], queryFn: Api.years.list });
   const years = (yearsQ.data?.years ?? []) as number[];
   const [sel, setSel] = useState<number[]>([]);
+  const [message, setMessage] = useState<null | { type: 'ok' | 'err'; text: string }>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    if (!open) setSel([]);
+    if (!open) {
+      setSel([]);
+      setMessage(null);
+      setIsExporting(false);
+    }
   }, [open]);
 
-  async function doExport(){ if (sel.length) await Api.exportYears(sel); }
+  useEffect(() => {
+    if (!message) return;
+    const tm = setTimeout(() => setMessage(null), 5000);
+    return () => clearTimeout(tm);
+  }, [message]);
+
+  async function doExport(){
+    if (!sel.length) return;
+    setIsExporting(true);
+    setMessage(null);
+    try {
+      await Api.exportYears(sel);
+      setMessage({ type: 'ok', text: `Export completed. Exported ${sel.length} year(s).` });
+      setSel([]);
+    } catch {
+      setMessage({ type: 'err', text: 'Export failed. Please try again.' });
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   return (
     <ModalBase
@@ -58,22 +83,29 @@ export function ExportModal(){
               type="button"
               variant="ghost"
               onClick={() => setSel([])}
-              disabled={!sel.length}
+              disabled={!sel.length || isExporting}
             >
               Clear selection
             </SoftButton>
             <button
               type="button"
               className="btn min-w-[140px]"
-              disabled={!sel.length}
+              disabled={!sel.length || isExporting}
               onClick={doExport}
             >
-              Export {sel.length ? `${sel.length}` : ''}
+              {isExporting ? 'Exporting...' : `Export ${sel.length ? `${sel.length}` : ''}`}
             </button>
           </div>
         </FormSection>
 
-        <div className="modal-footer-premium flex justify-end">
+        <div className="modal-footer-premium flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-h-[34px]">
+            {message && (
+              <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
+                {message.text}
+              </div>
+            )}
+          </div>
           <SoftButton variant="ghost" onClick={()=>closeModal('export')}>
             Close
           </SoftButton>
