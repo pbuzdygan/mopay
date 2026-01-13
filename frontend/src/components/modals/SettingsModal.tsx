@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
-import { FormSection } from '../FormSection';
 import { SoftButton } from '../SoftButton';
 import { buildReleaseInfo } from '../../utils/release';
 

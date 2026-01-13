@@ -7,6 +7,9 @@ type DropdownMenuProps = {
   variant?: 'solid' | 'ghost';
   block?: boolean;
   buttonClassName?: string;
+  buttonAriaLabel?: string;
+  buttonTooltip?: string;
+  showCaret?: boolean;
   children: (helpers: { close: () => void }) => ReactNode;
 };
 
@@ -16,6 +19,9 @@ export function DropdownMenu({
   variant = 'solid',
   block = false,
   buttonClassName,
+  buttonAriaLabel,
+  buttonTooltip,
+  showCaret = true,
   children,
 }: DropdownMenuProps) {
   const [open, setOpen] = useState(false);
@@ -46,13 +52,15 @@ export function DropdownMenu({
         variant={variant}
         block={block}
         justify="between"
-        className={buttonClassName}
+        className={`${buttonClassName ?? ''} ${buttonTooltip ? 'ui-tooltip' : ''}`.trim()}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={buttonAriaLabel}
+        data-tooltip={buttonTooltip}
       >
         {label}
-        <span className="opacity-60 text-xs">{open ? '▲' : '▼'}</span>
+        {showCaret && <span className="opacity-60 text-xs">{open ? '▲' : '▼'}</span>}
       </SoftButton>
 
       {open && (

@@ -4,7 +4,7 @@ import { Api } from '../api';
 import { useAppStore } from '../store';
 import { Surface } from './Surface';
 import { SoftButton } from './SoftButton';
-import { formatCurrency, parseCurrencyInput } from '../utils/currency';
+import { formatCurrency, formatCurrencyPlain, parseCurrencyInput } from '../utils/currency';
 
 type SavingsItem = {
   id: number;
@@ -198,7 +198,7 @@ function GoalItemsTable({
       return {
         id: item.id,
         nameDraft: item.name ?? '',
-        valueDraft: hasContent ? formatCurrency(Number(item.value ?? 0)) : '',
+        valueDraft: hasContent ? formatCurrencyPlain(Number(item.value ?? 0)) : '',
       };
     });
   }
@@ -213,7 +213,7 @@ function GoalItemsTable({
     const hasContent = Boolean(original.name?.trim() || original.value);
     updateRow(id, {
       nameDraft: original.name ?? '',
-      valueDraft: hasContent ? formatCurrency(Number(original.value ?? 0)) : '',
+      valueDraft: hasContent ? formatCurrencyPlain(Number(original.value ?? 0)) : '',
     });
   };
 
@@ -237,7 +237,7 @@ function GoalItemsTable({
     });
     updateRow(id, {
       nameDraft: trimmedName,
-      valueDraft: hasValue ? formatCurrency(numericValue) : '',
+      valueDraft: hasValue ? formatCurrencyPlain(numericValue) : '',
     });
     onRefresh();
   }

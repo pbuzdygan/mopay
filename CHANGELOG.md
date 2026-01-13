@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.5.2
+
+- UI corrections - fields in the incomes and expense tables dont resizing entire row while in input mode
+- Improvement of mobile view and introducing compact view to simplify using on mobile screens
+- Improvement in UI animations - eliminating places where loading content was causing "blinking" - now transitions are smooth
+- PWA cache improvement - now properly recognise new releases without enforcing page reload
+- Github workflow fix:
+  - ```dev``` releases build+push to ```:dev_latest``` (including versioned ```:dev_<version>```) without touching ```:latest```
+  - ```main``` releases build+push to ```:latest``` (including versioned ```:<version>```)
+
 ## v1.5.1
 
 - :fire: Introducing dash "-" in value fields as "N/A" - gives option to ignore cell in calculations (avg, reports/stability)

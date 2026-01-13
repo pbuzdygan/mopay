@@ -23,7 +23,7 @@ export function YearOperationsModal(){
     const y = Number(newYear);
     if (!Number.isInteger(y) || String(y).length !== 4) return;
   
-    // sprawdzenie duplikatu
+    // duplicate check
     if (years.includes(y)) {
       setMessage({ type: "err", text: `Year ${y} already exists` });
       setTimeout(() => setMessage(null), 2000);
@@ -32,20 +32,20 @@ export function YearOperationsModal(){
   
     await Api.years.add(y);
   
-    // sukces
+    // success
     setMessage({ type: "ok", text: `Year ${y} added` });
     setTimeout(() => setMessage(null), 2000);
   
-    // wyczyść pole
+    // clear input
     setNewYear("");
   
-    // odśwież listę lat
+    // refresh year list
     qc.invalidateQueries({ queryKey: ["years"] });
   
-    // ustaw aktywny rok
+    // set active year
     useAppStore.getState().setYear(y);
   
-    // focus ponownie w input
+    // refocus the input
     setTimeout(() => inputRef.current?.focus(), 30);
   }
   

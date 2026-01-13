@@ -71,6 +71,29 @@ export function MainBar() {
     setPinSession(false);
   };
 
+  const mobileUtilityButtons = (
+    <>
+      <SoftButton
+        variant="ghost"
+        className="utility-button utility-button-sm"
+        aria-label="Lock session"
+        onClick={lockSession}
+      >
+        🔒
+      </SoftButton>
+      <SoftButton
+        variant="ghost"
+        className="utility-button utility-button-sm"
+        aria-label="Toggle theme"
+        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+      >
+        <span key={theme} className="theme-icon inline-block">
+          {theme === 'light' ? '🌙' : '☀️'}
+        </span>
+      </SoftButton>
+    </>
+  );
+
   const renderUtilityControls = (
     mode: 'mobile' | 'desktop' = 'desktop',
     options: { includeMenu?: boolean } = {}
@@ -194,7 +217,7 @@ export function MainBar() {
           Remove selected
         </SoftButton>
       ) : (
-        <div className="relative w-full md:w-auto">
+        <div className="relative w-full md:w-auto mainbar-edit-menu">
           <DropdownMenu
             label={editMenuLabel}
             block
@@ -222,7 +245,7 @@ export function MainBar() {
           </DropdownMenu>
           {editMode === 'tag' && tagHintVisible && (
             <span className="feedback-badge ok tag-mode-hint">
-              Tag months by clicking a month cell.
+              Tag months by clicking a month cell
             </span>
           )}
         </div>
@@ -259,10 +282,10 @@ export function MainBar() {
           <button
             key={report.id}
             type="button"
-            className={`report-toggle ${active ? 'active' : ''}`}
+            className={`report-toggle ui-tooltip ${active ? 'active' : ''}`}
             onClick={() => toggleReport(report.id)}
             aria-pressed={active}
-            title={report.tooltip}
+            data-tooltip={report.tooltip}
           >
             <span className="report-icon">{report.icon}</span>
             <span className="report-title">{report.label}</span>
@@ -292,19 +315,22 @@ export function MainBar() {
   return (
     <div className="py-2">
       <Surface className="stack gap-4 mainbar-shell">
+        <div className="mainbar-update-float">
+          <VersionIndicator compact />
+        </div>
         <div className="flex flex-col gap-3 md:grid md:grid-cols-[1fr_auto_1fr] md:items-start">
-          <div className="stack-sm hidden md:flex md:flex-col md:justify-self-start">
+          <div className="stack-sm hidden md:flex md:flex-col md:justify-self-start mainbar-desktop-only">
             <h2 className="type-title-xl">{viewTitle}</h2>
             <p className="type-body-sm text-textSec">{scopeCaption}</p>
           </div>
-          <div className="hidden md:flex items-center justify-center md:justify-self-center md:self-start">
+          <div className="hidden md:flex items-center justify-center md:justify-self-center md:self-start mainbar-desktop-only">
             <img
               src="/icon-128x128.png"
               alt="MOPAY"
               className="h-[76px] w-auto object-contain drop-shadow-lg"
             />
           </div>
-          <div className="hidden md:flex items-center gap-2 justify-end md:justify-self-end utility-group">
+          <div className="hidden md:flex items-center gap-2 justify-end md:justify-self-end utility-group mainbar-desktop-only">
             {renderUtilityControls('desktop', { includeMenu: false })}
           </div>
         </div>
@@ -324,9 +350,9 @@ export function MainBar() {
               </button>
             ))}
           </div>
-          <div className="flex flex-col gap-2 w-full md:w-auto">
-            <div className="flex flex-col gap-2 md:hidden">
-              <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 w-full md:w-auto mainbar-mobile-controls">
+            <div className="flex flex-col gap-2 md:hidden mainbar-mobile-only">
+              <div className="flex flex-wrap items-center gap-2 mainbar-mobile-top-row">
                 <YearDropdown
                   years={years}
                   value={year}
@@ -356,30 +382,12 @@ export function MainBar() {
                     </>
                   )}
                 </DropdownMenu>
-                <SoftButton
-                  variant="ghost"
-                  className="utility-button utility-button-sm"
-                  aria-label="Lock session"
-                  onClick={lockSession}
-                >
-                  🔒
-                </SoftButton>
-                <SoftButton
-                  variant="ghost"
-                  className="utility-button utility-button-sm"
-                  aria-label="Toggle theme"
-                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                >
-                  <span key={theme} className="theme-icon inline-block">
-                    {theme === 'light' ? '🌙' : '☀️'}
-                  </span>
-                </SoftButton>
-              </div>
-              <div className="flex justify-end w-full">
-                <VersionIndicator compact />
+                <div className="mainbar-mobile-inline-utils mainbar-mobile-inline-utils-push">
+                  {mobileUtilityButtons}
+                </div>
               </div>
             </div>
-            <div className="hidden md:flex items-center gap-2 md:max-w-xs">
+            <div className="hidden md:flex items-center gap-2 md:max-w-xs mainbar-desktop-only">
               <YearDropdown
                 years={years}
                 value={year}
@@ -412,8 +420,15 @@ export function MainBar() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-2">
-          {renderActions()}
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-2 mainbar-actions-row">
+          <div className="mainbar-actions">
+            {renderActions()}
+          </div>
+          <div className="mainbar-compact-utilities">
+            <div className="mainbar-compact-icons">
+              {mobileUtilityButtons}
+            </div>
+          </div>
         </div>
       </Surface>
     </div>
