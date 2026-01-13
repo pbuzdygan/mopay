@@ -67,6 +67,10 @@
 
 The easiest way to get started is to use compose file:
 
+Notes:
+- `ghcr.io/pbuzdygan/mopay:latest` tracks releases from `main`.
+- `ghcr.io/pbuzdygan/mopay:dev_latest` tracks releases from `dev`.
+
 ```bash
 services:
   mopay:
