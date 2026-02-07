@@ -67,6 +67,8 @@ export function MainBar() {
     : 'Pick a year to unlock entries.';
 
   const lockSession = () => {
+    void Api.logoutPin().catch(() => {});
+    sessionStorage.removeItem('pin-token');
     sessionStorage.removeItem('pin-ok');
     setPinSession(false);
   };
@@ -92,6 +94,15 @@ export function MainBar() {
         </span>
       </SoftButton>
     </>
+  );
+
+  const menuIconLabel = (
+    <img
+      src="/icons/ui/menu-2.svg"
+      alt=""
+      className="utility-menu-icon"
+      aria-hidden="true"
+    />
   );
 
   const renderUtilityControls = (
@@ -123,9 +134,12 @@ export function MainBar() {
           </SoftButton>
           {includeMenu && (
             <DropdownMenu
-              label="Menu"
+              label={menuIconLabel}
               align="right"
-              buttonClassName={`utility-menu-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
+              buttonClassName={`utility-menu-btn utility-menu-icon-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
+              buttonAriaLabel="Menu"
+              buttonTooltip="Menu"
+              showCaret={false}
             >
               {({ close }) => (
                 <>
@@ -361,9 +375,12 @@ export function MainBar() {
                   triggerClassName="utility-menu-btn utility-menu-btn-sm soft-button"
                 />
                 <DropdownMenu
-                  label="Menu"
+                  label={menuIconLabel}
                   align="right"
-                  buttonClassName="utility-menu-btn utility-menu-btn-sm"
+                  buttonClassName="utility-menu-btn utility-menu-icon-btn utility-menu-btn-sm"
+                  buttonAriaLabel="Menu"
+                  buttonTooltip="Menu"
+                  showCaret={false}
                 >
                   {({ close }) => (
                     <>
@@ -395,9 +412,12 @@ export function MainBar() {
                 className="w-full mainbar-year-dropdown"
               />
               <DropdownMenu
-                label="Menu"
+                label={menuIconLabel}
                 align="right"
-                buttonClassName="utility-menu-btn"
+                buttonClassName="utility-menu-btn utility-menu-icon-btn"
+                buttonAriaLabel="Menu"
+                buttonTooltip="Menu"
+                showCaret={false}
               >
                 {({ close }) => (
                   <>

@@ -1,12 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Api } from "../api";
+import { useQueryClient } from "@tanstack/react-query";
+import { Api, ApiError } from "../api";
 import { useAppStore } from "../store";
 import { SoftButton } from "./SoftButton";
 
 export function PinGuard() {
   const pinOk = useAppStore((s) => s.pinSession);
   const setPinOk = useAppStore((s) => s.setPinSession);
+  const queryClient = useQueryClient();
 
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export function PinGuard() {
 
   // restore session
   useEffect(() => {
-    const cached = sessionStorage.getItem("pin-ok") === "1";
+    const cached = sessionStorage.getItem("pin-ok") === "1" && Boolean(sessionStorage.getItem("pin-token"));
     if (cached) setPinOk(true);
   }, [setPinOk]);
 
@@ -73,20 +75,20 @@ export function PinGuard() {
     };
   }, [pinOk]);
 
-  function handlePinFailure() {
+  function handlePinFailure(message = "Wrong PIN", cooldownMs = 1800) {
     if (errorTimerRef.current) {
       window.clearTimeout(errorTimerRef.current);
       errorTimerRef.current = null;
     }
     setPin("");
-    setError("Wrong PIN");
+    setError(message);
     setLocked(true);
     errorTimerRef.current = window.setTimeout(() => {
       setError(null);
       setLocked(false);
       requestAnimationFrame(() => inputRef.current?.focus());
       errorTimerRef.current = null;
-    }, 1800);
+    }, cooldownMs);
   }
 
   async function submit() {
@@ -96,15 +98,24 @@ export function PinGuard() {
     try {
       const res = await Api.verifyPin(pin);
 
-      if (res.ok) {
+      if (res.ok && typeof res.sessionToken === "string" && res.sessionToken.length > 10) {
+        sessionStorage.setItem("pin-token", res.sessionToken);
         sessionStorage.setItem("pin-ok", "1");
         setPinOk(true);
         setPin("");
+        void queryClient.invalidateQueries();
       } else {
         handlePinFailure();
       }
-    } catch {
-      handlePinFailure();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 429) {
+        const wait = error.retryAfterSeconds && error.retryAfterSeconds > 0
+          ? `${error.retryAfterSeconds}s`
+          : "a moment";
+        handlePinFailure(`Too many attempts. Wait ${wait}.`, 2200);
+        return;
+      }
+      handlePinFailure("Wrong PIN", 1800);
     }
   }
 
@@ -160,7 +171,7 @@ export function PinGuard() {
                 />
                 {error && (
                   <div className="pin-input-error feedback-badge err" aria-live="polite">
-                    Wrong PIN. Try again.
+                    {error}
                   </div>
                 )}
               </div>

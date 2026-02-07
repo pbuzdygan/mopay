@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Api } from '../api';
 import { useAppStore } from '../store';
@@ -77,11 +78,23 @@ function GoalCard({ goal, year }: { goal: SavingsGoal; year: number }) {
   const qc = useQueryClient();
   const openGoalModal = useAppStore((s) => s.openGoalModal);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!confirmingDelete) return;
     const tm = setTimeout(() => setConfirmingDelete(false), 4000);
     return () => clearTimeout(tm);
+  }, [confirmingDelete]);
+
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!actionsRef.current) return;
+      if (actionsRef.current.contains(event.target as Node)) return;
+      setConfirmingDelete(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
   }, [confirmingDelete]);
 
   const totalValue = useMemo(
@@ -114,30 +127,36 @@ function GoalCard({ goal, year }: { goal: SavingsGoal; year: number }) {
       <div className="goal-card-header">
         <div className="goal-card-label-row">
           <p className="goal-card-label">Goal</p>
-          <div className="goal-card-actions">
-            {confirmingDelete ? (
-              <>
-                <SoftButton variant="danger" className="goal-action-btn" onClick={handleDelete}>
-                  Confirm
-                </SoftButton>
-                <SoftButton
-                  variant="ghost"
-                  className="goal-action-btn"
-                  onClick={() => setConfirmingDelete(false)}
-                >
-                  Cancel
-                </SoftButton>
-              </>
-            ) : (
-              <>
-                <SoftButton variant="ghost" className="goal-action-btn" onClick={() => openGoalModal(goal.id)}>
-                  Edit
-                </SoftButton>
-                <SoftButton variant="ghost" className="goal-action-btn" onClick={() => setConfirmingDelete(true)}>
-                  Remove
-                </SoftButton>
-              </>
-            )}
+          <div className="goal-card-actions" ref={actionsRef}>
+            <button
+              type="button"
+              className="goal-action-icon ui-tooltip"
+              data-tooltip="Edit"
+              aria-label="Edit"
+              onClick={() => openGoalModal(goal.id)}
+            >
+              <img src="/icons/ui/edit.svg" alt="" className="goal-action-icon-img" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={`goal-action-icon ui-tooltip ${confirmingDelete ? 'is-warning' : ''}`}
+              data-tooltip={confirmingDelete ? 'Confirm remove' : 'Remove'}
+              aria-label={confirmingDelete ? 'Confirm remove' : 'Remove'}
+              onClick={() => {
+                if (confirmingDelete) {
+                  void handleDelete();
+                  return;
+                }
+                setConfirmingDelete(true);
+              }}
+            >
+              <img
+                src={confirmingDelete ? "/icons/ui/check.svg" : "/icons/ui/trash.svg"}
+                alt=""
+                className="goal-action-icon-img"
+                aria-hidden="true"
+              />
+            </button>
           </div>
         </div>
         <h3 className="goal-card-title">{goal.name}</h3>

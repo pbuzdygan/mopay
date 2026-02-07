@@ -3,6 +3,7 @@ import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
 import { SoftButton } from '../SoftButton';
 import { buildReleaseInfo } from '../../utils/release';
+import { Api } from '../../api';
 
 export function SettingsModal(){
   const { modals, closeModal, theme, setTheme } = useAppStore();
@@ -29,6 +30,8 @@ export function SettingsModal(){
   useEffect(() => {
     if (!locking) return;
     const tm = setTimeout(() => {
+      void Api.logoutPin().catch(() => {});
+      sessionStorage.removeItem('pin-token');
       sessionStorage.removeItem('pin-ok');
       useAppStore.getState().setPinSession(false);
       closeModal('settings');

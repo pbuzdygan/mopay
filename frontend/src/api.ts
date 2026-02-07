@@ -1,12 +1,52 @@
+import { useAppStore } from './store';
+
 const BASE = (import.meta as any).env.VITE_API_BASE || '';
+export class ApiError extends Error {
+  status: number;
+  retryAfterSeconds: number | null;
+  body: any;
+  constructor(message: string, status: number, retryAfterSeconds: number | null, body: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.body = body;
+  }
+}
+
+function authHeaders() {
+  const token = sessionStorage.getItem('pin-token');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['X-Mopay-Session'] = token;
+  return headers;
+}
+
 export async function api(path: string, init?: RequestInit) {
-  const res = await fetch(`${BASE}${path}`, { headers: { 'Content-Type': 'application/json' }, ...init });
-  if (!res.ok) throw new Error(await res.text());
-  return res.headers.get('content-type')?.includes('json') ? res.json() : res;
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { ...authHeaders(), ...(init?.headers as Record<string, string> | undefined) },
+    ...init,
+  });
+  const retryAfterRaw = res.headers.get('retry-after');
+  const retryAfterSeconds = retryAfterRaw ? Number(retryAfterRaw) : null;
+  const isJson = res.headers.get('content-type')?.includes('json');
+  const body = isJson ? await res.json() : await res.text();
+  if (!res.ok) {
+    if (res.status === 401 && path !== '/api/pin/verify' && path !== '/api/pin/logout') {
+      sessionStorage.removeItem('pin-token');
+      sessionStorage.removeItem('pin-ok');
+      useAppStore.getState().setPinSession(false);
+    }
+    const message = typeof body === 'string'
+      ? body
+      : body?.message || body?.error || `API request failed (${res.status})`;
+    throw new ApiError(message, res.status, Number.isFinite(retryAfterSeconds ?? NaN) ? retryAfterSeconds : null, body);
+  }
+  return body;
 }
 export const Api = {
   meta: () => api('/api/meta'),
   verifyPin: (pin: string) => api('/api/pin/verify', { method: 'POST', body: JSON.stringify({ pin }) }),
+  logoutPin: () => api('/api/pin/logout', { method: 'POST', body: JSON.stringify({}) }),
   years: { list: () => api('/api/years'), exists: () => api('/api/years/exists'), add: (year: number) => api('/api/years', { method: 'POST', body: JSON.stringify({ year }) }), remove: (years: number[]) => api('/api/years', { method: 'DELETE', body: JSON.stringify({ years }) }) },
   entries: {
     list: (type: 'income'|'expense', year: number) => api(`/api/entries?type=${type}&year=${year}`),
@@ -47,12 +87,18 @@ export const Api = {
       api(`/api/tags?entryId=${entryId}&month=${month}`, { method: 'DELETE' }),
   },
   exportYears: async (years: number[]) => {
-    const res = await fetch(`${BASE}/api/export`, { method: 'POST', body: JSON.stringify({ years }), headers: { 'Content-Type': 'application/json' } });
+    const res = await fetch(`${BASE}/api/export`, {
+      method: 'POST',
+      body: JSON.stringify({ years }),
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error('Export failed');
     const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a');
     a.href = url; a.download = 'mopay_export.xlsx'; a.click(); URL.revokeObjectURL(url);
   },
   downloadImportTemplate: async () => {
-    const res = await fetch(`${BASE}/api/import/template`);
+    const res = await fetch(`${BASE}/api/import/template`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Template download failed');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
