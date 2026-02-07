@@ -2,18 +2,25 @@
 
 ## v1.5.3
 
-- security hardening: backend API now requires an active PIN session token (`X-Mopay-Session`) for all protected `/api/*` routes
-- implemented server-side PIN sessions (issued on `/api/pin/verify`, revoked on `/api/pin/logout`) with sliding expiration and in-memory token store
-- added brute-force protections for PIN verification:
+### Bug fix
+- lockout UX fix: the PIN attempt that crosses the failure threshold now returns immediate `429 LOCKOUT` (with `Retry-After`) without requiring page reload/new tab
+
+### New Features
+- added optional webhook-based security alerting for high-volume failed PIN attempts (`SECURITY_WEBHOOK_URL` + alert thresholds)
+- Pin Guard: implemented server-side PIN sessions (issued on `/api/pin/verify`, revoked on `/api/pin/logout`) with sliding expiration and in-memory token store
+
+### Improvements
+- Pin Guard: added brute-force protections for PIN verification:
   - per-IP rate limiting (minute + burst window)
   - progressive lockout after repeated failures
   - `Retry-After` response header on temporary blocks
   - minimum response delay to reduce timing/oracle value
-- added security audit logging for auth denials, PIN failures/successes, and rate-limit/lockout events
-- added optional webhook-based security alerting for high-volume failed PIN attempts (`SECURITY_WEBHOOK_URL` + alert thresholds)
-- frontend lock flow now revokes backend session token (not only UI state), and PIN unlock invalidates queries to refresh secured data immediately
-- CORS hardening: wildcard reflective CORS removed; cross-origin API access now opt-in via `CORS_ALLOWED_ORIGINS`
-- lockout UX fix: the PIN attempt that crosses the failure threshold now returns immediate `429 LOCKOUT` (with `Retry-After`) without requiring page reload/new tab
+- Pin Guard: added security audit logging for auth denials, PIN failures/successes, and rate-limit/lockout events
+- UI improvement: introducing icons as replacement of "named actions"
+- Pin Guard: security hardening:
+  - backend API now requires an active PIN session token (`X-Mopay-Session`) for all protected `/api/*` routes
+  - CORS hardening: wildcard reflective CORS removed; cross-origin API access now opt-in via `CORS_ALLOWED_ORIGINS`
+  - frontend lock flow now revokes backend session token (not only UI state), and PIN unlock invalidates queries to refresh secured data immediately
 
 ## v1.5.2
 

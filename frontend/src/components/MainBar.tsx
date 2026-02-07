@@ -96,6 +96,15 @@ export function MainBar() {
     </>
   );
 
+  const menuIconLabel = (
+    <img
+      src="/icons/ui/menu-2.svg"
+      alt=""
+      className="utility-menu-icon"
+      aria-hidden="true"
+    />
+  );
+
   const renderUtilityControls = (
     mode: 'mobile' | 'desktop' = 'desktop',
     options: { includeMenu?: boolean } = {}
@@ -125,9 +134,12 @@ export function MainBar() {
           </SoftButton>
           {includeMenu && (
             <DropdownMenu
-              label="Menu"
+              label={menuIconLabel}
               align="right"
-              buttonClassName={`utility-menu-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
+              buttonClassName={`utility-menu-btn utility-menu-icon-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
+              buttonAriaLabel="Menu"
+              buttonTooltip="Menu"
+              showCaret={false}
             >
               {({ close }) => (
                 <>
@@ -363,9 +375,12 @@ export function MainBar() {
                   triggerClassName="utility-menu-btn utility-menu-btn-sm soft-button"
                 />
                 <DropdownMenu
-                  label="Menu"
+                  label={menuIconLabel}
                   align="right"
-                  buttonClassName="utility-menu-btn utility-menu-btn-sm"
+                  buttonClassName="utility-menu-btn utility-menu-icon-btn utility-menu-btn-sm"
+                  buttonAriaLabel="Menu"
+                  buttonTooltip="Menu"
+                  showCaret={false}
                 >
                   {({ close }) => (
                     <>
@@ -397,9 +412,12 @@ export function MainBar() {
                 className="w-full mainbar-year-dropdown"
               />
               <DropdownMenu
-                label="Menu"
+                label={menuIconLabel}
                 align="right"
-                buttonClassName="utility-menu-btn"
+                buttonClassName="utility-menu-btn utility-menu-icon-btn"
+                buttonAriaLabel="Menu"
+                buttonTooltip="Menu"
+                showCaret={false}
               >
                 {({ close }) => (
                   <>
