@@ -11,6 +11,8 @@ import { runEncryptionMigration, evaluateEncryptionState, repairEncryptionState 
 import { runTagsMigration } from './tagsMigration.js';
 import { runGroupsMigration } from './groupsMigration.js';
 import { initializePin, verifyPinValue } from './pin.js';
+import { createSessionAuth } from './auth.js';
+import { createPinAttemptGuard, createSecurityAudit } from './security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,8 +23,16 @@ const APP_PIN = process.env.APP_PIN || '';
 const APP_VERSION = process.env.APP_VERSION || 'dev';
 const APP_REPO = process.env.APP_REPO || 'pbuzdygan/mopay';
 const APP_CHANNEL = process.env.APP_CHANNEL || 'main';
+const CORS_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+const CORS_ALLOWED_ORIGIN_SET = new Set(CORS_ALLOWED_ORIGINS);
 let keyMismatch = false;
 let importInProgress = false;
+const auth = createSessionAuth();
+const pinAttemptGuard = createPinAttemptGuard();
+const securityAudit = createSecurityAudit();
 
 const isSqliteBusyError = (err) => {
   if (!err) return false;
@@ -440,9 +450,41 @@ const getYearRow = (yearValue) => {
   return db.prepare('SELECT id FROM years WHERE year=?').get(numericYear);
 };
 
-app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(morgan('dev'));
+
+if (CORS_ALLOWED_ORIGINS.length > 0) {
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (CORS_ALLOWED_ORIGIN_SET.has(origin)) return callback(null, true);
+        return callback(new Error('Origin not allowed by CORS'));
+      },
+      credentials: false,
+      allowedHeaders: ['Content-Type', 'X-Mopay-Session', 'Authorization'],
+      methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    })
+  );
+}
+
+const PUBLIC_API_PATHS = new Set(['/pin/verify', '/pin/logout', '/meta', '/encryption/status']);
+app.use('/api', (req, res, next) => {
+  if (PUBLIC_API_PATHS.has(req.path)) return next();
+  const authResult = auth.authorizeRequest(req);
+  if (!authResult.ok) {
+    securityAudit.log('AUTH_DENY', {
+      ip: req.ip || 'unknown',
+      error: authResult.error,
+      path: req.originalUrl,
+      method: req.method,
+      userAgent: req.get('user-agent') || '',
+    });
+    return res.status(401).json({ ok: false, error: authResult.error });
+  }
+  req.authSession = { token: authResult.token, ...authResult.session };
+  return next();
+});
 
 // Health check
 app.get('/health', (_req,res)=> res.json({ status: 'ok' }));
@@ -453,11 +495,71 @@ app.get('/api/meta', (_req, res) => {
 
 // Pin verification
 app.post('/api/pin/verify', (req,res)=>{
-  const { pin } = req.body || {};
-  if (typeof pin === 'string' && verifyPinValue(db, pin)) {
-    return res.json({ ok: true });
+  const ip = req.ip || 'unknown';
+  const guardResult = pinAttemptGuard.beforeVerify(ip);
+  if (!guardResult.allowed) {
+    if (guardResult.retryAfterSeconds) {
+      res.setHeader('Retry-After', String(guardResult.retryAfterSeconds));
+    }
+    securityAudit.log('PIN_VERIFY_BLOCKED', {
+      ip,
+      reason: guardResult.reason,
+      retryAfterSeconds: guardResult.retryAfterSeconds ?? null,
+      userAgent: req.get('user-agent') || '',
+    });
+    return res.status(429).json({
+      ok: false,
+      error: guardResult.reason,
+      retryAfterSeconds: guardResult.retryAfterSeconds ?? null,
+      message:
+        guardResult.reason === 'LOCKOUT'
+          ? 'PIN temporarily locked after multiple failures.'
+          : 'Too many PIN attempts. Please wait and retry.',
+    });
   }
-  return res.status(401).json({ ok: false, error: 'Wrong Pin' });
+
+  const { pin } = req.body || {};
+  const startedAt = Date.now();
+  const minDelayMs = Number(process.env.APP_PIN_MIN_RESPONSE_MS || 250);
+  const finishWithDelay = (fn) => {
+    const elapsed = Date.now() - startedAt;
+    const remaining = Math.max(0, minDelayMs - elapsed);
+    if (!remaining) return fn();
+    return setTimeout(fn, remaining);
+  };
+  if (typeof pin === 'string' && verifyPinValue(db, pin)) {
+    pinAttemptGuard.onSuccess(ip);
+    const sessionToken = auth.createSession(req);
+    securityAudit.log('PIN_VERIFY_SUCCESS', { ip, userAgent: req.get('user-agent') || '' }, 'info');
+    return finishWithDelay(() => res.json({ ok: true, sessionToken }));
+  }
+  const lockInfo = pinAttemptGuard.onFailure(ip);
+  securityAudit.log('PIN_VERIFY_FAIL', {
+    ip,
+    userAgent: req.get('user-agent') || '',
+    lockApplied: lockInfo.lockApplied,
+    lockMs: lockInfo.lockMs,
+  });
+  securityAudit.trackPinFailure(ip, { userAgent: req.get('user-agent') || '' });
+  if (lockInfo.lockApplied) {
+    const retryAfterSeconds = Math.max(1, Math.ceil(lockInfo.lockMs / 1000));
+    res.setHeader('Retry-After', String(retryAfterSeconds));
+    return finishWithDelay(() =>
+      res.status(429).json({
+        ok: false,
+        error: 'LOCKOUT',
+        retryAfterSeconds,
+        message: 'PIN temporarily locked after multiple failures.',
+      })
+    );
+  }
+  return finishWithDelay(() => res.status(401).json({ ok: false, error: 'Wrong Pin' }));
+});
+
+app.post('/api/pin/logout', (req, res) => {
+  const token = auth.getTokenFromRequest(req);
+  if (token) auth.revokeSession(token);
+  res.json({ ok: true });
 });
 
 // Years

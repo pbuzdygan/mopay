@@ -67,6 +67,8 @@ export function MainBar() {
     : 'Pick a year to unlock entries.';
 
   const lockSession = () => {
+    void Api.logoutPin().catch(() => {});
+    sessionStorage.removeItem('pin-token');
     sessionStorage.removeItem('pin-ok');
     setPinSession(false);
   };
