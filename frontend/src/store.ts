@@ -11,10 +11,29 @@ function isDevVersion(value: string | null) {
   return /^dev/i.test(value);
 }
 
-function extractDevVersionIndex(value: string | null) {
-  if (!value) return 0;
-  const match = value.match(/^dev[-_]?(\d+)/i);
-  return match ? Number(match[1]) || 0 : 0;
+function parseVersionParts(value: string | null) {
+  if (!value) return [];
+  return value
+    .split(/[^0-9]+/g)
+    .filter(Boolean)
+    .map((part) => Number(part) || 0);
+}
+
+function parseDevVersionParts(value: string | null) {
+  if (!value) return [];
+  const normalized = value.replace(/^dev[-_]?/i, '');
+  return parseVersionParts(normalized);
+}
+
+function compareNumericParts(leftParts: number[], rightParts: number[]) {
+  const len = Math.max(leftParts.length, rightParts.length);
+  for (let i = 0; i < len; i++) {
+    const left = leftParts[i] ?? 0;
+    const right = rightParts[i] ?? 0;
+    if (left > right) return 1;
+    if (left < right) return -1;
+  }
+  return 0;
 }
 
 export function compareVersions(a: string | null, b: string | null) {
@@ -26,25 +45,15 @@ export function compareVersions(a: string | null, b: string | null) {
   if (leftIsDev || rightIsDev) {
     if (leftIsDev && !rightIsDev) return -1;
     if (!leftIsDev && rightIsDev) return 1;
-    const diff = extractDevVersionIndex(left) - extractDevVersionIndex(right);
-    if (diff > 0) return 1;
-    if (diff < 0) return -1;
+    const diff = compareNumericParts(parseDevVersionParts(left), parseDevVersionParts(right));
+    if (diff !== 0) return diff;
     return (left || '').localeCompare(right || '');
   }
 
   if (!left && !right) return 0;
   if (!left) return -1;
   if (!right) return 1;
-  const leftParts = left.split('.').map((part) => Number(part) || 0);
-  const rightParts = right.split('.').map((part) => Number(part) || 0);
-  const len = Math.max(leftParts.length, rightParts.length);
-  for (let i = 0; i < len; i++) {
-    const la = leftParts[i] ?? 0;
-    const rb = rightParts[i] ?? 0;
-    if (la > rb) return 1;
-    if (la < rb) return -1;
-  }
-  return 0;
+  return compareNumericParts(parseVersionParts(left), parseVersionParts(right));
 }
 
 function load<T>(k: string, fallback: T): T {
