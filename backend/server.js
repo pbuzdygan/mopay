@@ -221,9 +221,52 @@ if (!keyMismatch) {
 
 const MONTH_COLUMNS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const TAG_COLORS = new Set(['none', 'grey', 'green', 'orange', 'red']);
+const MONTH_COLUMN_SET = new Set(MONTH_COLUMNS);
+const ENTRY_NAME_MAX_LEN = 80;
+const ENTRY_COMMENT_MAX_LEN = 240;
 
 const clampText = (value, max = 80) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
+
+const normalizeEntryName = (value) => {
+  if (typeof value !== 'string') return { ok: false, error: 'Invalid name' };
+  const trimmed = clampText(value, ENTRY_NAME_MAX_LEN);
+  if (!trimmed) return { ok: false, error: 'Invalid name' };
+  return { ok: true, value: trimmed };
+};
+
+const normalizeEntryComment = (value) => {
+  if (value === null) return { ok: true, value: null };
+  if (typeof value !== 'string') return { ok: false, error: 'Invalid comment' };
+  return { ok: true, value: clampText(value, ENTRY_COMMENT_MAX_LEN) };
+};
+
+const normalizeEntrySortIndex = (value) => {
+  let parsed = Number.NaN;
+  if (typeof value === 'number') parsed = value;
+  else if (typeof value === 'string' && value.trim() !== '') parsed = Number(value.trim());
+  if (!Number.isInteger(parsed) || parsed < 0) return { ok: false, error: 'Invalid sort_index' };
+  return { ok: true, value: parsed };
+};
+
+const normalizeEntryMonthValue = (month, value) => {
+  if (!MONTH_COLUMN_SET.has(month)) return { ok: false, error: `Invalid month field: ${month}` };
+  if (value === null || value === '-' || value === '–') return { ok: true, value: null };
+
+  let parsed = Number.NaN;
+  if (typeof value === 'number') {
+    parsed = value;
+  } else if (typeof value === 'string') {
+    const cleaned = value.trim().replace(',', '.');
+    if (!cleaned) return { ok: false, error: `Invalid ${month}` };
+    parsed = Number(cleaned);
+  } else {
+    return { ok: false, error: `Invalid ${month}` };
+  }
+
+  if (!Number.isFinite(parsed)) return { ok: false, error: `Invalid ${month}` };
+  return { ok: true, value: parsed };
+};
 
 const getCellText = (value) => {
   if (value === null || value === undefined) return '';
@@ -753,7 +796,9 @@ app.get('/api/entries', (req,res)=>{
 app.post('/api/entries', (req,res)=>{
   if (guardKeyMismatch(res)) return;
   const { type, year, name, groupId } = req.body;
-  if (!['income','expense'].includes(type) || !name) return res.status(400).json({ error: 'Invalid payload' });
+  if (!['income','expense'].includes(type)) return res.status(400).json({ error: 'Invalid payload' });
+  const normalizedNameResult = normalizeEntryName(name);
+  if (!normalizedNameResult.ok) return res.status(400).json({ error: normalizedNameResult.error });
   const yr = db.prepare('SELECT id FROM years WHERE year=?').get(year);
   if (!yr) return res.status(404).json({ error: 'Year not found' });
   const normalizedGroupId = groupId === null || groupId === undefined ? null : Number(groupId);
@@ -781,7 +826,7 @@ app.post('/api/entries', (req,res)=>{
   const stmt = db.prepare(
     `INSERT INTO entries(type,name,year_id,group_id,sort_index,${monthColumnsSql}) VALUES (?,?,?,?,?,${monthPlaceholders})`
   );
-  const info = stmt.run(type, name, yr.id, normalizedGroupId, Number(mx) + 1, ...zeroValues);
+  const info = stmt.run(type, normalizedNameResult.value, yr.id, normalizedGroupId, Number(mx) + 1, ...zeroValues);
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
@@ -913,13 +958,32 @@ app.patch('/api/entries/:id', (req,res)=>{
   const sets = [], vals = [];
   for (const f of fields) if (f in payload) {
     const col = (f==='Dec') ? '"Dec"' : f;
-    let value = payload[f];
-    if (['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].includes(f)) {
-      if (value === '-' || value === '–') value = null;
-      value = encryptNumber(value);
+    let normalized;
+    if (f === 'name') {
+      normalized = normalizeEntryName(payload[f]);
+      if (!normalized.ok) return res.status(400).json({ error: normalized.error });
+      sets.push(`${col}=?`);
+      vals.push(normalized.value);
+      continue;
     }
+    if (f === 'comment') {
+      normalized = normalizeEntryComment(payload[f]);
+      if (!normalized.ok) return res.status(400).json({ error: normalized.error });
+      sets.push(`${col}=?`);
+      vals.push(normalized.value);
+      continue;
+    }
+    if (f === 'sort_index') {
+      normalized = normalizeEntrySortIndex(payload[f]);
+      if (!normalized.ok) return res.status(400).json({ error: normalized.error });
+      sets.push(`${col}=?`);
+      vals.push(normalized.value);
+      continue;
+    }
+    normalized = normalizeEntryMonthValue(f, payload[f]);
+    if (!normalized.ok) return res.status(400).json({ error: normalized.error });
     sets.push(`${col}=?`);
-    vals.push(value);
+    vals.push(encryptNumber(normalized.value));
   }
   if (!sets.length) {
     if (groupUpdated) return res.json({ ok: true, updated: 1 });
