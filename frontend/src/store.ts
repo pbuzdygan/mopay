@@ -82,6 +82,7 @@ type State = {
   pinSession: boolean;
   removeSelection: Set<number>;
   groupRemoveSelection: Set<number>;
+  bulkRemoveRequestId: number;
   selectedReports: ReportId[];
   modals: {
     add: boolean;
@@ -109,6 +110,7 @@ type State = {
   toggleRemoveId: (id: number) => void;
   toggleRemoveGroupId: (id: number) => void;
   clearRemove: () => void;
+  requestBulkRemove: () => void;
   toggleReport: (id: ReportId) => void;
   clearReports: () => void;
   openModal: (k: keyof State['modals']) => void;
@@ -134,6 +136,7 @@ export const useAppStore = create<State>((set, get) => ({
   pinSession: false,
   removeSelection: new Set<number>(),
   groupRemoveSelection: new Set<number>(),
+  bulkRemoveRequestId: 0,
   selectedReports: load<ReportId[]>('selectedReports', []),
   modals: {
     add: false,
@@ -191,6 +194,11 @@ export const useAppStore = create<State>((set, get) => ({
   },
 
   clearRemove: () => set({ removeSelection: new Set<number>(), groupRemoveSelection: new Set<number>() }),
+
+  requestBulkRemove: () =>
+    set((state) => ({
+      bulkRemoveRequestId: state.bulkRemoveRequestId + 1,
+    })),
 
   toggleReport: (id) => {
     const current = new Set(get().selectedReports);

@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.5.4
+
+### Bug fix
+- refactored bulk remove trigger flow: removed global `window` event dependency and replaced it with explicit Zustand request signaling (`bulkRemoveRequestId`), reducing cross-component coupling and preventing event-listener drift
+- stabilized optimistic table updates by moving from full local data copies to per-entry overlay patches, reducing risk of state desync between React Query cache and UI
+
+### New Features
+- added table query-state composition hook `useTableQueryState` to centralize entries/groups/tags reads and optimistic entry overlays
+- added reusable table layout rows (`TableHeaderRow`, `TableTotalRow`) to separate static rendering concerns from interaction logic in `TableView`
+
+### Improvements
+- performance-oriented `TableView` architecture update:
+  - removed duplicated local mirrors for groups/tags query data
+  - narrowed store subscriptions in hot paths and reduced broad state reads
+  - converted core row/group render blocks to memoized components
+  - kept optimistic reorder/group/name/month updates while reducing full-list rewrites
+- maintainability improvements:
+  - introduced typed table models in `frontend/src/components/table/types.ts`
+  - reduced `TableView` responsibilities by moving query/overlay logic and UI-only rows to dedicated modules
+- documentation update:
+  - refreshed `README.md` and `docs/ARCHITECTURE.md` to reflect current grouping, import scope, PIN session model, release check behavior, and deployment/security notes
+
 ## v1.5.3
 
 ### Bug fix

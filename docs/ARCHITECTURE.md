@@ -21,8 +21,8 @@ Core capabilities implemented in the current codebase:
 
 MOPAY runs as a single container/process application:
 
-- backend: Express server in [`backend/server.js`](/home/buzsys/github/mopay_dev/backend/server.js)
-- database: SQLite via [`backend/db.js`](/home/buzsys/github/mopay_dev/backend/db.js)
+- backend: Express server in [`backend/server.js`](.../backend/server.js)
+- database: SQLite via [`backend/db.js`](.../backend/db.js)
 - frontend build output: served from `/app/public` by Express
 
 The same backend process:
@@ -37,34 +37,34 @@ The same backend process:
 
 Key repository areas:
 
-- [`backend/`](/home/buzsys/github/mopay_dev/backend)
-  - [`server.js`](/home/buzsys/github/mopay_dev/backend/server.js): API, import flow, auth gating, SPA hosting
-  - [`db.js`](/home/buzsys/github/mopay_dev/backend/db.js): SQLite connection, pragmas, schema bootstrap
-  - [`schema.sql`](/home/buzsys/github/mopay_dev/backend/schema.sql): base schema
-  - [`encryption.js`](/home/buzsys/github/mopay_dev/backend/encryption.js): AES-GCM helpers and key fingerprint
-  - [`migration.js`](/home/buzsys/github/mopay_dev/backend/migration.js): encryption migration and repair
-  - [`pin.js`](/home/buzsys/github/mopay_dev/backend/pin.js): encrypted PIN hash initialization and verification
-  - [`auth.js`](/home/buzsys/github/mopay_dev/backend/auth.js): in-memory session token store
-  - [`security.js`](/home/buzsys/github/mopay_dev/backend/security.js): PIN attempt throttling, lockout, alerting
-  - [`export.js`](/home/buzsys/github/mopay_dev/backend/export.js): XLSX export and import-template generation
-  - [`tagsMigration.js`](/home/buzsys/github/mopay_dev/backend/tagsMigration.js): tag table migration
-  - [`groupsMigration.js`](/home/buzsys/github/mopay_dev/backend/groupsMigration.js): grouping migration
-- [`frontend/src/`](/home/buzsys/github/mopay_dev/frontend/src)
-  - [`App.tsx`](/home/buzsys/github/mopay_dev/frontend/src/App.tsx): app shell and global modals
-  - [`api.ts`](/home/buzsys/github/mopay_dev/frontend/src/api.ts): fetch wrapper and API bindings
-  - [`store.ts`](/home/buzsys/github/mopay_dev/frontend/src/store.ts): Zustand UI state
-  - [`components/TableView.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/TableView.tsx): income/expense table, DnD, groups, tags
-  - [`components/SavingsView.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/SavingsView.tsx): savings goals/items UI
-  - [`components/ReportsView.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/ReportsView.tsx): reports UI
-  - [`components/PinGuard.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/PinGuard.tsx): PIN unlock overlay
-  - [`components/ReleaseStatusProvider.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/ReleaseStatusProvider.tsx): release metadata polling
-  - [`components/modals/`](/home/buzsys/github/mopay_dev/frontend/src/components/modals): add/edit/import/export/settings flows
-- [`Dockerfile`](/home/buzsys/github/mopay_dev/Dockerfile): multi-stage build and runtime image
-- [`docker-compose.yml`](/home/buzsys/github/mopay_dev/docker-compose.yml): GHCR deployment example
+- [`backend/`](.../backend)
+  - [`server.js`](.../backend/server.js): API, import flow, auth gating, SPA hosting
+  - [`db.js`](.../backend/db.js): SQLite connection, pragmas, schema bootstrap
+  - [`schema.sql`](.../backend/schema.sql): base schema
+  - [`encryption.js`](.../backend/encryption.js): AES-GCM helpers and key fingerprint
+  - [`migration.js`](.../backend/migration.js): encryption migration and repair
+  - [`pin.js`](.../backend/pin.js): encrypted PIN hash initialization and verification
+  - [`auth.js`](.../backend/auth.js): in-memory session token store
+  - [`security.js`](.../backend/security.js): PIN attempt throttling, lockout, alerting
+  - [`export.js`](.../backend/export.js): XLSX export and import-template generation
+  - [`tagsMigration.js`](.../backend/tagsMigration.js): tag table migration
+  - [`groupsMigration.js`](.../backend/groupsMigration.js): grouping migration
+- [`frontend/src/`](.../frontend/src)
+  - [`App.tsx`](.../frontend/src/App.tsx): app shell and global modals
+  - [`api.ts`](.../frontend/src/api.ts): fetch wrapper and API bindings
+  - [`store.ts`](.../frontend/src/store.ts): Zustand UI state
+  - [`components/TableView.tsx`](.../frontend/src/components/TableView.tsx): income/expense table, DnD, groups, tags
+  - [`components/SavingsView.tsx`](.../frontend/src/components/SavingsView.tsx): savings goals/items UI
+  - [`components/ReportsView.tsx`](.../frontend/src/components/ReportsView.tsx): reports UI
+  - [`components/PinGuard.tsx`](.../frontend/src/components/PinGuard.tsx): PIN unlock overlay
+  - [`components/ReleaseStatusProvider.tsx`](.../frontend/src/components/ReleaseStatusProvider.tsx): release metadata polling
+  - [`components/modals/`](.../frontend/src/components/modals): add/edit/import/export/settings flows
+- [`Dockerfile`](.../Dockerfile): multi-stage build and runtime image
+- [`docker-compose.yml`](.../docker-compose.yml): GHCR deployment example
 
 ## 4. Data Model
 
-Base tables are created from [`backend/schema.sql`](/home/buzsys/github/mopay_dev/backend/schema.sql), then extended/verified by targeted migrations.
+Base tables are created from [`backend/schema.sql`](.../backend/schema.sql), then extended/verified by targeted migrations.
 
 Main tables:
 
@@ -100,7 +100,7 @@ Important indexing currently present:
 
 ### 5.1 Database Bootstrap
 
-[`backend/db.js`](/home/buzsys/github/mopay_dev/backend/db.js) opens the SQLite file from `DB_FILE` and applies:
+[`backend/db.js`](.../backend/db.js) opens the SQLite file from `DB_FILE` and applies:
 
 - `journal_mode = WAL`
 - `foreign_keys = ON`
@@ -153,7 +153,7 @@ Session implementation details:
 
 ### 5.4 Security Controls
 
-[`backend/security.js`](/home/buzsys/github/mopay_dev/backend/security.js) implements:
+[`backend/security.js`](.../backend/security.js) implements:
 
 - per-IP request throttling for PIN verification
 - burst protection
@@ -166,12 +166,12 @@ When enabled, only explicitly allowed origins can call the API cross-origin.
 
 ### 5.5 Import/Export
 
-[`backend/export.js`](/home/buzsys/github/mopay_dev/backend/export.js) is responsible for:
+[`backend/export.js`](.../backend/export.js) is responsible for:
 
 - exporting selected years to a styled XLSX workbook
 - generating the canonical XLSX import template
 
-[`backend/server.js`](/home/buzsys/github/mopay_dev/backend/server.js) handles import orchestration:
+[`backend/server.js`](.../backend/server.js) handles import orchestration:
 
 - validates workbook structure and sheet names
 - maps import sheets to target years
@@ -274,7 +274,7 @@ Examples of Zustand-managed state:
 
 ### 7.3 Release Status
 
-[`frontend/src/components/ReleaseStatusProvider.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/ReleaseStatusProvider.tsx) performs two jobs:
+[`frontend/src/components/ReleaseStatusProvider.tsx`](.../frontend/src/components/ReleaseStatusProvider.tsx) performs two jobs:
 
 - reads backend metadata (`version`, `repo`, `channel`) from `/api/meta`
 - polls GitHub Releases for the configured repository and channel to determine whether an update is available
@@ -284,11 +284,11 @@ This means the browser may perform outbound requests to `api.github.com` when re
 ### 7.4 PWA
 
 The frontend is built with `vite-plugin-pwa`.
-Static assets and the manifest live in [`frontend/public/`](/home/buzsys/github/mopay_dev/frontend/public).
+Static assets and the manifest live in [`frontend/public/`](.../frontend/public).
 
 ## 8. Deployment
 
-Build and runtime packaging are defined in [`Dockerfile`](/home/buzsys/github/mopay_dev/Dockerfile):
+Build and runtime packaging are defined in [`Dockerfile`](.../Dockerfile):
 
 - stage 1: install frontend dependencies and build Vite assets
 - stage 2: install backend production dependencies, copy backend sources, copy built frontend

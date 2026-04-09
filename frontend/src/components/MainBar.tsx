@@ -29,6 +29,7 @@ export function MainBar() {
     removeSelection,
     groupRemoveSelection,
     clearRemove,
+    requestBulkRemove,
     setPinSession,
     selectedReports,
     toggleReport,
@@ -226,7 +227,7 @@ export function MainBar() {
           variant="danger"
           className="w-full md:w-auto mobile-primary"
           disabled={removeSelection.size === 0 && groupRemoveSelection.size === 0}
-          onClick={() => window.dispatchEvent(new CustomEvent('bulk:remove'))}
+          onClick={requestBulkRemove}
         >
           Remove selected
         </SoftButton>
