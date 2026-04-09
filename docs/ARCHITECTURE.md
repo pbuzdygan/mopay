@@ -1,620 +1,312 @@
-# **MOPAY – Architecture & Technical Overview**
+# MOPAY Architecture
+
+## 1. Overview
+
+MOPAY is a self-hosted personal finance application for yearly household budgeting.
+The product centers around one SQLite database and one Node.js process serving both the REST API and the built frontend.
+
+Core capabilities implemented in the current codebase:
+
+- yearly income and expense planning
+- entry grouping within income and expense tables
+- month-level tags with color and note
+- savings goals with nested savings items
+- XLSX export and XLSX import based on a strict template
+- PIN-based access control backed by short-lived session tokens
+- application-level encryption for monetary data
+- PWA frontend with offline-capable assets
+- release metadata and update indicator in the UI
+
+## 2. Runtime Shape
+
+MOPAY runs as a single container/process application:
+
+- backend: Express server in [`backend/server.js`](/home/buzsys/github/mopay_dev/backend/server.js)
+- database: SQLite via [`backend/db.js`](/home/buzsys/github/mopay_dev/backend/db.js)
+- frontend build output: served from `/app/public` by Express
+
+The same backend process:
+
+- initializes schema and migrations
+- validates encryption state
+- stores and verifies PIN data
+- exposes REST endpoints under `/api`
+- serves the SPA shell for all non-API routes
+
+## 3. Repository Structure
+
+Key repository areas:
+
+- [`backend/`](/home/buzsys/github/mopay_dev/backend)
+  - [`server.js`](/home/buzsys/github/mopay_dev/backend/server.js): API, import flow, auth gating, SPA hosting
+  - [`db.js`](/home/buzsys/github/mopay_dev/backend/db.js): SQLite connection, pragmas, schema bootstrap
+  - [`schema.sql`](/home/buzsys/github/mopay_dev/backend/schema.sql): base schema
+  - [`encryption.js`](/home/buzsys/github/mopay_dev/backend/encryption.js): AES-GCM helpers and key fingerprint
+  - [`migration.js`](/home/buzsys/github/mopay_dev/backend/migration.js): encryption migration and repair
+  - [`pin.js`](/home/buzsys/github/mopay_dev/backend/pin.js): encrypted PIN hash initialization and verification
+  - [`auth.js`](/home/buzsys/github/mopay_dev/backend/auth.js): in-memory session token store
+  - [`security.js`](/home/buzsys/github/mopay_dev/backend/security.js): PIN attempt throttling, lockout, alerting
+  - [`export.js`](/home/buzsys/github/mopay_dev/backend/export.js): XLSX export and import-template generation
+  - [`tagsMigration.js`](/home/buzsys/github/mopay_dev/backend/tagsMigration.js): tag table migration
+  - [`groupsMigration.js`](/home/buzsys/github/mopay_dev/backend/groupsMigration.js): grouping migration
+- [`frontend/src/`](/home/buzsys/github/mopay_dev/frontend/src)
+  - [`App.tsx`](/home/buzsys/github/mopay_dev/frontend/src/App.tsx): app shell and global modals
+  - [`api.ts`](/home/buzsys/github/mopay_dev/frontend/src/api.ts): fetch wrapper and API bindings
+  - [`store.ts`](/home/buzsys/github/mopay_dev/frontend/src/store.ts): Zustand UI state
+  - [`components/TableView.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/TableView.tsx): income/expense table, DnD, groups, tags
+  - [`components/SavingsView.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/SavingsView.tsx): savings goals/items UI
+  - [`components/ReportsView.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/ReportsView.tsx): reports UI
+  - [`components/PinGuard.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/PinGuard.tsx): PIN unlock overlay
+  - [`components/ReleaseStatusProvider.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/ReleaseStatusProvider.tsx): release metadata polling
+  - [`components/modals/`](/home/buzsys/github/mopay_dev/frontend/src/components/modals): add/edit/import/export/settings flows
+- [`Dockerfile`](/home/buzsys/github/mopay_dev/Dockerfile): multi-stage build and runtime image
+- [`docker-compose.yml`](/home/buzsys/github/mopay_dev/docker-compose.yml): GHCR deployment example
+
+## 4. Data Model
+
+Base tables are created from [`backend/schema.sql`](/home/buzsys/github/mopay_dev/backend/schema.sql), then extended/verified by targeted migrations.
+
+Main tables:
+
+- `years`
+  - one row per financial year
+- `entry_groups`
+  - optional grouping of entries per `year_id` and `type`
+- `entries`
+  - income/expense rows
+  - includes `name`, optional `comment`, optional `group_id`, `sort_index`
+  - monthly values are stored in `Jan` through `Dec`
+- `entry_tags`
+  - one optional tag per `(entry_id, month)`
+  - stores color, note text, timestamps
+- `savings_goals`
+  - savings containers per year
+- `savings_items`
+  - rows nested under a savings goal
+- `meta`
+  - created by migration code
+  - stores encryption and PIN-related metadata such as `enc_migrated`, `enc_notice_pending`, `enc_key_fingerprint`, `pin_hash`
 
-## **1\. High‑Level Overview**
+Important indexing currently present:
 
-MOPAY is a self‑hosted personal finance and home payments app focused on:
-
--   Tracking yearly **income** and **expense** lines month by month
--   Managing **multiple years** in a single database
--   Defining **savings goals** and tracking progress toward them
--   Providing lightweight **analytics reports** (balances, leaders, stability)
--   Protecting access with a **PIN guard**
--   Running as a **PWA** with a modern, responsive UI
-
-The app is split into:
-
--   **Backend**: Node.js + Express + SQLite (via better-sqlite3) + Excel export
--   **Frontend**: React + TypeScript + Vite + Tailwind CSS, with React Query and Zustand
-
----
-
-## **2\. Tech Stack**
-
--   **Backend**
-    
-    -   Node.js (ESM)
-    -   Express
-    -   better-sqlite3 for SQLite access
-    -   ExcelJS for XLSX export
--   **Frontend**
-    
-    -   React + TypeScript
-    -   Vite bundler
-    -   Tailwind CSS (custom design system in CSS)
-    -   React Query (@tanstack/react-query) for data fetching + caching
-    -   Zustand for global app state
-    -   @dnd-kit for drag‑and‑drop row ordering
-    -   framer-motion for animations
--   **Deployment**
-    
-    -   Docker & docker‑compose
-    -   Single container exposing port 8010
-
----
-
-## **3\. Repository Structure**
-
-`backend/ db.js # SQLite initialization and schema loading export.js # Export selected years into styled XLSX workbook schema.sql # Database schema server.js # Express server and REST API frontend/ index.html # Vite entry HTML src/ api.ts # Typed API client (fetch wrapper) App.tsx # Root React application component main.tsx # React entry + React Query/Zustand providers store.ts # Global state with Zustand components/ # UI components, views and modals reports/ # Report definitions and IDs utils/ # Currency + month utilities styles/ # Global CSS / themes`
-
----
-
-## **4\. Backend**
-
-### **4.1 Data encryption**
-Mopay stores all application data in a local SQLite database. Starting from version 1.1, all sensitive numeric data is encrypted at the application level using a symmetric key provided via environment variables.
-
-#### Encryption model
-
-- Algorithm: AES‑256‑GCM (authenticated encryption).
-- Scope of encryption:
-  - monthly values in `entries` (`Jan`–`Dec` for income/expense rows),
-  - `target_value` in `savings_goals`,
-  - `value` in `savings_items`,
-  - PIN is stored as a salted hash and then encrypted as a blob in the `meta` table.
-- Storage format:
-  - encrypted values are stored as text columns with the prefix `enc:` followed by a base64 payload containing IV, auth tag and ciphertext.
-  - decryption happens in the backend before values are returned to the frontend or used for calculations (e.g. reports, export).
-
-#### Encryption key (APP_ENC_KEY)
-
-- The backend requires a symmetric key provided as `APP_ENC_KEY` (usually via Docker Compose):
-  - recommended format: `APP_ENC_KEY=base64:<32‑byte‑base64>`,
-  - if the variable is missing, the process logs  
-    `Error: APP_ENC_KEY environment variable is required for Mopay to start.`  
-    and exits – running without encryption is not supported.
-- Internally, the key is normalized and validated to 32 bytes and a SHA‑256 fingerprint is computed and stored in the `meta` table as `enc_key_fingerprint`.
-
-#### Migration of existing data
-
-On first start with a valid `APP_ENC_KEY`:
-
-- The backend initializes the `meta` table (if needed) and runs a migration that:
-  - encrypts all existing numeric values in `entries`, `savings_goals` and `savings_items`,
-  - sets `meta.enc_migrated = 1` and `meta.enc_notice_pending = 1` so the frontend can display a one‑time “your data has been encrypted” message.
-- After migration, all subsequent writes to monetary columns are always stored in encrypted form.
-- Export and reporting logic transparently decrypts values before generating Excel or aggregate views.
-
-#### PIN handling
-
-- `APP_PIN` is no longer compared directly; instead:
-  - on startup the backend computes a salted hash of the PIN using scrypt, wraps `{ salt, hash }` in JSON, encrypts it with `APP_ENC_KEY` and stores it under `meta.pin_hash`,
-  - `/api/pin/verify` verifies user input only against this encrypted hash record (constant‑time comparison),
-  - the raw PIN is never stored in plaintext in the database.
-
-#### APP_ENC_KEY changes and safety
-
-To protect data integrity, Mopay tracks which key was used to encrypt the current database:
-
-- On startup:
-  - the backend computes a fingerprint of the current `APP_ENC_KEY` and compares it with `meta.enc_key_fingerprint`,
-  - if they match, the app runs normally and verifies that monetary columns are encrypted; if needed, a repair step re‑encrypts any remaining plaintext values.
-- If the fingerprint does not match (APP_ENC_KEY changed):
-  - the backend sets `meta.enc_key_mismatch = 1` and logs:  
-    `Your APP_ENC_KEY has been changed! Revert to previous encryption key to keep your data.`,
-  - all data‑related API endpoints return HTTP 409 with a structured error (`ENCRYPTION_KEY_MISMATCH`),
-  - the frontend shows a blocking modal explaining that the key does not match the encrypted data and offers two options:
-    - restore the previous `APP_ENC_KEY` in Docker / environment and restart Mopay (recommended to keep all data),
-    - wipe all data and start fresh with the current key:
-      - this is done via a dedicated endpoint that deletes all rows from `years`, `entries`, `savings_goals`, `savings_items`,
-      - the action requires an explicit confirmation in the UI (red “Confirm reset” button),
-      - after reset the fingerprint is updated to the current key and the app behaves like a fresh installation.
-
-In short, as long as `APP_ENC_KEY` remains consistent, all monetary data and PIN protection are handled transparently. Changing or losing the key without a prior migration/backup makes existing encrypted data unrecoverable by design; the application guides the user to either restore the previous key or reset the database.
-
-### **4.2 Database Initialization (**<span style="color: rgb(77, 170, 252)">**backend/db.js**</span>**,** <span style="color: rgb(77, 170, 252)">**backend/schema.sql**</span>**)**
-
--   Resolves DB location from DB\_FILE env (default <span style="color: rgb(77, 170, 252)">./mopay.sqlite</span>).
--   Opens a better-sqlite3 connection, enabling:
-    
-    -   journal\_mode = WAL
-    -   foreign\_keys = ON
--   Loads and executes <span style="color: rgb(77, 170, 252)">schema.sql</span> at startup. Schema:
-
-Tables:
-
--   years
-    
-    -   id (PK), year (unique integer, e.g. 2024)
--   entries
-    
-    -   id (PK)
-    -   type ('income' | 'expense')
-    -   name (entry label)
-    -   year\_id (FK → [<span style="color: rgb(77, 170, 252)">years.id</span>](http://years.id))
-    -   comment (optional)
-    -   Jan … "Dec" (REAL, monthly amounts)
-    -   sort\_index (ordering within year + type)
--   savings\_goals
-    
-    -   id (PK)
-    -   year\_id (FK → [<span style="color: rgb(77, 170, 252)">years.id</span>](http://years.id))
-    -   name
-    -   target\_value (optional numeric target)
-    -   sort\_index
-    -   created\_at
--   savings\_items
-    
-    -   id (PK)
-    -   goal\_id (FK → <span style="color: rgb(77, 170, 252)">savings\_</span>[<span style="color: rgb(77, 170, 252)">goals.id</span>](http://goals.id), ON DELETE CASCADE)
-    -   name (optional)
-    -   value (numeric)
-    -   sort\_index
-
--   entry\_tags
-    
-    -   id (PK)
-    -   entry\_id (FK → entries.id, ON DELETE CASCADE)
-    -   month (TEXT, constrained to Jan…Dec)
-    -   color (`green`, `orange`, `red`, legacy `grey`)
-    -   text (optional short note)
-    -   created\_at / updated\_at timestamps
-    
-    Provisioned by `tagsMigration.js`, which runs separately from the encryption migration and logs whether tagging setup was required.
-
-Indexes exist on (year\_id, type) and savings foreign keys for performance.
-
-### **4.3 Express Server (**<span style="color: rgb(77, 170, 252)">**backend/server.js**</span>**)**
-
-Configuration:
-
--   PORT (default 8010)
--   APP\_PIN: if empty, PIN verification always succeeds; if set, used to protect the UI.
-
-Common helpers:
-
--   clampText(value, max) – trims and limits text to a given length.
--   getYearRow(year) – validates a numeric year and returns corresponding row from years.
-
-Middleware:
-
--   cors({ origin: true, credentials: true })
--   express.json()
--   morgan('dev') logging
-
-Static UI:
-
--   express.static for backend/public
--   Catch‑all GET \* serving <span style="color: rgb(77, 170, 252)">public/index.html</span> for the SPA.
-
-### **4.4 API Endpoints**
-
-All APIs return JSON unless stated otherwise.
-
-#### Health & PIN
-
--   GET /health
-    
-    -   Returns { status: 'ok' } for health checks.
--   POST /api/pin/verify
-    
-    -   Input: { pin: string }
-    -   Behavior:
-        
-        -   If APP\_PIN is empty → { ok: true }
-        -   If APP\_PIN set → checks 4–8 digit PIN; returns 401 on mismatch.
-
-#### Years
-
--   GET /api/years
-    
-    -   Returns { years: number\[\] } sorted ascending.
--   GET /api/years/exists
-    
-    -   Returns { hasAny: boolean }.
--   POST /api/years
-    
-    -   Input: { year: number } (4 digits).
-    -   Inserts a new year; 409 on duplicate.
--   DELETE /api/years
-    
-    -   Input: { years: number\[\] }.
-    -   Deletes selected years and all associated data:
-        
-        -   entries for those years
-        -   savings\_goals and savings\_items for those years
-
-#### Entries (Incomes & Expenses)
-
--   GET /api/entries?type=income|expense&year=YYYY
-    
-    -   Looks up year\_id and returns:
-        
-        -   { entries: \[{ id, name, comment, sort\_index, Jan, ..., Decm }\] }
-    -   Uses alias "Dec" AS Decm for the December column.
--   POST /api/entries
-    
-    -   Input: { type: 'income' | 'expense', year: number, name: string }
-    -   Adds entry with sort\_index = max + 1 within that year+type.
--   PATCH /api/entries/:id
-    
-    -   Input: any subset of:
-        
-        -   name, comment, sort\_index, Jan..Dec
-    -   Updates selected columns; fails with 400 if nothing provided.
--   DELETE /api/entries
-    
-    -   Input: { ids: number\[\] }
-    -   Bulk delete by id.
--   POST /api/entries/reorder
-    
-    -   Input: { orderedIds: number\[\] }
-    -   Reassigns sort\_index in the given order using a transaction.
-
-#### Savings
-
--   GET /api/savings?year=YYYY
-    
-    -   Returns goals for the year or \[\] if year not found.
-    -   Response format:
-        
-        `{ goals: Array<{ id: number; name: string; targetValue: number | null; sortIndex: number; items: Array<{ id: number; goalId: number; name: string; value: number; sortIndex: number; }>; }>; }`
-        
--   POST /api/savings
-    
-    -   Input: { year: number, name: string, targetValue: number | null }
-    -   Validates year, clamps goal name, and inserts with sort\_index = max + 1.
--   PATCH /api/savings/:goalId
-    
-    -   Input: any subset of { name?: string, targetValue?: number | null }
-    -   Validates target as number or null; requires at least one field.
--   DELETE /api/savings/:goalId
-    
-    -   Deletes goal; savings\_items are removed via FK cascade.
--   POST /api/savings/:goalId/items
-    
-    -   Input body: optional { name, value } (defaults empty name / 0).
-    -   Inserts item with next sort\_index under the goal.
--   PATCH /api/savings/items/:itemId
-    
-    -   Input: { name?, value? } (value must be numeric).
--   DELETE /api/savings/items/:itemId
-    
-    -   Deletes an individual item.
-
-#### Tags
-
--   GET /api/tags?year=YYYY
-    
-    -   Returns `{ tags: Array<{ id, entryId, month, color, text }> }` for all entries in the given year (both incomes and expenses).
--   POST /api/tags
-    
-    -   Input: { entryId: number, month: string, color: 'green' | 'orange' | 'red' | 'grey', text?: string }
-    -   Upserts a tag (per entry + month) and timestamps updates.
--   DELETE /api/tags?entryId=ID&month=Mon
-    
-    -   Removes a tag for the specified entry/month combination.
-
-All tag endpoints respect the encryption key guard—if the encryption key mismatches, they return HTTP 409 like other data APIs.
-
-#### Export
-
--   POST /api/export
-    
-    -   Input: { years: number\[\] }.
-    -   Uses exportYearsToWorkbook to build an in‑memory XLSX workbook.
-    -   Response:
-        
-        -   Content type: <span style="color: rgb(77, 170, 252)">application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</span>
-        -   Content-Disposition: attachment; filename="mopay\_export.xlsx"
-
-### **4.5 Excel Export Implementation (**<span style="color: rgb(77, 170, 252)">**backend/export.js**</span>**)**
-
--   Uses ExcelJS + a custom color palette and borders.
--   For each requested year:
-    
-    -   Creates a worksheet named with that year.
-    -   Row 1: big title “Mopay Export {year}”.
-    -   Renders sections in order:
-        
-        1.  Incomes table (all income entries, monthly columns + sum/avg/comment)
-            -   Tagged months inherit UI highlight colors (green/orange/red) and embed tag note text as native spreadsheet comments.
-        2.  Expenses table (same structure)
-            -   Same tagging behavior as incomes.
-        3.  Savings section:
-            
-            -   Renders each goal as a mini‑table with:
-                
-                -   Title row
-                -   Target row
-                -   Item rows
-                -   Total row
-            -   Goals are laid out in a grid (TABLES\_PER\_ROW per row).
--   Currency formatting via #,##0.00 and explicit numeric formats.
-
----
-
-## **5\. Frontend**
-
-### **5.1 Global State (**<span style="color: rgb(77, 170, 252)">**frontend/src/store.ts**</span>**)**
-
-Zustand store holds core application state:
-
--   Core fields:
-    
-    -   tab: 'expenses' | 'incomes' | 'savings' | 'reports'
-    -   year: number | null – active year
-    -   theme: 'light' | 'dark'
-    -   editMode: null | 'name' | 'order' | 'remove' | 'tag'
-    -   pinSession: boolean – whether PIN has been verified
--   Selection state:
-    
-    -   removeSelection: Set<number> – entries selected for bulk removal
-    -   selectedReports: ReportId\[\] – active reports in the Reports view
--   Modal state:
-    
-    -   <span style="color: rgb(77, 170, 252)">modals.add</span>, modals.comment, modals.yearOps, modals.export,  
-        modals.settings, modals.initiateYear
-    -   goalModal: { open: boolean; goalId: number | null }
--   Actions:
-    
-    -   setTab, setYear, setTheme, setEditMode, setPinSession
-    -   toggleRemoveId, clearRemove
-    -   toggleReport, clearReports
-    -   openModal, closeModal, setComment
-    -   openGoalModal, closeGoalModal
--   Some values are persisted in localStorage: tab, year, theme, selectedReports.
-
-### **5.2 API Client (**<span style="color: rgb(77, 170, 252)">**frontend/src/api.ts**</span>**)**
-
--   api(path, init?):
-    
-    -   Wraps fetch against VITE\_API\_BASE (if set).
-    -   Always sends Content-Type: application/json by default.
-    -   If response is JSON, returns parsed JSON; otherwise returns the Response.
--   Api collection:
-    
-    -   verifyPin(pin)
-    -   years.list(), .exists(), .add(year), .remove(years)
-    -   entries.list(type, year), <span style="color: rgb(77, 170, 252)">.add(...)</span>, .patch(id, payload), .remove(ids), .reorder(orderedIds)
-    -   savings.list(year), <span style="color: rgb(77, 170, 252)">.addGoal(...)</span>, .updateGoal(id, payload), .removeGoal(id),  
-        .addItem(goalId), .updateItem(itemId, payload), .removeItem(itemId)
-    -   tags.list(year), tags.save({ entryId, month, color, text }), tags.remove(entryId, month)
-    -   exportYears(years) – calls /api/export and triggers XLSX download in the browser.
-
-All screen components use Api via React Query hooks for data fetching/invalidation.
-
-### **5.3 Root Application (**<span style="color: rgb(77, 170, 252)">**frontend/src/App.tsx**</span>**)**
-
--   Imports global CSS and wires the main layout:
-    
-    -   Sticky header with “glass” effect based on scroll position.
-    -   Applies theme via document.documentElement.dataset.theme and a short “theme-changing” class for smooth transitions.
--   Renders:
-    
-    -   <PinGuard /> – PIN overlay
-    -   <MainBar /> – navigation, actions and year selection
-    -   Tab content:
-        
-        -   TableView for expenses/incomes
-        -   SavingsView for goals
-        -   ReportsView for analytics
-    -   Modals: InitiateYearModal, AddEntryModal, CommentModal, YearOperationsModal,  
-        ExportModal, SettingsModal, SavingsGoalModal
-    -   AddToHomeScreen – PWA install hint (mobile add‑to‑home‑screen).
-
-### **5.4 Main UI Components**
-
-#### 5.4.1 MainBar (<span style="color: rgb(77, 170, 252)">frontend/src/components/MainBar.tsx</span>)
-
--   Top navigation bar responsible for:
-    
-    -   Tab switching (Expenses/Incomes/Savings/Reports)
-    -   Year selection via YearDropdown (data from /api/years)
-    -   Theme toggle
-    -   Session lock (clears PIN session)
-    -   Dropdown “Menu” with:
-        
-        -   “Year operations” → YearOperationsModal
-        -   “Export data” → ExportModal
-        -   “Settings” → SettingsModal
--   Primary action area depends on current tab:
-    
-    -   Expenses/Incomes:
-        
-        -   Default: “Add entry” and “Edit entries” dropdown (change name/order/remove/tag).
-        -   Tagging mode adds a Tagging button state and switches primary action to “Exit mode”.
-        -   In remove mode the primary buttons swap to “Exit mode” + “Remove selected”.
-    -   Savings:
-        
-        -   “Add goal” button (opens SavingsGoalModal).
-    -   Reports:
-        
-        -   Report toggles based on REPORT\_DEFINITIONS.
-
-#### 5.4.2 TableView (Entries) (<span style="color: rgb(77, 170, 252)">frontend/src/components/TableView.tsx</span>)
-
--   Central table for income/expense entries:
-    
-    -   Columns: comment icon, name, 12 months, Sum, Avg.
--   Key features:
-    
-    -   Uses React Query (useEntries) to fetch entries by type + year.
-    -   Inline editing:
-        
-        -   Click name to edit (in name edit mode).
-        -   Click monthly amount to edit it (with currency input parsing).
-    -   Tagging mode:
-        
-        -   Fetches tags via `Api.tags.list(year)` and maps them to cell highlights/tooltips.
-        -   When editMode === 'tag', clicking a cell opens TagEditorPopover (color chips + note input anchored near the cell).
-        -   Tagged cells are styled inline; exports reuse the same metadata.
-        -   While any edit mode (name/order/tag/remove) is active, numeric inputs are disabled to avoid accidental edits.
-    -   Drag-and-drop (@dnd-kit):
-        
-        -   “Change order” mode allows reordering rows.
-        -   Persisted via /api/entries/reorder.
-    -   Bulk remove:
-        
-        -   “Remove entries” mode uses checkboxes + global removeSelection.
-        -   Removal triggered via a custom bulk:remove event and /api/entries DELETE.
-        -   Includes local animation before deleting.
-    -   Totals:
-        
-        -   Computes per‑month sums, total sum and average, rendered in a “Total” row.
-
-#### 5.4.3 SavingsView (<span style="color: rgb(77, 170, 252)">frontend/src/components/SavingsView.tsx</span>)
-
--   Shows savings goals for the selected year:
-    
-    -   If no year → “Select a year” placeholder.
-    -   If loading → loading state.
-    -   If no goals → informational message + “Add goal” button.
--   For each goal renders a GoalCard:
-    
-    -   Header with goal name, Edit and Remove actions.
-    -   Optional progress bar if targetValue set: current / target and %.
-    -   GoalItemsTable:
-        
-        -   Editable rows for items (name + value), in place.
-        -   Empty row content deletes the item on blur.
-        -   “+ Add item” button.
-        -   Displays total goal value.
-
-All updates (add/remove/update item, remove goal) invalidate the \['savings', year\] query.
-
-#### 5.4.4 ReportsView (<span style="color: rgb(77, 170, 252)">frontend/src/components/ReportsView.tsx</span>)
-
--   Fetches both income and expense entries for the active year.
--   Renders cards for each report selected in selectedReports.
--   Report definitions (<span style="color: rgb(77, 170, 252)">frontend/src/reports/config.ts</span>):
-    
-    -   monthly-balance (“Income vs expenses”)
-        
-        -   Shows total income, total expense, net, best/worst month.
-        -   Renders per‑month balance bars.
-    -   spending-leaders (“Top expenses”)
-        
-        -   Top 5 expense entries by annual total and their share.
-    -   income-stability (“Income stability”)
-        
-        -   Displays streams sorted by coefficient of variation (std dev / mean).
-    -   expense-stability (“Expense stability”)
-        
-        -   Same metric focused on expenses, highlights volatile categories.
-
-No server‑side analytics; all computed in the browser from fetched entries.
-
-#### 5.4.5 PinGuard (<span style="color: rgb(77, 170, 252)">frontend/src/components/PinGuard.tsx</span>)
-
--   Full‑screen overlay that blocks the UI until PIN is verified.
--   Behavior:
-    
-    -   On mount:
-        
-        -   Checks sessionStorage\["pin-ok"\]; if "1", unblocks immediately.
-    -   On submit:
-        
-        -   Sends { pin } to /api/pin/verify.
-        -   On success: marks pinSession in store and caches "pin-ok" = "1" in sessionStorage.
-        -   On failure: clears input, shows transient “Wrong PIN” feedback.
-    -   MainBar “lock” action clears this session and returns to PIN screen.
-
-### **5.5 Modals (Overview)**
-
-All modals use a shared ModalBase and are controlled from Zustand:
-
--   InitiateYearModal
-    
-    -   Shown automatically if there are no years.
-    -   Asks user for initial year (e.g. 2024), calls <span style="color: rgb(77, 170, 252)">Api.years.add</span>, sets active year.
--   AddEntryModal
-    
-    -   Adds a new income/expense entry to the current year.
-    -   Invalidates the corresponding entries query.
--   CommentModal
-    
-    -   Allows editing comment attached to a single entry.
--   YearOperationsModal
-    
-    -   Add year: numeric field + add button, prevents duplicates, auto‑selects new year.
-    -   Cleanup: checkbox list of years to delete; handles active year fallback.
--   ExportModal
-    
-    -   Year selection for data export.
-    -   Calls Api.exportYears to download XLSX.
--   SettingsModal
-    
-    -   General configuration UI (e.g., theme, maybe more as project evolves).
--   SavingsGoalModal
-    
-    -   Form for creating or editing a savings goal (name + optional target).
-
-### **5.6 Utility Modules**
-
--   <span style="color: rgb(77, 170, 252)">utils/currency.ts</span>
-    
-    -   pln(n) – formats number as PLN using Intl.NumberFormat.
-    -   formatCurrency(value) – local UI format 1 234,56 style.
-    -   parseCurrencyInput(input) – parses flexible string input into number.
--   <span style="color: rgb(77, 170, 252)">utils/months.ts</span>
-    
-    -   MONTHS constant array and MonthKey type alias.
-
----
-
-## **6\. Data Flow Summary**
-
-1.  **User selects a year / tab in UI**
-    
-    -   Zustand updates year / tab, persisted to localStorage.
-2.  **React Query fetches data**
-    
-    -   Components call <span style="color: rgb(77, 170, 252)">Api.\*</span>, which wraps REST calls.
-    -   Queries cached and invalidated after mutations.
-3.  **Express serves data from SQLite**
-    
-    -   Each API route interacts with better-sqlite3 using prepared statements.
-    -   Business logic is simple and mostly 1:1 with UI needs.
-4.  **User edits data**
-    
-    -   Frontend applies optimistic or near‑optimistic updates (e.g. reordering, animation).
-    -   Backend persists changes.
-5.  **Export**
-    
-    -   UI sends selected years to /api/export.
-    -   Backend builds Excel workbook using DB data and returns a downloadable XLSX.
-
----
-
-## **7\. Configuration & Environment**
-
-Important environment variables:
-
--   PORT – HTTP port (default 8010 inside container).
--   DB\_FILE – path to SQLite file (e.g. <span style="color: rgb(77, 170, 252)">/data/mopay.sqlite</span> in Docker).
--   APP\_PIN – 4–8 digit PIN. If empty, PIN guard is effectively disabled.
--   NODE\_ENV – production for optimized build.
-
----
-
-## **8\. Extending the Project (Guidelines)**
-
--   **New backend features**
-    
-    -   Add DB columns/tables in <span style="color: rgb(77, 170, 252)">backend/schema.sql</span>.
-    -   Expose them via new endpoints or extend existing ones in <span style="color: rgb(77, 170, 252)">backend/server.js</span>.
-    -   If they should be included in Excel export, update <span style="color: rgb(77, 170, 252)">backend/export.js</span>.
--   **New frontend features**
-    
-    -   Model global state in <span style="color: rgb(77, 170, 252)">frontend/src/store.ts</span> if cross‑cutting.
-    -   Expose backend endpoints in <span style="color: rgb(77, 170, 252)">frontend/src/api.ts</span>.
-    -   Use React Query for data fetching with clear queryKeys.
-    -   Build new views in frontend/src/components and connect through MainBar or new tabs.
--   **New reports**
-    
-    -   Add a ReportId and metadata in <span style="color: rgb(77, 170, 252)">frontend/src/reports/config.ts</span>.
-    -   Implement a card component in ReportsView and map the ID to the new renderer.
-
----
-
-This documentation is intended as a compact overview of how MOPAY is structured and how its main functions are implemented.
+- `idx_entry_groups_year_type`
+- `idx_entries_year_type`
+- `idx_savings_goals_year`
+- `idx_savings_items_goal`
+- `idx_entry_tags_entry_month`
+- `idx_entry_tags_entry`
+
+## 5. Backend
+
+### 5.1 Database Bootstrap
+
+[`backend/db.js`](/home/buzsys/github/mopay_dev/backend/db.js) opens the SQLite file from `DB_FILE` and applies:
+
+- `journal_mode = WAL`
+- `foreign_keys = ON`
+- `busy_timeout` from `SQLITE_BUSY_TIMEOUT_MS` if provided
+
+At startup, the backend also:
+
+- runs encryption migration/repair
+- runs tag migration
+- runs grouping migration
+- performs orphan cleanup for inconsistent legacy rows
+- initializes encrypted PIN storage
+
+### 5.2 Encryption
+
+Monetary data is encrypted at the application layer with AES-256-GCM.
+
+Encrypted scope:
+
+- entry monthly values
+- `savings_goals.target_value`
+- `savings_items.value`
+- stored PIN hash record in `meta`
+
+Behavior:
+
+- `APP_ENC_KEY` is mandatory
+- the backend stores a fingerprint of the active key
+- if the key fingerprint changes, data endpoints are blocked with HTTP `409`
+- the frontend displays a dedicated mismatch modal and can trigger a destructive reset flow
+
+### 5.3 Authentication and Session Model
+
+MOPAY does not use user accounts. Access is protected by one application PIN.
+
+Current flow:
+
+1. Frontend submits PIN to `POST /api/pin/verify`
+2. Backend verifies the PIN against an encrypted scrypt-based record in `meta`
+3. Backend issues an in-memory session token
+4. Frontend sends the token via `X-Mopay-Session`
+5. `/api` routes are protected except a small public allowlist
+
+Session implementation details:
+
+- session storage is in-memory only
+- expiration is sliding
+- session metadata stores IP and user-agent
+- restart clears all sessions
+
+### 5.4 Security Controls
+
+[`backend/security.js`](/home/buzsys/github/mopay_dev/backend/security.js) implements:
+
+- per-IP request throttling for PIN verification
+- burst protection
+- escalating lockout after repeated failures
+- optional webhook alerts after high failure volume
+- structured security logging
+
+CORS is disabled unless `CORS_ALLOWED_ORIGINS` is configured.
+When enabled, only explicitly allowed origins can call the API cross-origin.
+
+### 5.5 Import/Export
+
+[`backend/export.js`](/home/buzsys/github/mopay_dev/backend/export.js) is responsible for:
+
+- exporting selected years to a styled XLSX workbook
+- generating the canonical XLSX import template
+
+[`backend/server.js`](/home/buzsys/github/mopay_dev/backend/server.js) handles import orchestration:
+
+- validates workbook structure and sheet names
+- maps import sheets to target years
+- supports partial import selection
+- requires explicit overwrite selection for existing years
+- imports groups, entries, tags, savings goals, and savings items in a transaction
+- guards against concurrent imports with an in-process lock
+
+## 6. API Surface
+
+Major endpoint groups:
+
+- metadata and health
+  - `GET /health`
+  - `GET /api/meta`
+- PIN/session
+  - `POST /api/pin/verify`
+  - `POST /api/pin/logout`
+- years
+  - `GET /api/years`
+  - `GET /api/years/exists`
+  - `POST /api/years`
+  - `DELETE /api/years`
+- entry groups
+  - `GET /api/entry-groups`
+  - `POST /api/entry-groups`
+  - `PATCH /api/entry-groups/order`
+  - `PATCH /api/entry-groups/:id`
+  - `DELETE /api/entry-groups`
+- entries
+  - `GET /api/entries`
+  - `POST /api/entries`
+  - `PATCH /api/entries/:id`
+  - `DELETE /api/entries`
+  - `POST /api/entries/reorder`
+- tags
+  - `GET /api/tags`
+  - `POST /api/tags`
+  - `DELETE /api/tags`
+- savings
+  - `GET /api/savings`
+  - `POST /api/savings`
+  - `PATCH /api/savings/:goalId`
+  - `DELETE /api/savings/:goalId`
+  - `POST /api/savings/:goalId/items`
+  - `PATCH /api/savings/items/:itemId`
+  - `DELETE /api/savings/items/:itemId`
+- import/export
+  - `POST /api/export`
+  - `GET /api/import/template`
+  - `POST /api/import/validate`
+  - `POST /api/import`
+- encryption status/reset
+  - `GET /api/encryption/status`
+  - `POST /api/encryption/notice-ack`
+  - `POST /api/encryption/reset`
+
+## 7. Frontend
+
+### 7.1 Composition
+
+The frontend is a single-page React application bootstrapped by Vite.
+
+Main screens:
+
+- table view for incomes/expenses
+- savings view
+- reports view
+
+Global modal flows include:
+
+- add entry
+- add group
+- comment editing
+- year operations
+- export
+- import
+- settings
+- savings goal editing
+- encryption migration notice
+- encryption key mismatch recovery
+
+### 7.2 State and Data Fetching
+
+Frontend state is split between:
+
+- React Query for server data
+- Zustand for UI/session/preferences state
+
+Examples of Zustand-managed state:
+
+- active tab and year
+- theme mode
+- edit mode
+- PIN session flag
+- selected reports
+- modal visibility
+- release channel/version metadata
+- group-total display preference
+
+### 7.3 Release Status
+
+[`frontend/src/components/ReleaseStatusProvider.tsx`](/home/buzsys/github/mopay_dev/frontend/src/components/ReleaseStatusProvider.tsx) performs two jobs:
+
+- reads backend metadata (`version`, `repo`, `channel`) from `/api/meta`
+- polls GitHub Releases for the configured repository and channel to determine whether an update is available
+
+This means the browser may perform outbound requests to `api.github.com` when release information is enabled.
+
+### 7.4 PWA
+
+The frontend is built with `vite-plugin-pwa`.
+Static assets and the manifest live in [`frontend/public/`](/home/buzsys/github/mopay_dev/frontend/public).
+
+## 8. Deployment
+
+Build and runtime packaging are defined in [`Dockerfile`](/home/buzsys/github/mopay_dev/Dockerfile):
+
+- stage 1: install frontend dependencies and build Vite assets
+- stage 2: install backend production dependencies, copy backend sources, copy built frontend
+
+Default container/runtime assumptions:
+
+- internal port: `8010`
+- persistent database path typically mounted under `/data`
+- runtime env vars include `DB_FILE`, `APP_PIN`, `APP_ENC_KEY`, `APP_VERSION`, `APP_CHANNEL`, `APP_REPO`
+
+## 9. Current Architectural Constraints
+
+Important constraints visible in the current implementation:
+
+- session storage is process-local and disappears on restart
+- import lock is process-local, so it only protects a single running backend instance
+- the backend is concentrated in one large server file, which increases maintenance cost
+- the main table UI is concentrated in one large component, which increases rendering and change risk
+- release checking depends on direct client-side access to GitHub APIs
+
+These are current characteristics of the system, not necessarily defects, but they should be considered in future refactors.
