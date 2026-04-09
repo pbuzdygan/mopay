@@ -5,6 +5,8 @@
 ### Bug fix
 - refactored bulk remove trigger flow: removed global `window` event dependency and replaced it with explicit Zustand request signaling (`bulkRemoveRequestId`), reducing cross-component coupling and preventing event-listener drift
 - stabilized optimistic table updates by moving from full local data copies to per-entry overlay patches, reducing risk of state desync between React Query cache and UI
+- fixed import modal error handling: switched from brittle `JSON.parse(err.message)` to structured `ApiError` parsing (`status`, `body`, `retryAfterSeconds`)
+- fixed import overwrite flow reliability by correctly handling backend `OVERWRITE_REQUIRED` payload (`years`) without dropping validated import payload state
 
 ### New Features
 - added table query-state composition hook `useTableQueryState` to centralize entries/groups/tags reads and optimistic entry overlays
@@ -19,6 +21,7 @@
 - maintainability improvements:
   - introduced typed table models in `frontend/src/components/table/types.ts`
   - reduced `TableView` responsibilities by moving query/overlay logic and UI-only rows to dedicated modules
+  - import UI now uses a dedicated error classifier for `OVERWRITE_REQUIRED`, `IMPORT_IN_PROGRESS`, `SQLITE_BUSY`, auth/session errors, and encryption-key mismatch responses
 - documentation update:
   - refreshed `README.md` and `docs/ARCHITECTURE.md` to reflect current grouping, import scope, PIN session model, release check behavior, and deployment/security notes
 

@@ -2,9 +2,73 @@ import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
-import { Api } from '../../api';
+import { Api, ApiError } from '../../api';
 import { FormSection } from '../FormSection';
 import { SoftButton } from '../SoftButton';
+
+type ImportApiBody = {
+  error?: string;
+  message?: string;
+  years?: unknown;
+};
+
+type ParsedImportError =
+  | { kind: 'overwrite_required'; years: number[]; message: string }
+  | { kind: 'import_in_progress'; message: string }
+  | { kind: 'sqlite_busy'; message: string }
+  | { kind: 'auth'; message: string }
+  | { kind: 'key_mismatch'; message: string }
+  | { kind: 'validation_invalid_file'; message: string }
+  | { kind: 'other'; message: string };
+
+function asImportApiBody(value: unknown): ImportApiBody {
+  return value && typeof value === 'object' ? (value as ImportApiBody) : {};
+}
+
+function parseYears(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => Number(item)).filter((item) => Number.isInteger(item));
+}
+
+function parseImportError(error: unknown): ParsedImportError {
+  if (!(error instanceof ApiError)) {
+    return { kind: 'other', message: 'Import failed. Please check the template and try again.' };
+  }
+  const body = asImportApiBody(error.body);
+  const code = typeof body.error === 'string' ? body.error : '';
+  const message = typeof body.message === 'string' && body.message.trim() ? body.message : error.message;
+
+  if (code === 'OVERWRITE_REQUIRED') {
+    const years = parseYears(body.years);
+    return {
+      kind: 'overwrite_required',
+      years,
+      message:
+        years.length > 0
+          ? `Year(s) already exist: ${years.join(', ')}. Mark overwrite or remove them from the file.`
+          : 'One or more selected years already exist. Mark overwrite to continue.',
+    };
+  }
+  if (code === 'IMPORT_IN_PROGRESS') {
+    return { kind: 'import_in_progress', message: message || 'Another import is currently running. Please wait.' };
+  }
+  if (code === 'SQLITE_BUSY') {
+    return { kind: 'sqlite_busy', message: message || 'Database is busy/locked. Please retry.' };
+  }
+  if (code === 'AUTH_REQUIRED' || code === 'AUTH_EXPIRED' || error.status === 401) {
+    return { kind: 'auth', message: 'Session expired. Unlock with PIN and try import again.' };
+  }
+  if (code === 'ENCRYPTION_KEY_MISMATCH') {
+    return {
+      kind: 'key_mismatch',
+      message: message || 'Encryption key mismatch detected. Restore previous key or reset data before import.',
+    };
+  }
+  if (code === 'INVALID_FILE' || code === 'INVALID_NAME' || code === 'MISSING_DATA') {
+    return { kind: 'validation_invalid_file', message: 'Invalid template structure. Check Guide' };
+  }
+  return { kind: 'other', message: message || 'Import failed. Please check the template and try again.' };
+}
 
 export function ImportModal() {
   const { modals, closeModal } = useAppStore();
@@ -92,11 +156,16 @@ export function ImportModal() {
         type: 'ok',
         text: 'Template verified. Review the years above.',
       });
-    } catch {
-      setMessage({
-        type: 'err',
-        text: 'Invalid template structure. Check Guide',
-      });
+    } catch (error) {
+      const parsed = parseImportError(error);
+      if (parsed.kind === 'sqlite_busy' || parsed.kind === 'auth' || parsed.kind === 'key_mismatch') {
+        setMessage({ type: 'err', text: parsed.message });
+      } else {
+        setMessage({
+          type: 'err',
+          text: 'Invalid template structure. Check Guide',
+        });
+      }
     } finally {
       setIsValidating(false);
     }
@@ -139,33 +208,22 @@ export function ImportModal() {
       setPayload(null);
       setConfirmOverwrite(false);
     } catch (err) {
-      const raw = err instanceof Error ? err.message : '';
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed?.error === 'OVERWRITE_REQUIRED' && Array.isArray(parsed?.years)) {
-          const mustOverwriteYears = parsed.years.map((y: unknown) => Number(y)).filter((y: number) => Number.isInteger(y));
+      const parsed = parseImportError(err);
+      if (parsed.kind === 'overwrite_required') {
+        if (parsed.years.length > 0) {
           setYears((prev) =>
-            prev.map((item) => (mustOverwriteYears.includes(item.year) ? { ...item, exists: true, overwrite: false } : item))
+            prev.map((item) => (parsed.years.includes(item.year) ? { ...item, exists: true, overwrite: false } : item))
           );
-          setConfirmOverwrite(false);
-          setMessage({
-            type: 'err',
-            text: `Year(s) already exist: ${mustOverwriteYears.join(', ')}. Mark overwrite or remove them from the file.`,
-          });
-          return;
         }
-        if (parsed?.error === 'IMPORT_IN_PROGRESS') {
-          setMessage({ type: 'err', text: parsed?.message || 'Another import is currently running. Please wait.' });
-          return;
-        }
-        if (parsed?.error === 'SQLITE_BUSY') {
-          setMessage({ type: 'err', text: parsed?.message || 'Database is busy/locked. Please retry.' });
-          return;
-        }
-      } catch {
-        // ignore
+        setConfirmOverwrite(false);
+        setMessage({ type: 'err', text: parsed.message });
+        return;
       }
-      setMessage({ type: 'err', text: 'Import failed. Please check the template and try again.' });
+      if (parsed.kind === 'import_in_progress' || parsed.kind === 'sqlite_busy' || parsed.kind === 'auth' || parsed.kind === 'key_mismatch') {
+        setMessage({ type: 'err', text: parsed.message });
+        return;
+      }
+      setMessage({ type: 'err', text: parsed.message });
     } finally {
       setIsImporting(false);
     }
