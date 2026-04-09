@@ -104,7 +104,7 @@ export function YearOperationsModal(){
       open={open}
       title="Year operations"
       subtitle="At least one year is required"
-      icon="📅"
+      icon={<img src="/icons/ui/calendar-month.svg" alt="" className="modal-header-icon-svg" aria-hidden="true" />}
       onClose={() => closeModal("yearOps")}
       mobileAlign="top"
     >

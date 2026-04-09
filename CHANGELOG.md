@@ -30,6 +30,7 @@
   - hardened compose defaults with `security_opt: no-new-privileges:true` for both GHCR and local-build deployment flows
 - documentation update:
   - refreshed `README.md` and `docs/ARCHITECTURE.md` to reflect current grouping, import scope, PIN session model, release check behavior, and deployment/security notes
+- UI improvement: introducing icons instead of text
 
 ## v1.5.3
 

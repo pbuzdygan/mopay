@@ -74,24 +74,26 @@ export function MainBar() {
     setPinSession(false);
   };
 
+  const nextThemeIcon = theme === 'light' ? '/icons/ui/moon-stars.svg' : '/icons/ui/sun.svg';
+
   const mobileUtilityButtons = (
     <>
       <SoftButton
         variant="ghost"
-        className="utility-button utility-button-sm"
+        className="utility-button utility-button-sm topbar-icon-button"
         aria-label="Lock session"
         onClick={lockSession}
       >
-        🔒
+        <img src="/icons/ui/lock.svg" alt="" className="topbar-action-icon" aria-hidden="true" />
       </SoftButton>
       <SoftButton
         variant="ghost"
-        className="utility-button utility-button-sm"
+        className="utility-button utility-button-sm topbar-icon-button"
         aria-label="Toggle theme"
         onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
       >
         <span key={theme} className="theme-icon inline-block">
-          {theme === 'light' ? '🌙' : '☀️'}
+          <img src={nextThemeIcon} alt="" className="topbar-action-icon" aria-hidden="true" />
         </span>
       </SoftButton>
     </>
@@ -106,6 +108,13 @@ export function MainBar() {
     />
   );
 
+  const menuItemLabel = (icon: string, text: string) => (
+    <span className="dropdown-item-label">
+      <img src={icon} alt="" className="dropdown-item-icon" aria-hidden="true" />
+      <span>{text}</span>
+    </span>
+  );
+
   const renderUtilityControls = (
     mode: 'mobile' | 'desktop' = 'desktop',
     options: { includeMenu?: boolean } = {}
@@ -117,20 +126,20 @@ export function MainBar() {
         <div className={`utility-row ${compact ? 'utility-row-sm' : ''}`}>
           <SoftButton
             variant="ghost"
-            className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
+            className={`utility-button ${compact ? 'utility-button-sm' : ''} topbar-icon-button`}
             aria-label="Lock session"
             onClick={lockSession}
           >
-            🔒
+            <img src="/icons/ui/lock.svg" alt="" className="topbar-action-icon" aria-hidden="true" />
           </SoftButton>
           <SoftButton
             variant="ghost"
-            className={`utility-button ${compact ? 'utility-button-sm' : ''}`}
+            className={`utility-button ${compact ? 'utility-button-sm' : ''} topbar-icon-button`}
             aria-label="Toggle theme"
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
           >
             <span key={theme} className="theme-icon inline-block">
-              {theme === 'light' ? '🌙' : '☀️'}
+              <img src={nextThemeIcon} alt="" className="topbar-action-icon" aria-hidden="true" />
             </span>
           </SoftButton>
           {includeMenu && (
@@ -145,16 +154,16 @@ export function MainBar() {
               {({ close }) => (
                 <>
                   <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-                    Year operations
+                    {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
                   </DropdownItem>
                   <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-                    Export data
+                    {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
                   </DropdownItem>
                   <DropdownItem onSelect={() => { openModal('import'); close(); }}>
-                    Import data
+                    {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
                   </DropdownItem>
                   <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-                    Settings
+                    {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
                   </DropdownItem>
                 </>
               )}
@@ -386,16 +395,16 @@ export function MainBar() {
                   {({ close }) => (
                     <>
                       <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-                        Year operations
+                        {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
                       </DropdownItem>
                       <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-                        Export data
+                        {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
                       </DropdownItem>
                       <DropdownItem onSelect={() => { openModal('import'); close(); }}>
-                        Import data
+                        {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
                       </DropdownItem>
                       <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-                        Settings
+                        {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
                       </DropdownItem>
                     </>
                   )}
@@ -423,16 +432,16 @@ export function MainBar() {
                 {({ close }) => (
                   <>
                     <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-                      Year operations
+                      {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
                     </DropdownItem>
                     <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-                      Export data
+                      {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
                     </DropdownItem>
                     <DropdownItem onSelect={() => { openModal('import'); close(); }}>
-                      Import data
+                      {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
                     </DropdownItem>
                     <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-                      Settings
+                      {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
                     </DropdownItem>
                   </>
                 )}

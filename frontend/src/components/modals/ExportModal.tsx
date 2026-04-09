@@ -49,7 +49,7 @@ export function ExportModal(){
       open={open}
       title="Export data"
       //subtitle="Export your data for backup or analysis. Nothing is sent anywhere."
-      icon="📤"
+      icon={<img src="/icons/ui/table-export.svg" alt="" className="modal-header-icon-svg" aria-hidden="true" />}
       onClose={() => closeModal("export")}
       size="md"
     >

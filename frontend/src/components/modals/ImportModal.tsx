@@ -233,7 +233,7 @@ export function ImportModal() {
     <ModalBase
       open={open}
       title="Import data"
-      icon="📥"
+      icon={<img src="/icons/ui/table-import.svg" alt="" className="modal-header-icon-svg" aria-hidden="true" />}
       onClose={() => closeModal('import')}
       size="md"
     >
