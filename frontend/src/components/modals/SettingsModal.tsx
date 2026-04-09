@@ -16,6 +16,7 @@ export function SettingsModal(){
   const open = modals.settings;
   const nextTheme = theme === 'light' ? 'dark' : 'light';
   const [locking, setLocking] = useState(false);
+  const themeModeIcon = theme === 'light' ? '/icons/ui/sun.svg' : '/icons/ui/moon-stars.svg';
   const releaseInfo = buildReleaseInfo({
     appVersion,
     latestVersion,
@@ -50,7 +51,7 @@ export function SettingsModal(){
       open={open}
       title="Settings"
       //subtitle="Tune MOPAY to your preferences."
-      icon="⚙️"
+      icon={<img src="/icons/ui/settings.svg" alt="" className="modal-header-icon-svg" aria-hidden="true" />}
       onClose={() => closeModal("settings")}
       size="md"
     >
@@ -59,7 +60,9 @@ export function SettingsModal(){
           <div className="settings-row">
             <div className="settings-text">
               <div className="settings-title">
-                <span className="settings-icon" aria-hidden="true">ℹ️</span>
+                <span className="settings-icon" aria-hidden="true">
+                  <img src="/icons/ui/info-circle.svg" alt="" className="settings-icon-svg" />
+                </span>
                 About release
               </div>
             </div>
@@ -76,7 +79,9 @@ export function SettingsModal(){
           <div className="settings-row">
             <div className="settings-text">
               <div className="settings-title">
-                <span className="settings-icon" aria-hidden="true">🧮</span>
+                <span className="settings-icon" aria-hidden="true">
+                  <img src="/icons/ui/sum.svg" alt="" className="settings-icon-svg" />
+                </span>
                 Group totals
               </div>
             </div>
@@ -97,7 +102,9 @@ export function SettingsModal(){
           <div className="settings-row">
             <div className="settings-text">
               <div className="settings-title">
-                <span className="settings-icon" aria-hidden="true">🌓</span>
+                <span className="settings-icon" aria-hidden="true">
+                  <img src={themeModeIcon} alt="" className="settings-icon-svg" />
+                </span>
                 Theme mode
               </div>
             </div>
@@ -108,8 +115,12 @@ export function SettingsModal(){
               onClick={() => setTheme(nextTheme)}
             >
               <span className="settings-toggle-track">
-                <span className="settings-toggle-label settings-toggle-label-left" aria-hidden="true">☀️</span>
-                <span className="settings-toggle-label settings-toggle-label-right" aria-hidden="true">🌙</span>
+                <span className="settings-toggle-label settings-toggle-label-left" aria-hidden="true">
+                  <img src="/icons/ui/sun.svg" alt="" className="settings-toggle-icon" />
+                </span>
+                <span className="settings-toggle-label settings-toggle-label-right" aria-hidden="true">
+                  <img src="/icons/ui/moon-stars.svg" alt="" className="settings-toggle-icon" />
+                </span>
               </span>
               <span className="settings-toggle-knob" aria-hidden="true" />
             </button>
@@ -118,7 +129,9 @@ export function SettingsModal(){
           <div className="settings-row">
             <div className="settings-text">
               <div className="settings-title">
-                <span className="settings-icon" aria-hidden="true">🔒</span>
+                <span className="settings-icon" aria-hidden="true">
+                  <img src="/icons/ui/lock.svg" alt="" className="settings-icon-svg" />
+                </span>
                 Screen Lock
               </div>
             </div>
@@ -129,8 +142,12 @@ export function SettingsModal(){
               onClick={() => setLocking(true)}
             >
               <span className="settings-toggle-track">
-                <span className="settings-toggle-label settings-toggle-label-left" aria-hidden="true">🔓</span>
-                <span className="settings-toggle-label settings-toggle-label-right" aria-hidden="true">🔒</span>
+                <span className="settings-toggle-label settings-toggle-label-left" aria-hidden="true">
+                  <img src="/icons/ui/lock-open-2.svg" alt="" className="settings-toggle-icon" />
+                </span>
+                <span className="settings-toggle-label settings-toggle-label-right" aria-hidden="true">
+                  <img src="/icons/ui/lock.svg" alt="" className="settings-toggle-icon" />
+                </span>
               </span>
               <span className="settings-toggle-knob" aria-hidden="true" />
             </button>
@@ -139,7 +156,9 @@ export function SettingsModal(){
           <div className="settings-row">
             <div className="settings-text">
               <div className="settings-title">
-                <span className="settings-icon" aria-hidden="true">🌐</span>
+                <span className="settings-icon" aria-hidden="true">
+                  <img src="/icons/ui/language.svg" alt="" className="settings-icon-svg" />
+                </span>
                 Language
               </div>
             </div>

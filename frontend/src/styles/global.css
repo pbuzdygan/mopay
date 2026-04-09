@@ -660,6 +660,7 @@ html {
   height: 44px;
   padding: 0;
   justify-content: center;
+  line-height: 0;
   font-size: 1.05rem;
 }
 
@@ -679,6 +680,12 @@ html {
   opacity: 1;
 }
 
+.topbar-action-icon {
+  display: block;
+  flex-shrink: 0;
+  opacity: 1;
+}
+
 .utility-menu-icon-btn {
   gap: 0 !important;
 }
@@ -691,8 +698,19 @@ html {
 }
 
 html[data-theme='dark'] .utility-menu-icon,
+html[data-theme='dark'] .topbar-action-icon,
 html[data-theme='dark'] .goal-action-icon-img {
   filter: invert(1) brightness(1.16);
+}
+
+.topbar-icon-button .topbar-action-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.topbar-icon-button {
+  padding: 0 !important;
+  gap: 0 !important;
 }
 
 html[data-theme='dark'] #pin-guard-input::-ms-reveal,
@@ -750,11 +768,16 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
     gap: 0.4rem;
   }
 
-.utility-button.utility-button-sm {
-  width: 36px;
-  height: 36px;
-  font-size: 0.95rem;
-}
+  .utility-button.utility-button-sm {
+    width: 36px;
+    height: 36px;
+    font-size: 0.95rem;
+  }
+
+  .topbar-icon-button .topbar-action-icon {
+    width: 16px;
+    height: 16px;
+  }
 
   .utility-menu-btn {
     width: 36px;
@@ -972,6 +995,11 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
     width: 36px;
     height: 36px;
     font-size: 0.95rem;
+  }
+
+  .topbar-icon-button .topbar-action-icon {
+    width: 16px;
+    height: 16px;
   }
 
   .utility-menu-btn {
@@ -1282,6 +1310,19 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   line-height: 1.35;
   color: var(--textPrim);
   transition: background var(--transition), color var(--transition);
+}
+
+.dropdown-item-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dropdown-item-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .dropdown-item:hover {
@@ -2499,10 +2540,15 @@ html.theme-changing * {
 }
 
 .modal-icon-premium {
-  background: radial-gradient(circle at 30% 0%, rgba(255,255,255,0.7), transparent),
-              color-mix(in srgb, var(--accent) 16%, var(--panel));
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  background: transparent;
+  box-shadow: none;
   font-size: 1.1rem;
+}
+
+.modal-header-icon-svg {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 /* Ghost button inside modal (Cancel, etc.) */
@@ -2560,6 +2606,12 @@ html.theme-changing * {
   font-size: 1rem;
 }
 
+.settings-icon-svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .settings-subtitle {
   font-size: 0.85rem;
   color: var(--textSec);
@@ -2594,8 +2646,30 @@ html.theme-changing * {
 .settings-toggle-label {
   position: relative;
   z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   transition: color var(--transition);
+}
+
+.settings-toggle-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+html[data-theme='dark'] .settings-icon-svg,
+html[data-theme='dark'] .settings-toggle-icon {
+  filter: invert(1) brightness(1.16);
+}
+
+html[data-theme='dark'] .dropdown-item-icon {
+  filter: invert(1) brightness(1.16);
+}
+
+html[data-theme='dark'] .modal-header-icon-svg {
+  filter: invert(1) brightness(1.16);
 }
 
 .settings-toggle-knob {

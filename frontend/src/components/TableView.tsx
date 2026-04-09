@@ -1,29 +1,37 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
 import { MONTHS } from '../utils/months';
 import { formatCurrency, formatCurrencyPlain, parseCurrencyInputNullable } from '../utils/currency';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, useAnimationControls } from 'framer-motion';
 import { Surface } from './Surface';
 import { TagEditorPopover, type TagColor } from './TagEditorPopover';
 import { DropdownItem, DropdownMenu } from './DropdownMenu';
-
-function useEntries() {
-  const { tab, year } = useAppStore();
-  const type = tab === 'incomes' ? 'income' : 'expense';
-  return useQuery({ enabled: !!year, queryKey: ['entries', type, year], queryFn: () => Api.entries.list(type as 'income'|'expense', year!) });
-}
+import { TableHeaderRow, TableTotalRow } from './table/TableGridRows';
+import { useTableQueryState } from './table/useTableQueryState';
+import type { EntryGroup, EntryPatch, EntryRowData, EntryTag } from './table/types';
 
 const GRID_TEMPLATE =
   'grid grid-cols-[28px_176px_repeat(12,72px)_78px_72px]';
-type EntryTag = { id: number; entryId: number; month: string; color: TagColor; text?: string | null };
-type EntryGroup = { id: number; name: string; sortIndex: number };
 
-function GroupRowSortable({
+const normalizeEntryMonthKey = (month: string) => (month === 'Dec' ? 'Decm' : month);
+const makeGroupTotals = (list: EntryRowData[]) => {
+  const sums = new Array(12).fill(0);
+  for (const e of list) {
+    MONTHS.forEach((m, i) => {
+      sums[i] += Number(e[m as keyof EntryRowData] ?? (m === 'Dec' ? e.Decm : e[m as keyof EntryRowData]) ?? 0);
+    });
+  }
+  const totalSum = sums.reduce((a, b) => a + b, 0);
+  const totalAvg = sums.length ? totalSum / sums.length : 0;
+  return { sums, totalSum, totalAvg };
+};
+
+const GroupRowSortable = memo(function GroupRowSortable({
   group,
   groupEntries,
   isCollapsed,
@@ -41,7 +49,7 @@ function GroupRowSortable({
   onGroupNameEdit,
 }: {
   group: EntryGroup;
-  groupEntries: any[];
+  groupEntries: EntryRowData[];
   isCollapsed: boolean;
   totals: { sums: number[]; totalSum: number; totalAvg: number };
   showGroupTotals: boolean;
@@ -133,9 +141,9 @@ function GroupRowSortable({
       <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalAvg) : null}</div>
     </div>
   );
-}
+});
 
-function Row({
+const Row = memo(function Row({
   e,
   editingNameId,
   setEditingNameId,
@@ -148,7 +156,7 @@ function Row({
   onRequestTag,
   onTagHint,
 }: {
-  e: any;
+  e: EntryRowData;
   editingNameId: number | null;
   setEditingNameId: (id: number | null) => void;
   removingIds: number[];
@@ -160,8 +168,10 @@ function Row({
   onRequestTag: (entryId: number, month: string, target: HTMLButtonElement, tag?: EntryTag) => void;
   onTagHint: () => void;
 }) {
-
-  const { editMode, toggleRemoveId, removeSelection, setComment } = useAppStore();
+  const editMode = useAppStore((s) => s.editMode);
+  const toggleRemoveId = useAppStore((s) => s.toggleRemoveId);
+  const isRemoveSelected = useAppStore((s) => s.removeSelection.has(e.id));
+  const setComment = useAppStore((s) => s.setComment);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: e.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -237,7 +247,7 @@ function Row({
       className={`${GRID_TEMPLATE}
                   table-row-premium gap-1 pl-0 pr-3 py-1.5 items-center text-[0.72rem]
                   ${isDragging ? 'dragging' : ''}
-                  ${editMode === 'remove' && removeSelection.has(e.id) ? 'row-remove-selected' : ''}
+                  ${editMode === 'remove' && isRemoveSelected ? 'row-remove-selected' : ''}
                   ${removingIds.includes(e.id) ? 'fade-out' : ''}`}
     >
 
@@ -302,7 +312,7 @@ function Row({
           <input
             type="checkbox"
             className="remove-checkbox mode-enter"
-            checked={removeSelection.has(e.id)}
+            checked={isRemoveSelected}
             onChange={() => toggleRemoveId(e.id)}
           />
         ) : (
@@ -397,31 +407,27 @@ function Row({
       <div className="text-right text-textSec">{formatCurrency(rowAvg)}</div>
     </div>
   );
-}
+});
 
 export function TableView() {
-  const { tab, year, editMode, clearRemove, removeSelection } = useAppStore() as any;
-  const type = tab === 'incomes' ? 'income' : 'expense';
-  const showGroupTotals = useAppStore((s) => s.showGroupTotals);
+  const tab = useAppStore((s) => s.tab);
+  const year = useAppStore((s) => s.year);
+  const editMode = useAppStore((s) => s.editMode);
+  const clearRemove = useAppStore((s) => s.clearRemove);
+  const removeSelection = useAppStore((s) => s.removeSelection);
   const groupRemoveSelection = useAppStore((s) => s.groupRemoveSelection);
   const toggleRemoveGroupId = useAppStore((s) => s.toggleRemoveGroupId);
+  const bulkRemoveRequestId = useAppStore((s) => s.bulkRemoveRequestId);
+  const tableTab = tab === 'incomes' ? 'incomes' : 'expenses';
+  const type = tableTab === 'incomes' ? 'income' : 'expense';
+  const showGroupTotals = useAppStore((s) => s.showGroupTotals);
   const qc = useQueryClient();
   const fadeControls = useAnimationControls();
   const [hasRendered, setHasRendered] = useState(false);
-  const { data } = useEntries();
-  const groupsQuery = useQuery({
-    enabled: !!year,
-    queryKey: ['entry-groups', type, year],
-    queryFn: () => Api.entryGroups.list(type as 'income' | 'expense', year!),
+  const { rows, groups, tagsByEntry, patchEntryLocal, setEntryOverrides } = useTableQueryState({
+    type,
+    year,
   });
-  const tagsQuery = useQuery({
-    enabled: !!year,
-    queryKey: ['tags', year],
-    queryFn: () => Api.tags.list(year!),
-  });
-  const [rows, setRows] = useState<any[]>([]);
-  const [groups, setGroups] = useState<EntryGroup[]>([]);
-  const [tagsList, setTagsList] = useState<EntryTag[]>([]);
   const [editingNameId, setEditingNameId] = useState<number|null>(null);
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [groupNameDraft, setGroupNameDraft] = useState('');
@@ -435,21 +441,6 @@ export function TableView() {
   useEffect(() => {
     setHasRendered(true);
   }, []);
-
-  useEffect(() => {
-    if (!data) return;
-    setRows((data.entries ?? []) as any[]);
-  }, [data]);
-
-  useEffect(() => {
-    if (!groupsQuery.data) return;
-    setGroups((groupsQuery.data.groups ?? []) as EntryGroup[]);
-  }, [groupsQuery.data]);
-
-  useEffect(() => {
-    if (!tagsQuery.data) return;
-    setTagsList((tagsQuery.data.tags ?? []) as EntryTag[]);
-  }, [tagsQuery.data]);
 
   useEffect(() => {
     if (!hasRendered) return;
@@ -507,64 +498,48 @@ export function TableView() {
     if (editMode !== 'tag') setTagEditor(null);
   }, [editMode]);
 
-  const tagsByEntry = useMemo(() => {
-    const map = new Map<number, Record<string, EntryTag>>();
-    const list = tagsList;
-    for (const tag of list) {
-      if (!map.has(tag.entryId)) map.set(tag.entryId, {});
-      map.get(tag.entryId)![tag.month] = tag;
-    }
-    return map;
-  }, [tagsList]);
+  const queryKey = ['entries', type, year];
 
-  // Bulk remove (with shake animation)
+  // Bulk remove (with shake animation), decoupled from window events.
   useEffect(() => {
-    const onBulkRemove = async () => {
+    const runBulkRemove = async () => {
       const ids = Array.from(removeSelection);
       const groupIds = Array.from(groupRemoveSelection);
       if (!ids.length && !groupIds.length) return;
-  
-      // Start local animation
+
       setRemovingIds(ids);
       setRemovingGroupIds(groupIds);
-  
-      // Wait for animation before actually deleting on the backend
-      await new Promise((r) => setTimeout(r, 600));
-  
-      if (groupIds.length) {
-        await Api.entryGroups.remove(groupIds);
-      }
-      if (ids.length) {
-        await Api.entries.remove(ids);
-      }
-      clearRemove();
-      useAppStore.getState().setEditMode(null);
-      qc.invalidateQueries({ queryKey: ['entries', type, year] });
-      qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
-      if (year) qc.invalidateQueries({ queryKey: ['tags', year] });
-  
-      // Reset local flags after a moment
-      setTimeout(() => {
-        setRemovingIds([]);
-        setRemovingGroupIds([]);
-      }, 400);
-    };
-  
-    window.addEventListener('bulk:remove', onBulkRemove as any);
-    return () => window.removeEventListener('bulk:remove', onBulkRemove as any);
-  }, [removeSelection, groupRemoveSelection, clearRemove, qc, type, year]);
-  
-  
-  
 
+      await new Promise((r) => setTimeout(r, 600));
+      try {
+        if (groupIds.length) {
+          await Api.entryGroups.remove(groupIds);
+        }
+        if (ids.length) {
+          await Api.entries.remove(ids);
+        }
+        clearRemove();
+        useAppStore.getState().setEditMode(null);
+        qc.invalidateQueries({ queryKey });
+        qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
+        if (year) qc.invalidateQueries({ queryKey: ['tags', year] });
+      } finally {
+        setTimeout(() => {
+          setRemovingIds([]);
+          setRemovingGroupIds([]);
+        }, 400);
+      }
+    };
+    void runBulkRemove();
+  }, [bulkRemoveRequestId]);
 
   // DnD
   const sensors = useSensors(useSensor(PointerSensor));
 
-  function handleDragEnd(groupEntries: any[], event: any) {
+  function handleDragEnd(groupEntries: EntryRowData[], event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-  
+
     const oldIndex = groupEntries.findIndex(e => e.id === active.id);
     const newIndex = groupEntries.findIndex(e => e.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
@@ -574,32 +549,31 @@ export function TableView() {
     const sortMap = new Map<number, number>();
     orderedIds.forEach((id, idx) => sortMap.set(id, idx + 1));
 
-    setRows((prev) =>
-      prev.map((row) => (sortMap.has(row.id) ? { ...row, sort_index: sortMap.get(row.id) } : row))
-    );
-    const queryKey = ['entries', type, year]; // keep query key consistent
-  
-    // Immediate local update in React Query
-    qc.setQueryData(queryKey, (old: any) => ({
+    setEntryOverrides((prev) => {
+      const next = { ...prev };
+      sortMap.forEach((value, entryId) => {
+        next[entryId] = { ...(next[entryId] ?? {}), sort_index: value };
+      });
+      return next;
+    });
+
+    qc.setQueryData(queryKey, (old: { entries?: EntryRowData[] } | undefined) => ({
       ...(old ?? {}),
-      entries: (old?.entries ?? []).map((row: any) =>
+      entries: (old?.entries ?? []).map((row) =>
         sortMap.has(row.id) ? { ...row, sort_index: sortMap.get(row.id) } : row
       ),
     }));
 
-    // Persist to backend (without immediate refetch)
     Api.entries.reorder(orderedIds)
       .then(() => {
-        // Wait a bit for the backend to persist without disrupting the UI state
         setTimeout(() => {
           qc.invalidateQueries({ queryKey, refetchType: 'inactive' });
         }, 1200);
       })
-
-      .catch(err => console.error('Reorder failed:', err));
+      .catch((err) => console.error('Reorder failed:', err));
   }
 
-  const handleGroupDragEnd = async (event: any) => {
+  const handleGroupDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const orderedIds = sortedGroups.map((g) => g.id);
@@ -613,7 +587,7 @@ export function TableView() {
   };
 
   const entriesByGroup = useMemo(() => {
-    const map = new Map<number | null, any[]>();
+    const map = new Map<number | null, EntryRowData[]>();
     for (const e of rows) {
       const key = e.groupId ?? null;
       if (!map.has(key)) map.set(key, []);
@@ -639,18 +613,6 @@ export function TableView() {
     });
   }, [groups, groupOrder]);
 
-  const computeGroupTotals = (list: any[]) => {
-    const sums = new Array(12).fill(0);
-    for (const e of list) {
-      MONTHS.forEach((m, i) => {
-        sums[i] += Number(e[m] ?? (m === 'Dec' ? e.Decm : e[m]) ?? 0);
-      });
-    }
-    const totalSum = sums.reduce((a, b) => a + b, 0);
-    const totalAvg = sums.length ? totalSum / sums.length : 0;
-    return { sums, totalSum, totalAvg };
-  };
-
   const handleGroupNameSave = async (groupId: number) => {
     const trimmed = groupNameDraft.trim().slice(0, 40);
     if (!trimmed) {
@@ -665,19 +627,19 @@ export function TableView() {
   };
 
   const handleEntryGroupChange = async (entryId: number, groupId: number | null) => {
-    setRows((prev) => prev.map((row) => (row.id === entryId ? { ...row, groupId } : row)));
+    patchEntryLocal(entryId, { groupId });
     await Api.entries.patch(entryId, { groupId });
     if (year) qc.invalidateQueries({ queryKey: ['entries', type, year] });
   };
 
 
   const totals = useMemo(()=>{
-    const sums = new Array(12).fill(0);
-    for (const e of rows) { MONTHS.forEach((m,i)=> sums[i]+= Number(e[m] ?? (m === 'Dec' ? e.Decm : e[m]) ?? 0)); }
-    const totalSum = sums.reduce((a,b)=>a+b,0);
-    const totalAvg = sums.length ? totalSum/sums.length : 0;
-    return { sums, totalSum, totalAvg };
+    return makeGroupTotals(rows);
   }, [rows]);
+
+  const handleRowNameUpdate = (entryId: number, name: string) => patchEntryLocal(entryId, { name });
+  const handleRowMonthUpdate = (entryId: number, month: string, value: number | null) =>
+    patchEntryLocal(entryId, { [normalizeEntryMonthKey(month)]: value } as EntryPatch);
 
   const handleTagRequest = (entryId: number, month: string, target: HTMLButtonElement, tag?: EntryTag) => {
     if (editMode !== 'tag') return;
@@ -738,13 +700,7 @@ export function TableView() {
               className="inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
               style={{ width: 'max-content' }}
             >
-            <div className={`table-header-premium ${GRID_TEMPLATE} gap-1 pl-0 pr-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-textSec`}>
-              <div className="text-left">💬</div>
-              <div>{tab === 'incomes' ? 'Incomes' : 'Expenses'}</div>
-              {MONTHS.map(m=> <div key={m} className="text-right">{m}</div>)}
-              <div className="text-right">Sum</div>
-              <div className="text-right">Avg</div>
-            </div>
+            <TableHeaderRow gridTemplate={GRID_TEMPLATE} tab={tableTab} />
 
             {editMode==='order' ? (
               <DndContext
@@ -758,7 +714,7 @@ export function TableView() {
                       const groupKey = `g:${g.id}`;
                       const groupEntries = entriesByGroup.get(g.id) ?? [];
                       const isCollapsed = Boolean(collapsedGroups[groupKey]);
-                      const totals = computeGroupTotals(groupEntries);
+                      const totals = makeGroupTotals(groupEntries);
                       return (
                         <div key={groupKey} className="space-y-2">
                           <GroupRowSortable
@@ -790,21 +746,15 @@ export function TableView() {
                             >
                               <SortableContext items={groupEntries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-2">
-                                  {groupEntries.map((e: any) => (
+                                  {groupEntries.map((e) => (
                                     <Row
                                       key={e.id}
                                       e={e}
                                       editingNameId={editingNameId}
                                       setEditingNameId={setEditingNameId}
                                       removingIds={removingIds}
-                                      onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                                  onMonthUpdate={(month, value) =>
-                                    setRows((prev) =>
-                                      prev.map((row) =>
-                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                      )
-                                    )
-                                  }
+                                      onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
+                                      onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
                                       groups={sortedGroups}
                                       onGroupChange={handleEntryGroupChange}
                                       tags={tagsByEntry.get(e.id) ?? {}}
@@ -824,7 +774,7 @@ export function TableView() {
                       const groupKey = 'ungrouped';
                       const groupEntries = entriesByGroup.get(null) ?? [];
                       const isCollapsed = Boolean(collapsedGroups[groupKey]);
-                      const totals = computeGroupTotals(groupEntries);
+                      const totals = makeGroupTotals(groupEntries);
                       const shouldRender = groupEntries.length > 0 || sortedGroups.length === 0;
                       if (!shouldRender) return null;
                       return (
@@ -861,21 +811,15 @@ export function TableView() {
                             >
                               <SortableContext items={groupEntries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-2">
-                                  {groupEntries.map((e: any) => (
+                                  {groupEntries.map((e) => (
                                     <Row
                                       key={e.id}
                                       e={e}
                                       editingNameId={editingNameId}
                                       setEditingNameId={setEditingNameId}
                                       removingIds={removingIds}
-                                      onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                                  onMonthUpdate={(month, value) =>
-                                    setRows((prev) =>
-                                      prev.map((row) =>
-                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                      )
-                                    )
-                                  }
+                                      onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
+                                      onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
                                       groups={sortedGroups}
                                       onGroupChange={handleEntryGroupChange}
                                       tags={tagsByEntry.get(e.id) ?? {}}
@@ -899,7 +843,7 @@ export function TableView() {
                   const groupKey = `g:${g.id}`;
                   const groupEntries = entriesByGroup.get(g.id) ?? [];
                   const isCollapsed = Boolean(collapsedGroups[groupKey]);
-                  const totals = computeGroupTotals(groupEntries);
+                  const totals = makeGroupTotals(groupEntries);
                   return (
                     <div key={groupKey} className="space-y-2">
                       <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(g.id) ? 'fade-out' : ''}`}>
@@ -962,21 +906,15 @@ export function TableView() {
 
                       {!isCollapsed && (
                         <div className="space-y-2">
-                          {groupEntries.map((e: any) => (
+                          {groupEntries.map((e) => (
                             <Row
                               key={e.id}
                               e={e}
                               editingNameId={editingNameId}
                               setEditingNameId={setEditingNameId}
                               removingIds={removingIds}
-                              onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                                  onMonthUpdate={(month, value) =>
-                                    setRows((prev) =>
-                                      prev.map((row) =>
-                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                      )
-                                    )
-                                  }
+                              onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
+                              onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
                               groups={sortedGroups}
                               onGroupChange={handleEntryGroupChange}
                               tags={tagsByEntry.get(e.id) ?? {}}
@@ -994,7 +932,7 @@ export function TableView() {
                   const groupKey = 'ungrouped';
                   const groupEntries = entriesByGroup.get(null) ?? [];
                   const isCollapsed = Boolean(collapsedGroups[groupKey]);
-                  const totals = computeGroupTotals(groupEntries);
+                  const totals = makeGroupTotals(groupEntries);
                   const shouldRender = groupEntries.length > 0 || sortedGroups.length === 0;
                   if (!shouldRender) return null;
                   return (
@@ -1024,21 +962,15 @@ export function TableView() {
                       </div>
                       {!isCollapsed && (
                         <div className="space-y-2">
-                          {groupEntries.map((e: any) => (
+                          {groupEntries.map((e) => (
                             <Row
                               key={e.id}
                               e={e}
                               editingNameId={editingNameId}
                               setEditingNameId={setEditingNameId}
                               removingIds={removingIds}
-                              onNameUpdate={(name) => setRows((prev) => prev.map((row) => (row.id === e.id ? { ...row, name } : row)))}
-                                  onMonthUpdate={(month, value) =>
-                                    setRows((prev) =>
-                                      prev.map((row) =>
-                                        row.id === e.id ? { ...row, [month === 'Dec' ? 'Decm' : month]: value } : row
-                                      )
-                                    )
-                                  }
+                              onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
+                              onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
                               groups={sortedGroups}
                               onGroupChange={handleEntryGroupChange}
                               tags={tagsByEntry.get(e.id) ?? {}}
@@ -1054,17 +986,7 @@ export function TableView() {
               </div>
             )}
 
-            <div className={`table-total-premium ${GRID_TEMPLATE} gap-1 pl-0 pr-3 py-2 font-semibold text-[0.72rem]`}>
-              <div />
-              <div className="font-semibold">Total</div>
-              {totals.sums.map((v,i)=> (
-                <div key={i} className="text-right font-semibold">
-                  {formatCurrency(v)}
-                </div>
-              ))}
-              <div className="text-right font-semibold">{formatCurrency(totals.totalSum)}</div>
-              <div className="text-right font-semibold">{formatCurrency(totals.totalAvg)}</div>
-            </div>
+            <TableTotalRow gridTemplate={GRID_TEMPLATE} totals={totals} />
             </div>
           </div>
         </motion.div>

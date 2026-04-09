@@ -10,11 +10,13 @@
 - ✅ Modern UI (React + Vite + Tailwind)
 - ✅ Backend API (Node.js)
 - ✅ PWA – works offline and behaves like a native app
-- ✅ Manage multiple years, entries, reports, and savings goals
+- ✅ Manage multiple years, entries, entry groups, reports, and savings goals
 - ✅ Designed for self-hosting (Docker, docker-compose, reverse proxy friendly)
 - ✅ Secured with encryption key
+- ✅ PIN session protection for frontend and backend API
 - ✅ Tagging - tag month with color and text to quickly identify needed informations
 - ✅ Import - speedup on Mopay implementation by preparing data in excel and simply import entire year to mopay
+- ✅ Release status indicator with GitHub release check
 
 ---
 ## Demo / Screenshots
@@ -52,14 +54,17 @@
 ## Features
 
 - Manage **financial years**
-- Add, edit, and delete **income and expense entries**
+- Add, edit, reorder, group, and delete **income and expense entries**
 - Generate **reports and summaries**
 - Track **savings goals** and progress
-- **PIN guard** built-in (secure access) - locking also API (front and backend are secured)
+- **Entry groups** for better table organization in incomes and expenses
+- **PIN guard** built-in with backend API session protection via `X-Mopay-Session`
 - **Offline** mode (PWA, asset caching)
 - **Data encryption** - your incomes and expeneses values are secured with encryption key
 - **Tagging** on board - tag element with color and comment
 - :fire:**Import feature**  use new function for **faster data input** or financial data **migration collected in excel sheets**. Import flow with template download, validation, year overwrite confirmation, and progress/status feedback.
+- **Import scope** includes entries, groups, month tags, savings goals, and savings items
+- **Release info** in settings with update check against GitHub Releases
 
 ---
 
@@ -77,6 +82,8 @@ services:
     image: ghcr.io/pbuzdygan/mopay:latest
     container_name: mopay
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
 # MOPAY backend/frontend listens on port 8010 inside the container
     ports:
@@ -108,6 +115,7 @@ services:
       # - SECURITY_ALERT_PIN_FAIL_THRESHOLD=20
       # - SECURITY_ALERT_PIN_FAIL_WINDOW_MS=600000
       # - SECURITY_ALERT_COOLDOWN_MS=900000
+      # - SQLITE_BUSY_TIMEOUT_MS=5000
 
 # Health check (optional but recommended)
 #    healthcheck:
@@ -124,6 +132,23 @@ Result of below command is Your encryption key - stored it securley - without it
 openssl rand -base64 32
 
 ```
+
+Accepted formats:
+
+- raw base64 output from `openssl rand -base64 32`
+- `base64:<value>`
+
+## Import notes
+
+- Use the template downloaded from Mopay. The backend expects the uploaded file name to stay `mopay_import_template.xlsx`.
+- Import supports new years and overwriting existing years after explicit confirmation.
+- Imported workbook data includes entries, groups, month tags, savings goals, and savings items.
+
+## Release check
+
+- The frontend can display release/update information in Settings.
+- Release status is resolved from backend metadata and GitHub Releases for the configured repository/channel.
+- In restricted environments, outbound browser access to `api.github.com` may be required for update detection.
 
 ## Security environment variables (v1.5.3+)
 
@@ -164,6 +189,21 @@ Below variables let you tune security behavior.
   - Time window for counting failed PIN events.
 - `SECURITY_ALERT_COOLDOWN_MS` (default: `900000`)
   - Minimum interval between repeated alerts for the same source.
+
+- `SQLITE_BUSY_TIMEOUT_MS` (default: `5000`)
+  - SQLite busy timeout in milliseconds.
+  - Useful when storage is slow or the DB file is temporarily locked.
+
+## Deployment notes
+
+- Mopay runtime process runs as a non-root user (`node`) by default.
+- Startup entrypoint performs compatibility `chown` for `/data` and then drops privileges to `node`.
+- For production, keep persistent storage mounted only for `/data`.
+- If using bind mounts, keep `./data` writable by container user UID `1000` (or adjust host permissions accordingly).
+- Avoid sharing one SQLite file between multiple Mopay instances.
+- Avoid NAS/sync folders for the live database when possible, because SQLite lock contention will degrade reliability.
+- If logs show `SQLITE_READONLY`, repair host permissions once and restart:
+  - `sudo chown -R 1000:1000 ./data && sudo chmod -R u+rwX ./data`
 
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.
