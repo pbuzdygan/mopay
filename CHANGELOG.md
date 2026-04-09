@@ -8,6 +8,9 @@
 - fixed import modal error handling: switched from brittle `JSON.parse(err.message)` to structured `ApiError` parsing (`status`, `body`, `retryAfterSeconds`)
 - fixed import overwrite flow reliability by correctly handling backend `OVERWRITE_REQUIRED` payload (`years`) without dropping validated import payload state
 - fixed backend entry update/create validation gaps: `name`, `comment`, `sort_index`, and month values are now validated and normalized before DB write/encryption
+- runtime image now drops root privileges (`USER node`) before starting Mopay backend
+- fixed non-root startup compatibility for existing bind-mounted DB volumes by adding runtime entrypoint ownership repair before dropping privileges
+- hardened runtime entrypoint DB permission checks with explicit `SQLITE_READONLY` diagnostics when host bind-mount permissions block writes
 
 ### New Features
 - added table query-state composition hook `useTableQueryState` to centralize entries/groups/tags reads and optimistic entry overlays
@@ -24,6 +27,7 @@
   - reduced `TableView` responsibilities by moving query/overlay logic and UI-only rows to dedicated modules
   - import UI now uses a dedicated error classifier for `OVERWRITE_REQUIRED`, `IMPORT_IN_PROGRESS`, `SQLITE_BUSY`, auth/session errors, and encryption-key mismatch responses
   - backend entries now use shared normalizers for payload validation (`normalizeEntryName`, `normalizeEntryComment`, `normalizeEntrySortIndex`, `normalizeEntryMonthValue`) to prevent invalid encrypted values from being persisted
+  - hardened compose defaults with `security_opt: no-new-privileges:true` for both GHCR and local-build deployment flows
 - documentation update:
   - refreshed `README.md` and `docs/ARCHITECTURE.md` to reflect current grouping, import scope, PIN session model, release check behavior, and deployment/security notes
 

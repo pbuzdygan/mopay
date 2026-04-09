@@ -49,7 +49,7 @@ ENV PORT=8010
 EXPOSE 8010
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libsqlite3-0 \
+    libsqlite3-0 gosu \
  && rm -rf /var/lib/apt/lists/*
 
 # 1. Install deps
@@ -62,6 +62,12 @@ COPY backend /app
 # 3. Copy frontend build
 COPY --from=build /app/frontend/dist /app/public
 
-RUN mkdir -p /data
+RUN mkdir -p /data \
+ && chown -R node:node /app /data
+
+COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 CMD ["node", "server.js"]

@@ -82,6 +82,8 @@ services:
     image: ghcr.io/pbuzdygan/mopay:latest
     container_name: mopay
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
 # MOPAY backend/frontend listens on port 8010 inside the container
     ports:
@@ -194,9 +196,14 @@ Below variables let you tune security behavior.
 
 ## Deployment notes
 
-- For production, prefer running the container with a dedicated non-root user and persistent storage mounted only for `/data`.
+- Mopay runtime process runs as a non-root user (`node`) by default.
+- Startup entrypoint performs compatibility `chown` for `/data` and then drops privileges to `node`.
+- For production, keep persistent storage mounted only for `/data`.
+- If using bind mounts, keep `./data` writable by container user UID `1000` (or adjust host permissions accordingly).
 - Avoid sharing one SQLite file between multiple Mopay instances.
 - Avoid NAS/sync folders for the live database when possible, because SQLite lock contention will degrade reliability.
+- If logs show `SQLITE_READONLY`, repair host permissions once and restart:
+  - `sudo chown -R 1000:1000 ./data && sudo chmod -R u+rwX ./data`
 
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.

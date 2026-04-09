@@ -3,6 +3,8 @@ services:
     build: .
     container_name: mopay_dev
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
 #      - PORT=8010
       - DB_FILE=/data/mopay.sqlite

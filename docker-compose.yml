@@ -3,6 +3,8 @@ services:
     image: ghcr.io/pbuzdygan/mopay:latest
     container_name: mopay
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
 # MOPAY backend/frontend listens on port 8010 inside the container
     ports:
