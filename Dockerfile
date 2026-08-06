@@ -1,7 +1,7 @@
 # ───────────────────────────────────────────────
 # 1️⃣ BUILD STAGE – build frontend
 # ───────────────────────────────────────────────
-FROM node:20-bookworm-slim AS build
+FROM node:24-bookworm-slim AS build
 ARG APP_VERSION=dev
 ARG APP_REPO=pbuzdygan/mopay
 ARG APP_CHANNEL=main
@@ -34,7 +34,7 @@ RUN cd frontend && npm run build
 # ───────────────────────────────────────────────
 # 2️⃣ RUNTIME STAGE – backend + built frontend
 # ───────────────────────────────────────────────
-FROM node:20-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 ARG APP_VERSION=dev
 ARG APP_REPO=pbuzdygan/mopay
 ARG APP_CHANNEL=main
@@ -54,7 +54,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 1. Install deps
 COPY backend/package*.json /app/
-RUN npm ci --omit=dev --no-audit --prefer-offline && npm cache clean --force
+RUN npm ci --omit=dev --ignore-scripts --no-audit --prefer-offline && npm cache clean --force
 
 # 2. Copy FULL backend – this brings schema.sql!
 COPY backend /app

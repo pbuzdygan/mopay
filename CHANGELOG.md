@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.6.0
+
+### Bug fix
+- fixed PIN rate-limit and security-alert state cleanup so expired per-IP entries are pruned correctly and retained state cannot grow without a configured bound
+
+### New Features
+- added a subtle current-month marker to the income and expense table headers when the selected year is the current calendar year
+- redesigned Savings goals as a full-width accordion with compact progress summaries, readable contribution and withdrawal rows, and responsive multiline item editing
+
+### Improvements
+- dependency and runtime security maintenance:
+  - upgraded build and runtime images from Node.js 20 to Node.js 24 LTS and declared Node.js 24 as the supported runtime
+  - updated backend/frontend dependencies and lockfiles, including patched transitive versions of `body-parser`, `path-to-regexp`, `qs`, `tmp`, and `uuid`
+  - made backend production dependency installation reproducible with bundled `better-sqlite3` prebuilds and lifecycle scripts disabled
+- API request DoS hardening:
+  - protected API JSON bodies are now authenticated before parsing
+  - added dedicated JSON limits: `2 KB` for PIN verification, `64 KB` for standard authenticated API requests, and `10 MB` for authenticated import requests; export response size is unaffected
+  - moved PIN hashing to asynchronous `scrypt` and added a configurable concurrent verification limit (`APP_PIN_MAX_CONCURRENT`, default `2`) with `429` backpressure
+  - capped retained PIN rate-limit/audit IP state with `APP_PIN_MAX_TRACKED_IPS` (default `10000`)
+- lightweight HTTP hardening:
+  - disabled the Express `X-Powered-By` header and added `X-Content-Type-Options`, `Referrer-Policy`, and no-store caching for API responses
+  - added optional trusted reverse-proxy hop configuration through `APP_TRUST_PROXY` without bundling a proxy service in Docker Compose
+
 ## v1.5.4
 
 ### Bug fix

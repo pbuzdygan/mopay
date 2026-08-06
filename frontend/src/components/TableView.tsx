@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
-import { MONTHS } from '../utils/months';
+import { getCurrentMonthForYear, MONTHS } from '../utils/months';
 import { formatCurrency, formatCurrencyPlain, parseCurrencyInputNullable } from '../utils/currency';
 import { DndContext, closestCenter, PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -420,6 +420,7 @@ export function TableView() {
   const bulkRemoveRequestId = useAppStore((s) => s.bulkRemoveRequestId);
   const tableTab = tab === 'incomes' ? 'incomes' : 'expenses';
   const type = tableTab === 'incomes' ? 'income' : 'expense';
+  const currentMonth = getCurrentMonthForYear(year);
   const showGroupTotals = useAppStore((s) => s.showGroupTotals);
   const qc = useQueryClient();
   const fadeControls = useAnimationControls();
@@ -700,7 +701,7 @@ export function TableView() {
               className="inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
               style={{ width: 'max-content' }}
             >
-            <TableHeaderRow gridTemplate={GRID_TEMPLATE} tab={tableTab} />
+            <TableHeaderRow gridTemplate={GRID_TEMPLATE} tab={tableTab} currentMonth={currentMonth} />
 
             {editMode==='order' ? (
               <DndContext

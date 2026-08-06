@@ -28,8 +28,22 @@ const CORS_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
   .map((value) => value.trim())
   .filter(Boolean);
 const CORS_ALLOWED_ORIGIN_SET = new Set(CORS_ALLOWED_ORIGINS);
+const APP_PIN_MAX_CONCURRENT = (() => {
+  const parsed = Number(process.env.APP_PIN_MAX_CONCURRENT || 2);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 2;
+})();
+const APP_TRUST_PROXY = (process.env.APP_TRUST_PROXY || '').trim();
+if (APP_TRUST_PROXY) {
+  const proxyHops = Number(APP_TRUST_PROXY);
+  if (!Number.isInteger(proxyHops) || proxyHops < 1 || proxyHops > 10) {
+    throw new Error('APP_TRUST_PROXY must be an integer between 1 and 10');
+  }
+  app.set('trust proxy', proxyHops);
+}
+app.disable('x-powered-by');
 let keyMismatch = false;
 let importInProgress = false;
+let activePinVerifications = 0;
 const auth = createSessionAuth();
 const pinAttemptGuard = createPinAttemptGuard();
 const securityAudit = createSecurityAudit();
@@ -493,7 +507,12 @@ const getYearRow = (yearValue) => {
   return db.prepare('SELECT id FROM years WHERE year=?').get(numericYear);
 };
 
-app.use(express.json({ limit: '10mb' }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 app.use(morgan('dev'));
 
 if (CORS_ALLOWED_ORIGINS.length > 0) {
@@ -512,7 +531,12 @@ if (CORS_ALLOWED_ORIGINS.length > 0) {
 }
 
 const PUBLIC_API_PATHS = new Set(['/pin/verify', '/pin/logout', '/meta', '/encryption/status']);
+const LARGE_JSON_API_PATHS = new Set(['/import', '/import/validate']);
+const pinJsonParser = express.json({ limit: '2kb' });
+const standardJsonParser = express.json({ limit: '64kb' });
+const importJsonParser = express.json({ limit: '10mb' });
 app.use('/api', (req, res, next) => {
+  if (req.path === '/pin/verify') return pinJsonParser(req, res, next);
   if (PUBLIC_API_PATHS.has(req.path)) return next();
   const authResult = auth.authorizeRequest(req);
   if (!authResult.ok) {
@@ -526,7 +550,8 @@ app.use('/api', (req, res, next) => {
     return res.status(401).json({ ok: false, error: authResult.error });
   }
   req.authSession = { token: authResult.token, ...authResult.session };
-  return next();
+  const parser = LARGE_JSON_API_PATHS.has(req.path) ? importJsonParser : standardJsonParser;
+  return parser(req, res, next);
 });
 
 // Health check
@@ -537,7 +562,7 @@ app.get('/api/meta', (_req, res) => {
 });
 
 // Pin verification
-app.post('/api/pin/verify', (req,res)=>{
+app.post('/api/pin/verify', async (req,res,next)=>{
   const ip = req.ip || 'unknown';
   const guardResult = pinAttemptGuard.beforeVerify(ip);
   if (!guardResult.allowed) {
@@ -570,7 +595,32 @@ app.post('/api/pin/verify', (req,res)=>{
     if (!remaining) return fn();
     return setTimeout(fn, remaining);
   };
-  if (typeof pin === 'string' && verifyPinValue(db, pin)) {
+  let pinMatches = false;
+  if (typeof pin === 'string' && /^[0-9]{4,8}$/.test(pin)) {
+    if (activePinVerifications >= APP_PIN_MAX_CONCURRENT) {
+      res.setHeader('Retry-After', '1');
+      securityAudit.log('PIN_VERIFY_BLOCKED', {
+        ip,
+        reason: 'PIN_VERIFY_BUSY',
+        userAgent: req.get('user-agent') || '',
+      });
+      return res.status(429).json({
+        ok: false,
+        error: 'PIN_VERIFY_BUSY',
+        retryAfterSeconds: 1,
+        message: 'PIN verification is busy. Please retry in a moment.',
+      });
+    }
+    activePinVerifications += 1;
+    try {
+      pinMatches = await verifyPinValue(db, pin);
+    } catch (error) {
+      return next(error);
+    } finally {
+      activePinVerifications -= 1;
+    }
+  }
+  if (pinMatches) {
     pinAttemptGuard.onSuccess(ip);
     const sessionToken = auth.createSession(req);
     securityAudit.log('PIN_VERIFY_SUCCESS', { ip, userAgent: req.get('user-agent') || '' }, 'info');
@@ -1434,6 +1484,17 @@ app.post('/api/encryption/reset', (req,res)=>{
   keyMismatch = false;
   console.warn('All Mopay data has been deleted after encryption key reset confirmation.');
   res.json({ ok: true });
+});
+
+app.use('/api', (err, _req, res, _next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ ok: false, error: 'PAYLOAD_TOO_LARGE' });
+  }
+  if (err?.type === 'entity.parse.failed') {
+    return res.status(400).json({ ok: false, error: 'INVALID_JSON' });
+  }
+  console.error('API request failed', err);
+  return res.status(500).json({ ok: false, error: 'INTERNAL_ERROR' });
 });
 
 // Static frontend
