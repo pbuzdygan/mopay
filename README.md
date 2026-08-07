@@ -110,6 +110,10 @@ services:
       # - APP_PIN_LOCK_BASE_MS=120000
       # - APP_PIN_LOCK_MAX_MS=1800000
       # - APP_PIN_MIN_RESPONSE_MS=250
+      # - APP_PIN_MAX_CONCURRENT=2
+      # - APP_PIN_MAX_TRACKED_IPS=10000
+      # Use only behind one trusted reverse-proxy hop (for example Nginx Proxy Manager):
+      # - APP_TRUST_PROXY=1
       # - CORS_ALLOWED_ORIGINS=https://mopay.example.com
       # - SECURITY_WEBHOOK_URL=https://example.com/webhook
       # - SECURITY_ALERT_PIN_FAIL_THRESHOLD=20
@@ -175,6 +179,13 @@ Below variables let you tune security behavior.
   - Max lockout duration in milliseconds.
 - `APP_PIN_MIN_RESPONSE_MS` (default: `250`)
   - Minimum response duration for `/api/pin/verify` to reduce timing signal.
+- `APP_PIN_MAX_CONCURRENT` (default: `2`)
+  - Max number of concurrent PIN hash checks. Additional requests receive `429` and can retry.
+- `APP_PIN_MAX_TRACKED_IPS` (default: `10000`)
+  - Max number of IP entries retained by the PIN rate limiter and alert tracker.
+- `APP_TRUST_PROXY` (default: empty)
+  - Number of trusted reverse-proxy hops. Set `1` when Mopay is reached through one Nginx Proxy Manager hop.
+  - Leave empty when Mopay is accessed directly. Mopay does not add or configure a proxy container.
 
 - `CORS_ALLOWED_ORIGINS` (default: empty)
   - Optional comma-separated allowlist for cross-origin API calls.
@@ -196,6 +207,7 @@ Below variables let you tune security behavior.
 
 ## Deployment notes
 
+- API JSON is parsed only after session authentication, except for the PIN endpoint, which has a `2 KB` limit. Normal authenticated API requests have a `64 KB` limit; authenticated import requests retain the `10 MB` limit. Export response size is unaffected.
 - Mopay runtime process runs as a non-root user (`node`) by default.
 - Startup entrypoint performs compatibility `chown` for `/data` and then drops privileges to `node`.
 - For production, keep persistent storage mounted only for `/data`.

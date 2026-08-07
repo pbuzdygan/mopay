@@ -2,41 +2,26 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Api } from '../api';
 import { useAppStore } from '../store';
-import { Surface } from './Surface';
-import { REPORT_DEFINITIONS, type ReportId } from '../reports/config';
-import { MONTHS } from '../utils/months';
+import {
+  buildAnnualComparison,
+  buildFinancialStory,
+  type FinancialStory,
+  type MetricComparison,
+  type ReportEntry,
+} from '../reports/analytics';
 import { formatCurrency } from '../utils/currency';
-
-type EntryRow = {
-  id: number;
-  name: string;
-  comment?: string | null;
-  [key: string]: number | string | null | undefined;
-};
-
-type MonthStat = {
-  month: string;
-  income: number;
-  expense: number;
-  balance: number;
-};
-
-const monthValue = (entry: EntryRow, month: string) => {
-  const raw = month === 'Dec' ? (entry.Decm ?? entry.Dec) : entry[month];
-  if (raw === null || raw === undefined) return null;
-  const num = Number(raw);
-  return Number.isFinite(num) ? num : 0;
-};
-
-const entryTotal = (entry: EntryRow) =>
-  MONTHS.reduce((acc, month) => {
-    const value = monthValue(entry, month);
-    return acc + (value === null ? 0 : value);
-  }, 0);
+import { Surface } from './Surface';
 
 function useYearEntries() {
-  const year = useAppStore((s) => s.year);
+  const year = useAppStore((state) => state.year);
   const enabled = !!year;
+  const years = useQuery({
+    queryKey: ['years'],
+    queryFn: Api.years.list,
+  });
+  const previousYear = year ? year - 1 : null;
+  const availableYears = (years.data?.years ?? []) as number[];
+  const hasPreviousYear = previousYear !== null && availableYears.includes(previousYear);
   const incomes = useQuery({
     queryKey: ['entries', 'income', year],
     queryFn: () => Api.entries.list('income', year!),
@@ -47,258 +32,433 @@ function useYearEntries() {
     queryFn: () => Api.entries.list('expense', year!),
     enabled,
   });
-  return { year, incomes, expenses };
-}
-
-function buildMonthStats(incomes: EntryRow[], expenses: EntryRow[]): MonthStat[] {
-  return MONTHS.map((month) => {
-    const income = incomes.reduce((sum, entry) => {
-      const value = monthValue(entry, month);
-      return sum + (value === null ? 0 : value);
-    }, 0);
-    const expense = expenses.reduce((sum, entry) => {
-      const value = monthValue(entry, month);
-      return sum + (value === null ? 0 : value);
-    }, 0);
-    return { month, income, expense, balance: income - expense };
+  const previousIncomes = useQuery({
+    queryKey: ['entries', 'income', previousYear],
+    queryFn: () => Api.entries.list('income', previousYear!),
+    enabled: hasPreviousYear,
   });
+  const previousExpenses = useQuery({
+    queryKey: ['entries', 'expense', previousYear],
+    queryFn: () => Api.entries.list('expense', previousYear!),
+    enabled: hasPreviousYear,
+  });
+  return {
+    year,
+    incomes,
+    expenses,
+    previousYear,
+    hasPreviousYear,
+    previousIncomes,
+    previousExpenses,
+  };
 }
 
-function getReportContent(reportId: ReportId, data: { incomes: EntryRow[]; expenses: EntryRow[]; monthStats: MonthStat[] }) {
-  switch (reportId) {
-    case 'monthly-balance':
-      return <MonthlyBalanceCard stats={data.monthStats} />;
-    case 'spending-leaders':
-      return <SpendingLeadersCard expenses={data.expenses} />;
-    case 'income-stability':
-      return <IncomeStabilityCard incomes={data.incomes} />;
-    case 'expense-stability':
-      return <ExpenseStabilityCard expenses={data.expenses} />;
-    default:
-      return null;
+const formatSignedCurrency = (value: number) =>
+  `${value > 0 ? '+' : ''}${formatCurrency(value)}`;
+
+const describeYear = (story: FinancialStory) => {
+  const result = story.net > 0
+    ? `You finished the year ${formatCurrency(story.net)} ahead.`
+    : story.net < 0
+    ? `You finished the year ${formatCurrency(Math.abs(story.net))} behind.`
+    : 'Income and expenses balanced this year.';
+
+  const incomeDescription = story.incomeStability === null
+    ? null
+    : story.incomeStability >= 80
+    ? 'Income stayed steady'
+    : story.incomeStability >= 55
+    ? 'Income was moderately predictable'
+    : 'Income varied noticeably';
+  const expenseDescription = story.mostVariableExpense
+    ? `${story.mostVariableExpense.name} varied most month to month`
+    : null;
+
+  if (incomeDescription && expenseDescription) {
+    return `${result} ${incomeDescription}, while ${expenseDescription}.`;
   }
-}
+  if (incomeDescription) return `${result} ${incomeDescription}.`;
+  if (expenseDescription) return `${result} ${expenseDescription}.`;
+  return result;
+};
 
 export function ReportsView() {
-  const { year, incomes, expenses } = useYearEntries();
-  const selectedReports = useAppStore((s) => s.selectedReports);
-
+  const {
+    year,
+    incomes,
+    expenses,
+    previousYear,
+    hasPreviousYear,
+    previousIncomes,
+    previousExpenses,
+  } = useYearEntries();
   const isLoading = incomes.isLoading || expenses.isLoading;
-  const hasYear = !!year;
+  const isError = incomes.isError || expenses.isError;
 
-  const reportData = useMemo(() => {
-    const inc = (incomes.data?.entries ?? []) as EntryRow[];
-    const exp = (expenses.data?.entries ?? []) as EntryRow[];
-    return {
-      incomes: inc,
-      expenses: exp,
-      monthStats: buildMonthStats(inc, exp),
-    };
+  const story = useMemo(() => {
+    const incomeEntries = (incomes.data?.entries ?? []) as ReportEntry[];
+    const expenseEntries = (expenses.data?.entries ?? []) as ReportEntry[];
+    return buildFinancialStory(incomeEntries, expenseEntries);
   }, [incomes.data, expenses.data]);
 
-  if (!hasYear) {
-    return (
-      <Surface variant="layer" className="report-card">
-        <div className="reports-empty">
-          <p>Select a year to unlock yearly analytics.</p>
-        </div>
-      </Surface>
-    );
+  const previousStory = useMemo(() => {
+    if (!hasPreviousYear || !previousIncomes.isSuccess || !previousExpenses.isSuccess) {
+      return null;
+    }
+    const incomeEntries = (previousIncomes.data?.entries ?? []) as ReportEntry[];
+    const expenseEntries = (previousExpenses.data?.entries ?? []) as ReportEntry[];
+    return buildFinancialStory(incomeEntries, expenseEntries);
+  }, [
+    hasPreviousYear,
+    previousIncomes.isSuccess,
+    previousIncomes.data,
+    previousExpenses.isSuccess,
+    previousExpenses.data,
+  ]);
+
+  const comparison = useMemo(
+    () => previousStory ? buildAnnualComparison(story, previousStory) : null,
+    [story, previousStory]
+  );
+
+  if (!year) {
+    return <ReportsState message="Select a year to unlock yearly analytics." />;
   }
 
   if (isLoading) {
-    return (
-      <Surface variant="layer" className="report-card">
-        <div className="reports-empty">
-          <p>Preparing your reports…</p>
-        </div>
-      </Surface>
-    );
+    return <ReportsState message="Preparing your financial story…" />;
   }
 
-  if (!selectedReports.length) {
-    return (
-      <Surface variant="layer" className="report-card">
-        <div className="reports-empty">
-          <p>Use the report toggles to display the analyses you need.</p>
-        </div>
-      </Surface>
-    );
+  if (isError) {
+    return <ReportsState message="The financial story could not be prepared. Try again in a moment." />;
+  }
+
+  if (!story.hasActivity) {
+    return <ReportsState message="Add income or expense values to build your financial story." />;
   }
 
   return (
-    <div className="report-grid">
-      {REPORT_DEFINITIONS.filter((r) => selectedReports.includes(r.id)).map((report) => (
-        <Surface key={report.id} variant="layer" className="report-card">
-          <div className="report-card-header">
-            <div className="report-card-icon">{report.icon}</div>
-            <div>
-              <h3 className="report-card-title">{report.label}</h3>
-              <p className="report-card-caption">{report.tooltip}</p>
-            </div>
-          </div>
-          <div className="report-card-body">
-            {getReportContent(report.id, reportData)}
-          </div>
+    <div className="reports-story mode-enter">
+      <Surface variant="layer" className="reports-story-hero">
+        <p className="reports-story-summary">{describeYear(story)}</p>
+
+        <div className="reports-story-metrics" aria-label="Annual totals">
+          <StoryMetric
+            comparison={comparison?.income}
+            comparisonYear={comparison ? previousYear : null}
+            icon="income"
+            label="Income"
+            value={story.totalIncome}
+          />
+          <StoryMetric
+            comparison={comparison?.expense}
+            comparisonYear={comparison ? previousYear : null}
+            icon="expenses"
+            label="Expenses"
+            value={story.totalExpense}
+          />
+          <StoryMetric
+            comparison={comparison?.net}
+            comparisonYear={comparison ? previousYear : null}
+            icon="net"
+            label="Net result"
+            value={story.net}
+            signed
+            tone={story.net >= 0 ? 'positive' : 'negative'}
+          />
+        </div>
+
+        <MonthHealthStrip story={story} />
+      </Surface>
+
+      <div className="reports-story-details">
+        <Surface variant="layer" className="reports-story-panel">
+          <SectionHeading
+            title="Where money went"
+            caption="Top expense lines and their share of annual expenses"
+          />
+          <SpendingPanel story={story} />
         </Surface>
-      ))}
+
+        <Surface variant="layer" className="reports-story-panel">
+          <SectionHeading
+            title="Predictability"
+            caption="How consistent income and expenses were across active months"
+          />
+          <PredictabilityPanel story={story} />
+        </Surface>
+      </div>
     </div>
   );
 }
 
-function MonthlyBalanceCard({ stats }: { stats: MonthStat[] }) {
-  const totalIncome = stats.reduce((sum, m) => sum + m.income, 0);
-  const totalExpense = stats.reduce((sum, m) => sum + m.expense, 0);
-  const net = totalIncome - totalExpense;
-  const best = [...stats].sort((a, b) => b.balance - a.balance)[0];
-  const worst = [...stats].sort((a, b) => a.balance - b.balance)[0];
+function ReportsState({ message }: { message: string }) {
+  return (
+    <Surface variant="layer" className="reports-story-state">
+      <p>{message}</p>
+    </Surface>
+  );
+}
 
-  const maxAbs = Math.max(...stats.map((m) => Math.abs(m.balance))) || 1;
+function StoryMetric({
+  comparison,
+  comparisonYear,
+  icon,
+  label,
+  value,
+  signed = false,
+  tone = 'neutral',
+}: {
+  comparison?: MetricComparison;
+  comparisonYear: number | null;
+  icon: 'income' | 'expenses' | 'net';
+  label: string;
+  value: number;
+  signed?: boolean;
+  tone?: 'neutral' | 'positive' | 'negative';
+}) {
+  const iconPath = icon === 'income'
+    ? '/icons/ui/wallet.svg'
+    : icon === 'expenses'
+    ? '/icons/ui/credit-card-pay.svg'
+    : '/icons/ui/pig-money.svg';
 
   return (
-    <div className="stack">
-      <div className="stat-line">
-        <div className="stat-chip">
-          <span>Total income</span>
-          <strong>{formatCurrency(totalIncome)}</strong>
+    <div className={`reports-story-metric is-${tone}`}>
+      <span className="reports-story-metric-icon" aria-hidden="true">
+        <span
+          className="reports-story-metric-glyph"
+          style={{
+            WebkitMaskImage: `url("${iconPath}")`,
+            maskImage: `url("${iconPath}")`,
+          }}
+        />
+      </span>
+      <div className="reports-story-metric-copy">
+        <span>{label}</span>
+        <strong className="reports-story-metric-value">
+          {signed ? formatSignedCurrency(value) : formatCurrency(value)}
+        </strong>
+        {comparison && comparisonYear && (
+          <MetricComparisonRow comparison={comparison} year={comparisonYear} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MetricComparisonRow({
+  comparison,
+  year,
+}: {
+  comparison: MetricComparison;
+  year: number;
+}) {
+  const arrow = comparison.direction === 'up'
+    ? '↑'
+    : comparison.direction === 'down'
+    ? '↓'
+    : '→';
+  const detail = comparison.kind === 'turned-positive'
+    ? 'Turned positive'
+    : comparison.kind === 'turned-negative'
+    ? 'Turned negative'
+    : comparison.kind === 'no-baseline'
+    ? 'No baseline'
+    : `${arrow} ${(comparison.percent ?? 0) > 0 ? '+' : ''}${(comparison.percent ?? 0).toFixed(1)}%`;
+
+  return (
+    <span
+      className={`reports-metric-comparison is-${comparison.tone}`}
+      aria-label={`Compared with ${year}: ${detail}`}
+    >
+      <span>vs {year}</span>
+      <strong>{detail}</strong>
+    </span>
+  );
+}
+
+function MonthHealthStrip({ story }: { story: FinancialStory }) {
+  return (
+    <section className="reports-month-section" aria-labelledby="reports-month-heading">
+      <div className="reports-month-heading-row">
+        <div>
+          <h3 id="reports-month-heading">The year month by month</h3>
+          <p>Monthly net result with income and expense proportions</p>
         </div>
-        <div className="stat-chip">
-          <span>Total expense</span>
-          <strong>{formatCurrency(totalExpense)}</strong>
-        </div>
-        <div className={`stat-chip ${net >= 0 ? 'positive' : 'negative'}`}>
-          <span>Net result</span>
-          <strong>{formatCurrency(net)}</strong>
-        </div>
-        <div className="stat-chip soft">
-          <span>Best month</span>
-          <strong>{best?.month ?? '-'}: {formatCurrency(best?.balance ?? 0)}</strong>
-        </div>
-        <div className="stat-chip soft">
-          <span>Challenging month</span>
-          <strong>{worst?.month ?? '-'}: {formatCurrency(worst?.balance ?? 0)}</strong>
+        <div className="reports-month-legend" aria-hidden="true">
+          <span className="is-income">Income</span>
+          <span className="is-expense">Expenses</span>
         </div>
       </div>
-      <div className="balance-bars">
-        {stats.map((stat) => {
-          const width = Math.abs(stat.balance) / maxAbs * 100;
+
+      <div className="reports-month-grid">
+        {story.months.map((month) => {
+          const isBest = story.bestMonth?.month === month.month;
+          const isWorst = story.worstMonth?.month === month.month;
+          const incomeHeight = Math.abs(month.income) / story.maxMonthlyFlow * 100;
+          const expenseHeight = Math.abs(month.expense) / story.maxMonthlyFlow * 100;
+          const status = isBest ? 'Best' : isWorst ? 'Weakest' : null;
+          const label = month.hasActivity
+            ? `${month.month}: net ${formatSignedCurrency(month.balance)}, income ${formatCurrency(month.income)}, expenses ${formatCurrency(month.expense)}${status ? `, ${status.toLowerCase()} month` : ''}`
+            : `${month.month}: no activity`;
+
           return (
-            <div key={stat.month} className="balance-bar">
-              <span className="month-label">{stat.month}</span>
-              <div className="bar-track">
-                <div
-                  className={`bar-fill ${stat.balance >= 0 ? 'positive' : 'negative'}`}
-                  style={{ width: `${width}%` }}
+            <div
+              key={month.month}
+              className={`reports-month ${month.hasActivity ? '' : 'is-empty'} ${isBest ? 'is-best' : ''} ${isWorst ? 'is-worst' : ''}`}
+              aria-label={label}
+            >
+              <div className="reports-month-topline">
+                <span>{month.month}</span>
+                {status && <small>{status}</small>}
+              </div>
+              <strong className={month.balance < 0 ? 'is-negative' : 'is-positive'}>
+                {month.hasActivity ? formatSignedCurrency(month.balance) : '—'}
+              </strong>
+              <div className="reports-month-bars" aria-hidden="true">
+                <span
+                  className="is-income"
+                  style={{ height: month.income === 0 ? 0 : `${Math.max(8, incomeHeight)}%` }}
+                />
+                <span
+                  className="is-expense"
+                  style={{ height: month.expense === 0 ? 0 : `${Math.max(8, expenseHeight)}%` }}
                 />
               </div>
-              <span className={`value ${stat.balance >= 0 ? 'positive' : 'negative'}`}>
-                {formatCurrency(stat.balance)}
-              </span>
             </div>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }
 
-function SpendingLeadersCard({ expenses }: { expenses: EntryRow[] }) {
-  const items = expenses
-    .map((entry) => ({ name: entry.name, total: entryTotal(entry) }))
-    .filter((entry) => entry.total > 0)
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
+function SectionHeading({ title, caption }: { title: string; caption: string }) {
+  return (
+    <header className="reports-panel-heading">
+      <h3>{title}</h3>
+      <p>{caption}</p>
+    </header>
+  );
+}
 
-  const sum = items.reduce((acc, item) => acc + item.total, 0);
-
-  if (!items.length) {
-    return <p className="reports-empty">Add expense data to see leaders.</p>;
+function SpendingPanel({ story }: { story: FinancialStory }) {
+  if (!story.topExpenses.length) {
+    return <p className="reports-panel-empty">Add expense values to see where money went.</p>;
   }
 
+  const largestExpense = story.topExpenses[0]?.total || 1;
   return (
-    <div className="stack">
-      {items.map((item) => {
-        const share = sum ? (item.total / sum) * 100 : 0;
-        return (
-          <div key={item.name} className="leader-row">
-            <div>
-              <p className="leader-name">{item.name}</p>
-              <span className="leader-share">{share.toFixed(1)}% of tracked expenses</span>
+    <div className="reports-spending-list">
+      {story.topExpenses.map((expense, index) => (
+        <div className="reports-spending-row" key={`${expense.name}-${index}`}>
+          <span className="reports-spending-rank">{index + 1}</span>
+          <div className="reports-spending-main">
+            <div className="reports-spending-label">
+              <strong>{expense.name}</strong>
+              <span>{expense.share.toFixed(1)}%</span>
             </div>
-            <strong className="leader-amount">{formatCurrency(item.total)}</strong>
+            <div className="reports-spending-track" aria-hidden="true">
+              <span style={{ width: `${expense.total / largestExpense * 100}%` }} />
+            </div>
           </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function IncomeStabilityCard({ incomes }: { incomes: EntryRow[] }) {
-  const items = incomes
-    .map((entry) => {
-      const values = MONTHS.map((m) => monthValue(entry, m)).filter((v) => v !== null) as number[];
-      const avg = values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
-      const variance = values.length ? values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length : 0;
-      const deviation = Math.sqrt(variance);
-      const ratio = avg > 0 ? deviation / avg : 0;
-      return { name: entry.name, deviation, avg, ratio };
-    })
-    .filter((row) => row.avg > 0)
-    .sort((a, b) => b.ratio - a.ratio)
-    .slice(0, 4);
-
-  if (!items.length) {
-    return <p className="reports-empty">Track at least one income stream to measure stability.</p>;
-  }
-
-  return (
-    <div className="stack">
-      {items.map((item) => (
-        <div key={item.name} className="stability-row">
-          <div>
-            <p className="leader-name">{item.name}</p>
-            <span className="leader-share">Avg {formatCurrency(item.avg)}</span>
-          </div>
-          <div className="stability-tag">
-            {(item.ratio * 100).toFixed(1)}% variance
-          </div>
+          <strong className="reports-spending-amount">{formatCurrency(expense.total)}</strong>
         </div>
       ))}
     </div>
   );
 }
 
-function ExpenseStabilityCard({ expenses }: { expenses: EntryRow[] }) {
-  const items = expenses
-    .map((entry) => {
-      const values = MONTHS.map((m) => monthValue(entry, m)).filter((v) => v !== null) as number[];
-      const avg = values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
-      const variance = values.length ? values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length : 0;
-      const deviation = Math.sqrt(variance);
-      const ratio = avg > 0 ? deviation / avg : 0;
-      return { name: entry.name, deviation, avg, ratio };
-    })
-    .filter((row) => row.avg > 0)
-    .sort((a, b) => b.ratio - a.ratio)
-    .slice(0, 4);
-
-  if (!items.length) {
-    return <p className="reports-empty">Add expense data to assess stability.</p>;
-  }
-
+function PredictabilityPanel({ story }: { story: FinancialStory }) {
   return (
-    <div className="stack">
-      {items.map((item) => (
-        <div key={item.name} className="stability-row">
-          <div>
-            <p className="leader-name">{item.name}</p>
-            <span className="leader-share">Avg {formatCurrency(item.avg)}</span>
+    <div className="reports-predictability">
+      <StabilityGauge
+        icon="/icons/ui/wallet.svg"
+        label="Income"
+        score={story.incomeStability}
+      />
+      <StabilityGauge
+        icon="/icons/ui/credit-card-pay.svg"
+        label="Expenses"
+        score={story.expenseStability}
+      />
+
+      <div className="reports-insights">
+        {story.steadiestIncome && (
+          <div className="reports-insight is-positive">
+            <InsightIcon tone="positive" />
+            <div>
+              <strong>{story.steadiestIncome.name} was your steadiest income source</strong>
+              <p>{story.steadiestIncome.score}% stability across the active part of the year.</p>
+            </div>
           </div>
-          <div className="stability-tag warning">
-            {(item.ratio * 100).toFixed(1)}% variance
+        )}
+        {story.mostVariableExpense && (
+          <div className="reports-insight is-warning">
+            <InsightIcon tone="warning" />
+            <div>
+              <strong>{story.mostVariableExpense.name} varied most month to month</strong>
+              <p>{story.mostVariableExpense.score}% stability across the active part of the year.</p>
+            </div>
           </div>
-        </div>
-      ))}
+        )}
+        {!story.steadiestIncome && !story.mostVariableExpense && (
+          <p className="reports-panel-empty">Add values in at least two active months to assess predictability.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InsightIcon({ tone }: { tone: 'positive' | 'warning' }) {
+  return (
+    <span className="reports-insight-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        {tone === 'positive'
+          ? <path d="m8.5 12 2.2 2.2 4.8-4.8" />
+          : <path d="M12 8v5M12 16.5v.01" />}
+      </svg>
+    </span>
+  );
+}
+
+function StabilityGauge({
+  icon,
+  label,
+  score,
+}: {
+  icon: string;
+  label: string;
+  score: number | null;
+}) {
+  return (
+    <div className="reports-stability-row">
+      <div className="reports-stability-label">
+        <strong className="reports-stability-name">
+          <span
+            className="reports-stability-icon"
+            aria-hidden="true"
+            style={{
+              WebkitMaskImage: `url("${icon}")`,
+              maskImage: `url("${icon}")`,
+            }}
+          />
+          <span>{label}</span>
+        </strong>
+        <span>{score === null ? 'Not enough data' : `${score}% stable`}</span>
+      </div>
+      <div
+        className={`reports-stability-track ${score === null ? 'is-empty' : ''}`}
+        role={score === null ? undefined : 'progressbar'}
+        aria-label={score === null ? undefined : `${label} stability`}
+        aria-valuemin={score === null ? undefined : 0}
+        aria-valuemax={score === null ? undefined : 100}
+        aria-valuenow={score ?? undefined}
+      >
+        <span style={{ width: `${score ?? 0}%` }} />
+      </div>
     </div>
   );
 }

@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mopay — table operations lab</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2f3f7;
+      --panel: #ffffff;
+      --panel-soft: #f8f8fc;
+      --text: #26253a;
+      --muted: #747386;
+      --line: #e5e5ee;
+      --accent: #7770cf;
+      --accent-dark: #5f58b5;
+      --accent-soft: #efedff;
+      --danger: #c95564;
+      --danger-soft: #fff0f2;
+      --success: #2e8b67;
+      --shadow: 0 16px 48px rgba(48, 45, 88, .12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; }
+    .lab { max-width: 1500px; margin: 0 auto; padding: 28px; }
+    .lab-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+    .lab-heading h1 { margin: 0 0 6px; font-size: clamp(24px, 3vw, 36px); letter-spacing: -.04em; }
+    .lab-heading p { margin: 0; color: var(--muted); max-width: 720px; line-height: 1.55; }
+    .prototype-label { flex: 0 0 auto; padding: 7px 11px; border-radius: 999px; background: #e7f6ee; color: #237152; font-size: 12px; font-weight: 750; }
+
+    .concept-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 7px; background: #e8e8f0; border-radius: 16px; margin-bottom: 12px; }
+    .concept-tab { border: 0; border-radius: 11px; background: transparent; padding: 12px 14px; cursor: pointer; text-align: left; }
+    .concept-tab strong, .concept-tab span { display: block; }
+    .concept-tab strong { font-size: 14px; }
+    .concept-tab span { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .concept-tab.active { background: var(--panel); box-shadow: 0 4px 16px rgba(49, 47, 82, .08); }
+    .concept-tab.active strong { color: var(--accent-dark); }
+    .concept-note { min-height: 50px; margin-bottom: 14px; padding: 12px 15px; border: 1px solid #dedcf6; border-radius: 13px; background: #f7f6ff; color: #565274; font-size: 13px; line-height: 1.45; }
+
+    .app-window { position: relative; min-height: 720px; overflow: hidden; background: var(--panel); border: 1px solid #dedee8; border-radius: 22px; box-shadow: var(--shadow); }
+    .app-top { height: 62px; display: flex; align-items: center; gap: 24px; padding: 0 22px; color: #fff; background: #29283b; }
+    .brand { font-weight: 850; letter-spacing: -.03em; }
+    .app-nav { display: flex; gap: 6px; }
+    .app-nav button { border: 0; border-radius: 9px; padding: 8px 11px; background: transparent; color: #cfcedb; cursor: pointer; }
+    .app-nav button.active { background: rgba(255,255,255,.13); color: white; }
+    .year-pill { margin-left: auto; font-size: 13px; color: #dedde8; }
+    .app-body { padding: 24px; }
+    .variant { display: none; }
+    .variant.active { display: block; }
+    .screen-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .screen-heading h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
+    .screen-heading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .toolbar, .toolbar-actions, .area-switch { display: flex; align-items: center; gap: 8px; }
+    .toolbar { flex-wrap: wrap; justify-content: space-between; margin-bottom: 12px; }
+    .area-switch { padding: 4px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 11px; }
+    .area-switch button { border: 0; border-radius: 8px; padding: 7px 12px; background: transparent; color: var(--muted); cursor: pointer; font-weight: 650; }
+    .area-switch button.active { background: white; color: var(--text); box-shadow: 0 2px 8px rgba(48,45,88,.08); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; font-weight: 680; font-size: 13px; }
+    .btn:hover { border-color: #c8c5e8; background: #faf9ff; }
+    .btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .btn.primary:hover { background: var(--accent-dark); }
+    .btn.soft { border-color: transparent; background: var(--accent-soft); color: var(--accent-dark); }
+    .btn.danger { border-color: transparent; background: var(--danger-soft); color: var(--danger); }
+    .btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+    .icon-only { width: 30px; min-height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer; color: var(--muted); font-size: 18px; }
+    .icon-only:hover { background: var(--accent-soft); color: var(--accent-dark); }
+    .mode-banner { display: none; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid #dcd9fa; border-radius: 11px; background: #f5f4ff; color: #514c83; font-size: 13px; }
+    .mode-banner.visible { display: flex; }
+
+    .sheet { position: relative; overflow: auto; border: 1px solid var(--line); border-radius: 15px; background: white; }
+    table { min-width: 1290px; width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 13px; }
+    th, td { height: 45px; padding: 0 9px; border-right: 1px solid #efeff4; border-bottom: 1px solid #ededf3; text-align: right; white-space: nowrap; }
+    thead th { height: 42px; position: sticky; top: 0; z-index: 3; background: #fafafd; color: var(--muted); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .035em; }
+    th:first-child, td:first-child { position: sticky; left: 0; z-index: 2; width: 245px; text-align: left; background: white; box-shadow: 7px 0 14px rgba(43,42,66,.035); }
+    thead th:first-child { z-index: 4; background: #fafafd; }
+    th:not(:first-child), td:not(:first-child) { width: 75px; }
+    tbody tr:hover td { background: #fbfaff; }
+    tbody tr:hover td:first-child { background: #fbfaff; }
+    .group-row td { height: 40px; background: #f6f5ff !important; color: #5d57a4; font-weight: 760; }
+    .group-row td:first-child { background: #f1efff !important; }
+    .name-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .entry-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; border: 0; padding: 0; background: transparent; cursor: pointer; text-align: left; font-weight: 650; }
+    .entry-name:hover { color: var(--accent-dark); text-decoration: underline; text-underline-offset: 3px; }
+    .name-wrap .icon-only { margin-left: auto; flex: 0 0 auto; }
+    .row-check, .drag-handle { display: none; flex: 0 0 auto; }
+    .row-check { accent-color: var(--accent); width: 16px; height: 16px; }
+    .drag-handle { color: #9a97b1; cursor: grab; font-size: 16px; letter-spacing: -4px; margin-right: 4px; }
+    .is-selecting .row-check { display: inline-block; }
+    .is-arranging .drag-handle { display: inline-block; }
+    .is-arranging .entry-name { cursor: grab; }
+    .cell-button { width: calc(100% + 10px); margin: 0 -5px; padding: 7px 5px; border: 0; border-radius: 7px; background: transparent; text-align: right; cursor: pointer; }
+    .cell-button:hover { background: var(--accent-soft); color: var(--accent-dark); }
+    .cell-button.tagged::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--tag, #efaf4f); vertical-align: 2px; }
+    .negative { color: var(--danger); }
+    .sum { font-weight: 750; }
+    .new-menu { position: absolute; z-index: 10; width: 210px; padding: 7px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow); }
+    .new-menu[hidden] { display: none; }
+    .menu-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left; }
+    .menu-item:hover { background: var(--panel-soft); }
+    .menu-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--accent-soft); color: var(--accent-dark); font-weight: 800; }
+    .menu-item small { display: block; margin-top: 2px; color: var(--muted); }
+
+    .drawer-backdrop { position: absolute; inset: 62px 0 0; z-index: 20; display: none; background: rgba(37,36,56,.18); }
+    .drawer-backdrop.open { display: block; }
+    .drawer { position: absolute; top: 62px; right: 0; bottom: 0; z-index: 21; width: min(390px, 94%); padding: 22px; transform: translateX(105%); transition: transform .22s ease; background: white; border-left: 1px solid var(--line); box-shadow: -18px 0 48px rgba(37,36,56,.12); }
+    .drawer.open { transform: translateX(0); }
+    .drawer-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+    .drawer-head h3 { margin: 0; font-size: 19px; }
+    .drawer-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .field { display: block; margin-bottom: 15px; }
+    .field > span { display: block; margin-bottom: 6px; color: #57556a; font-size: 12px; font-weight: 720; }
+    .field input, .field select, .field textarea, .command-input { width: 100%; border: 1px solid #dcdce6; border-radius: 10px; background: white; padding: 10px 11px; color: var(--text); outline: none; }
+    .field input:focus, .field select:focus, .field textarea:focus, .command-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .field textarea { min-height: 92px; resize: vertical; }
+    .drawer-actions { display: flex; gap: 8px; padding-top: 6px; }
+    .drawer-divider { height: 1px; margin: 20px 0; background: var(--line); }
+    .destructive-box { padding: 13px; border-radius: 11px; background: #fff8f9; color: #76535a; font-size: 12px; line-height: 1.45; }
+
+    dialog { width: min(430px, calc(100% - 30px)); padding: 0; border: 0; border-radius: 16px; box-shadow: var(--shadow); color: var(--text); }
+    dialog::backdrop { background: rgba(37,36,56,.35); backdrop-filter: blur(2px); }
+    .dialog-body { padding: 22px; }
+    .dialog-body h3 { margin: 0 0 5px; }
+    .dialog-body > p { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    .cell-popover { position: fixed; z-index: 50; display: none; width: 310px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: white; box-shadow: var(--shadow); }
+    .cell-popover.open { display: block; }
+    .cell-popover h4 { margin: 0 0 3px; }
+    .cell-popover > p { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+    .tag-colors { display: flex; gap: 8px; margin-bottom: 15px; }
+    .tag-color { width: 27px; height: 27px; border: 2px solid white; border-radius: 50%; background: var(--chip); cursor: pointer; box-shadow: 0 0 0 1px #d8d7e1; }
+    .tag-color.active { box-shadow: 0 0 0 2px var(--accent); }
+    .popover-actions { display: flex; justify-content: space-between; gap: 8px; }
+
+    .bulk-bar { position: absolute; left: 50%; bottom: 24px; z-index: 12; display: none; align-items: center; gap: 8px; transform: translateX(-50%); padding: 8px 9px 8px 14px; border-radius: 13px; background: #2c2b3d; color: white; box-shadow: var(--shadow); font-size: 13px; }
+    .bulk-bar.visible { display: flex; }
+    .bulk-bar .btn { border-color: rgba(255,255,255,.15); background: rgba(255,255,255,.08); color: white; }
+    .bulk-bar .btn.danger { background: #a94755; }
+
+    .inline-action-row td { height: auto; padding: 0; background: #fbfaff !important; }
+    .inline-rail { display: none; padding: 12px 16px 14px 258px; border-bottom: 1px solid #dedcf6; }
+    .inline-rail.open { display: block; }
+    .rail-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    .rail-editor { display: none; align-items: center; gap: 8px; max-width: 630px; margin-top: 10px; padding: 10px; border-radius: 10px; background: white; border: 1px solid var(--line); }
+    .rail-editor.open { display: flex; }
+    .rail-editor input, .rail-editor select { min-width: 0; flex: 1; border: 1px solid #dcdce6; border-radius: 8px; padding: 8px; }
+    .rail-caption { margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+
+    .command-shell { position: relative; flex: 1 1 320px; max-width: 520px; }
+    .command-input { padding-left: 38px; background: #fbfbfd; }
+    .command-icon { position: absolute; left: 13px; top: 10px; color: var(--muted); }
+    .shortcut { position: absolute; right: 9px; top: 8px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--muted); font-size: 11px; }
+    .command-palette { position: absolute; top: 46px; left: 0; right: 0; z-index: 15; display: none; padding: 8px; border: 1px solid var(--line); border-radius: 13px; background: white; box-shadow: var(--shadow); }
+    .command-palette.open { display: block; }
+    .command-palette .menu-item { justify-content: space-between; }
+    .command-palette kbd { color: var(--muted); font-size: 11px; }
+    .selection-status { color: var(--muted); font-size: 12px; }
+
+    .toast { position: fixed; right: 24px; bottom: 24px; z-index: 100; max-width: 360px; padding: 12px 15px; border-radius: 11px; background: #29283b; color: white; box-shadow: var(--shadow); opacity: 0; transform: translateY(12px); pointer-events: none; transition: .2s ease; font-size: 13px; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .hint { color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 760px) {
+      .lab { padding: 14px; }
+      .lab-heading { align-items: start; }
+      .prototype-label { display: none; }
+      .concept-tabs { grid-template-columns: 1fr; }
+      .concept-tab span { display: none; }
+      .app-window { min-height: 760px; border-radius: 16px; }
+      .app-top { padding: 0 14px; gap: 12px; }
+      .app-nav button:not(.active) { display: none; }
+      .app-body { padding: 16px; }
+      .screen-heading { align-items: start; }
+      .screen-heading p { display: none; }
+      .toolbar { align-items: stretch; }
+      .toolbar-actions { width: 100%; overflow-x: auto; }
+      .toolbar-actions .btn { flex: 0 0 auto; }
+      .inline-rail { padding-left: 16px; }
+      .drawer { top: auto; height: 78%; width: 100%; border-left: 0; border-top: 1px solid var(--line); transform: translateY(105%); }
+      .drawer.open { transform: translateY(0); }
+      .drawer-backdrop { inset: 62px 0 0; }
+      .cell-popover { left: 12px !important; right: 12px; bottom: 12px; top: auto !important; width: auto; }
+      .bulk-bar { width: calc(100% - 52px); justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="lab">
+    <header class="lab-heading">
+      <div>
+        <h1>Table operations lab</h1>
+        <p>Three ways to simplify Expenses and Incomes without adding another permanent column of icons. Use the controls below — this prototype changes only local demo data.</p>
+      </div>
+      <span class="prototype-label">Interactive prototype</span>
+    </header>
+
+    <nav class="concept-tabs" aria-label="Prototype variants">
+      <button class="concept-tab active" data-variant="context"><strong>1. Context workspace</strong><span>Recommended · object first</span></button>
+      <button class="concept-tab" data-variant="inline"><strong>2. Inline rail</strong><span>Actions stay inside the table</span></button>
+      <button class="concept-tab" data-variant="command"><strong>3. Command bar</strong><span>Compact and keyboard-oriented</span></button>
+    </nav>
+    <div class="concept-note" id="concept-note">Edit the thing you clicked. Row and group details live in a drawer; amount and tag metadata live in one cell popover. Only ordering and bulk selection become temporary modes.</div>
+
+    <section class="app-window" id="app-window">
+      <header class="app-top">
+        <div class="brand">mopay</div>
+        <nav class="app-nav">
+          <button class="active">Expenses</button><button>Incomes</button><button>Savings</button><button>Reports</button>
+        </nav>
+        <span class="year-pill">2026⌄</span>
+      </header>
+
+      <div class="app-body">
+        <section class="variant active" data-panel="context">
+          <div class="screen-heading"><div><h2>Expenses</h2><p>Edit values immediately. Open details only when you need structure or metadata.</p></div><span class="hint">12 months · horizontally scrollable</span></div>
+          <div class="toolbar">
+            <div class="area-switch"><button class="active">Expenses</button><button>Incomes</button></div>
+            <div class="toolbar-actions">
+              <button class="btn primary" id="new-button">＋ New <span aria-hidden="true">⌄</span></button>
+              <button class="btn" id="arrange-button">↕ Arrange</button>
+              <button class="btn" id="select-button">☑ Select</button>
+            </div>
+          </div>
+          <div class="mode-banner" id="rec-mode-banner"><span id="rec-mode-copy"></span><button class="btn soft" id="rec-done">Done</button></div>
+          <div class="sheet" id="context-table"></div>
+          <div class="new-menu" id="new-menu" hidden>
+            <button class="menu-item" data-create="entry"><span class="menu-icon">＋</span><span><strong>New entry</strong><small>Add it directly to a group</small></span></button>
+            <button class="menu-item" data-create="group"><span class="menu-icon">▤</span><span><strong>New group</strong><small>Create a category section</small></span></button>
+          </div>
+          <div class="bulk-bar" id="bulk-bar"><strong id="bulk-count">0 selected</strong><button class="btn danger" id="bulk-delete">Remove selected</button></div>
+        </section>
+
+        <section class="variant" data-panel="inline">
+          <div class="screen-heading"><div><h2>Expenses</h2><p>No drawer: actions and their small editors expand immediately below a row.</p></div></div>
+          <div class="toolbar">
+            <div class="area-switch"><button class="active">Expenses</button><button>Incomes</button></div>
+            <div class="toolbar-actions"><button class="btn primary" data-demo-toast="A compact Add menu would open here.">＋ New</button><button class="btn">☑ Select</button></div>
+          </div>
+          <div class="sheet" id="inline-table"></div>
+        </section>
+
+        <section class="variant" data-panel="command">
+          <div class="screen-heading"><div><h2>Expenses</h2><p>Select an object, then search or run an operation from one consistent place.</p></div><span class="selection-status" id="command-selection">Nothing selected</span></div>
+          <div class="toolbar">
+            <div class="command-shell">
+              <span class="command-icon">⌕</span>
+              <input class="command-input" id="command-input" placeholder="What do you want to do?" aria-label="Command search">
+              <span class="shortcut">/</span>
+              <div class="command-palette" id="command-palette">
+                <button class="menu-item" data-command="Add entry"><span>＋ Add entry</span><kbd>A E</kbd></button>
+                <button class="menu-item" data-command="Add group"><span>▤ Add group</span><kbd>A G</kbd></button>
+                <button class="menu-item" data-command="Rename selected"><span>✎ Rename selected</span><kbd>R</kbd></button>
+                <button class="menu-item" data-command="Move selected"><span>↪ Move to group</span><kbd>M</kbd></button>
+                <button class="menu-item" data-command="Arrange"><span>↕ Arrange order</span><kbd>O</kbd></button>
+                <button class="menu-item" data-command="Remove selected"><span style="color:var(--danger)">Remove selected</span><kbd>⌫</kbd></button>
+              </div>
+            </div>
+            <button class="btn primary" id="run-command">Run command</button>
+          </div>
+          <div class="sheet" id="command-table"></div>
+        </section>
+      </div>
+
+      <div class="drawer-backdrop" id="drawer-backdrop"></div>
+      <aside class="drawer" id="drawer" aria-label="Details panel">
+        <div class="drawer-head"><div><h3 id="drawer-title">Entry details</h3><p id="drawer-subtitle">Changes stay close to the selected object.</p></div><button class="icon-only" id="drawer-close" aria-label="Close">×</button></div>
+        <form id="drawer-form">
+          <label class="field"><span>Name</span><input id="drawer-name" maxlength="40"></label>
+          <label class="field" id="drawer-group-field"><span>Group</span><select id="drawer-group"><option>Home</option><option>Everyday</option><option>Ungrouped</option></select></label>
+          <label class="field" id="drawer-comment-field"><span>Comment</span><textarea id="drawer-comment" placeholder="Optional context about this entry"></textarea></label>
+          <div id="group-actions" hidden style="margin-bottom:15px">
+            <span class="hint" style="display:block;margin-bottom:8px">Group shortcuts</span>
+            <div class="toolbar-actions"><button class="btn soft" type="button" id="group-add-entry">＋ Add entry here</button><button class="btn" type="button" id="group-arrange">↕ Arrange this group</button></div>
+          </div>
+          <div class="drawer-actions"><button class="btn primary" type="submit">Save changes</button><button class="btn" type="button" id="drawer-cancel">Cancel</button></div>
+        </form>
+        <div class="drawer-divider"></div>
+        <div class="destructive-box"><strong id="danger-title">Remove entry</strong><p id="danger-copy">This action stays available, but no longer occupies table space.</p><button class="btn danger" id="drawer-delete">Remove</button></div>
+      </aside>
+    </section>
+  </main>
+
+  <dialog id="create-dialog">
+    <form method="dialog" class="dialog-body" id="create-form">
+      <h3 id="create-title">New entry</h3><p id="create-copy">Name it and place it correctly in one step.</p>
+      <label class="field"><span>Name</span><input id="create-name" required maxlength="40" autocomplete="off"></label>
+      <label class="field" id="create-group-field"><span>Group</span><select id="create-group"><option>Home</option><option>Everyday</option><option>Ungrouped</option></select></label>
+      <div class="dialog-actions"><button class="btn" value="cancel" type="button" id="create-cancel">Cancel</button><button class="btn primary" value="default" type="submit">Add</button></div>
+    </form>
+  </dialog>
+
+  <div class="cell-popover" id="cell-popover">
+    <h4 id="cell-title">January · Rent</h4><p>Amount and its meaning belong together.</p>
+    <label class="field"><span>Amount</span><input id="cell-amount" inputmode="decimal"></label>
+    <span class="hint" style="display:block;margin-bottom:7px">Tag colour</span>
+    <div class="tag-colors"><button class="tag-color active" style="--chip:#efaf4f" data-color="#efaf4f" aria-label="Amber"></button><button class="tag-color" style="--chip:#69b890" data-color="#69b890" aria-label="Green"></button><button class="tag-color" style="--chip:#dc7180" data-color="#dc7180" aria-label="Red"></button><button class="tag-color" style="--chip:#8d86dd" data-color="#8d86dd" aria-label="Purple"></button></div>
+    <label class="field"><span>Note</span><input id="cell-note" placeholder="Optional note"></label>
+    <div class="popover-actions"><button class="btn danger" id="clear-tag">Clear tag</button><span><button class="btn" id="cell-cancel">Cancel</button> <button class="btn primary" id="cell-save">Save</button></span></div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const baseGroups = [
+      { id: "home", name: "Home", entries: [
+        { id: "rent", name: "Rent & service charges", values: [2450,2450,2450,2450,2450,2450,2450,2450,2450,2450,2450,2450] },
+        { id: "energy", name: "Electricity and heating", values: [286,260,245,221,198,176,169,171,195,228,254,280] }
+      ]},
+      { id: "everyday", name: "Everyday", entries: [
+        { id: "groceries", name: "Groceries and household supplies", values: [940,865,912,884,976,830,901,955,889,920,0,0] },
+        { id: "transport", name: "Public transport", values: [119,119,119,119,119,119,119,119,119,119,0,0] }
+      ]},
+      { id: "ungrouped", name: "Ungrouped", entries: [
+        { id: "gifts", name: "Gifts for family and friends", values: [0,120,0,0,250,0,0,160,0,0,0,0] }
+      ]}
+    ];
+
+    const state = {
+      context: structuredClone(baseGroups), inline: structuredClone(baseGroups), command: structuredClone(baseGroups),
+      recMode: null, recSelected: new Set(), commandSelected: new Set(), activeRow: null, activeGroup: null,
+      activeCell: null, tagColor: "#efaf4f"
+    };
+
+    const money = value => value ? new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(value) : "—";
+    const esc = value => String(value).replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
+    const findEntry = (variant, id) => state[variant].flatMap(group => group.entries.map(entry => ({ group, entry }))).find(item => item.entry.id === id);
+
+    function renderTable(variant) {
+      const target = document.getElementById(`${variant}-table`);
+      const groups = state[variant];
+      const tableClass = variant === "context" ? `${state.recMode === "select" ? "is-selecting" : ""} ${state.recMode === "arrange" ? "is-arranging" : ""}` : (variant === "command" ? "is-selecting" : "");
+      let body = "";
+      for (const group of groups) {
+        const groupValues = months.map((_, index) => group.entries.reduce((sum, entry) => sum + (entry.values[index] || 0), 0));
+        body += `<tr class="group-row"><td><div class="name-wrap"><span class="drag-handle">⠿</span><input class="row-check" type="checkbox" data-select-group="${group.id}" aria-label="Select ${esc(group.name)}"><span>⌄ ${esc(group.name)}</span>${variant !== "command" ? `<button class="icon-only group-more" data-group="${group.id}" aria-label="Group actions">…</button>` : ""}</div></td>${groupValues.map(value => `<td>${money(value)}</td>`).join("")}<td class="sum">${money(groupValues.reduce((a,b)=>a+b,0))}</td><td>${money(groupValues.reduce((a,b)=>a+b,0)/12)}</td></tr>`;
+        for (const entry of group.entries) {
+          const sum = entry.values.reduce((a,b)=>a+b,0);
+          body += `<tr data-entry-row="${entry.id}"><td><div class="name-wrap"><span class="drag-handle">⠿</span><input class="row-check" type="checkbox" data-select-entry="${entry.id}" aria-label="Select ${esc(entry.name)}"><button class="entry-name" data-entry="${entry.id}" title="${esc(entry.name)}">${esc(entry.name)}</button>${variant !== "command" ? `<button class="icon-only row-more" data-entry="${entry.id}" aria-label="Entry actions">…</button>` : ""}</div></td>${entry.values.map((value,index) => `<td><button class="cell-button ${value < 0 ? "negative" : ""} ${entry.id === "groceries" && index === 3 ? "tagged" : ""}" ${entry.id === "groceries" && index === 3 ? 'style="--tag:#efaf4f"' : ""} data-cell="${entry.id}" data-month="${index}">${money(value)}</button></td>`).join("")}<td class="sum">${money(sum)}</td><td>${money(sum/12)}</td></tr>`;
+          if (variant === "inline") body += `<tr class="inline-action-row"><td colspan="15"><div class="inline-rail" data-rail="${entry.id}"><div class="rail-caption">Actions for <strong>${esc(entry.name)}</strong></div><div class="rail-actions"><button class="btn soft" data-rail-action="Rename">✎ Rename</button><button class="btn" data-rail-action="Move">↪ Move group</button><button class="btn" data-rail-action="Reorder">↕ Reorder</button><button class="btn" data-rail-action="Tag">● Tags</button><button class="btn danger" data-rail-action="Remove">Remove</button></div><div class="rail-editor"><input value="${esc(entry.name)}"><button class="btn primary rail-save">Apply</button><button class="btn rail-close">Close</button></div></div></td></tr>`;
+        }
+      }
+      target.innerHTML = `<table class="${tableClass}"><thead><tr><th>Entry</th>${months.map(month => `<th>${month}</th>`).join("")}<th>Sum</th><th>Avg</th></tr></thead><tbody>${body}</tbody></table>`;
+      restoreSelections(variant);
+    }
+
+    function restoreSelections(variant) {
+      const selected = variant === "context" ? state.recSelected : state.commandSelected;
+      document.querySelectorAll(`#${variant}-table [data-select-entry]`).forEach(input => input.checked = selected.has(input.dataset.selectEntry));
+      document.querySelectorAll(`#${variant}-table [data-select-group]`).forEach(input => {
+        const group = state[variant].find(item => item.id === input.dataset.selectGroup);
+        input.checked = Boolean(group?.entries.length) && group.entries.every(entry => selected.has(entry.id));
+        input.indeterminate = Boolean(group?.entries.some(entry => selected.has(entry.id))) && !input.checked;
+      });
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message; toast.classList.add("show");
+      clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    const notes = {
+      context: "Edit the thing you clicked. Row and group details live in a drawer; amount and tag metadata live in one cell popover. Only ordering and bulk selection become temporary modes.",
+      inline: "Every action stays physically near its row. This is highly discoverable, but opening controls shifts the rows below and is less calm during frequent editing.",
+      command: "One command surface replaces most visible controls. It scales well and rewards keyboard use, but asks occasional users to learn a new interaction model."
+    };
+
+    document.querySelectorAll(".concept-tab").forEach(button => button.addEventListener("click", () => {
+      document.querySelectorAll(".concept-tab").forEach(item => item.classList.toggle("active", item === button));
+      document.querySelectorAll(".variant").forEach(panel => panel.classList.toggle("active", panel.dataset.panel === button.dataset.variant));
+      document.getElementById("concept-note").textContent = notes[button.dataset.variant];
+    }));
+
+    function setRecMode(mode) {
+      state.recMode = state.recMode === mode ? null : mode;
+      if (state.recMode !== "select") state.recSelected.clear();
+      document.getElementById("arrange-button").classList.toggle("active", state.recMode === "arrange");
+      document.getElementById("select-button").classList.toggle("active", state.recMode === "select");
+      const banner = document.getElementById("rec-mode-banner");
+      banner.classList.toggle("visible", Boolean(state.recMode));
+      document.getElementById("rec-mode-copy").textContent = state.recMode === "arrange" ? "Arrange is temporary: drag handles are visible, value editing stays untouched." : "Select only what you want to change, then use the floating bulk toolbar.";
+      renderTable("context"); updateBulkBar();
+    }
+    document.getElementById("arrange-button").addEventListener("click", () => setRecMode("arrange"));
+    document.getElementById("select-button").addEventListener("click", () => setRecMode("select"));
+    document.getElementById("rec-done").addEventListener("click", () => setRecMode(null));
+
+    const newButton = document.getElementById("new-button");
+    const newMenu = document.getElementById("new-menu");
+    newButton.addEventListener("click", event => {
+      const rect = event.currentTarget.getBoundingClientRect(); const appRect = document.getElementById("app-window").getBoundingClientRect();
+      newMenu.style.top = `${rect.bottom - appRect.top + 6}px`; newMenu.style.left = `${Math.min(rect.left - appRect.left, appRect.width - 225)}px`; newMenu.hidden = !newMenu.hidden;
+    });
+
+    const createDialog = document.getElementById("create-dialog");
+    let createType = "entry";
+    newMenu.addEventListener("click", event => {
+      const button = event.target.closest("[data-create]"); if (!button) return;
+      createType = button.dataset.create; newMenu.hidden = true;
+      document.getElementById("create-title").textContent = createType === "entry" ? "New entry" : "New group";
+      document.getElementById("create-copy").textContent = createType === "entry" ? "Name it and place it correctly in one step." : "Create a category without changing the whole table mode.";
+      document.getElementById("create-group-field").style.display = createType === "entry" ? "block" : "none";
+      document.getElementById("create-name").value = ""; createDialog.showModal(); setTimeout(() => document.getElementById("create-name").focus(), 0);
+    });
+    document.getElementById("create-cancel").addEventListener("click", () => createDialog.close());
+    document.getElementById("create-form").addEventListener("submit", event => {
+      event.preventDefault(); const name = document.getElementById("create-name").value.trim(); if (!name) return;
+      if (createType === "group") state.context.push({ id: `group-${Date.now()}`, name, entries: [] });
+      else {
+        const groupName = document.getElementById("create-group").value;
+        const group = state.context.find(item => item.name === groupName) || state.context.at(-1);
+        group.entries.push({ id: `entry-${Date.now()}`, name, values: Array(12).fill(0) });
+      }
+      renderTable("context"); createDialog.close(); showToast(`${createType === "entry" ? "Entry" : "Group"} added in one step.`);
+    });
+
+    const drawer = document.getElementById("drawer");
+    const backdrop = document.getElementById("drawer-backdrop");
+    function closeDrawer() { drawer.classList.remove("open"); backdrop.classList.remove("open"); state.activeRow = null; state.activeGroup = null; }
+    function openEntryDrawer(id) {
+      const found = findEntry("context", id); if (!found) return;
+      state.activeRow = id; state.activeGroup = null;
+      document.getElementById("drawer-title").textContent = "Entry details";
+      document.getElementById("drawer-subtitle").textContent = "Structure and context without covering month values permanently.";
+      document.getElementById("drawer-name").value = found.entry.name; document.getElementById("drawer-group").value = found.group.name;
+      document.getElementById("drawer-comment").value = id === "groceries" ? "Weekly shopping and household basics." : "";
+      document.getElementById("drawer-group-field").style.display = "block"; document.getElementById("drawer-comment-field").style.display = "block";
+      document.getElementById("group-actions").hidden = true;
+      document.getElementById("danger-title").textContent = "Remove entry"; document.getElementById("danger-copy").textContent = "A destructive action is available here, away from frequent amount editing.";
+      drawer.classList.add("open"); backdrop.classList.add("open");
+    }
+    function openGroupDrawer(id) {
+      const group = state.context.find(item => item.id === id); if (!group) return;
+      state.activeGroup = id; state.activeRow = null;
+      document.getElementById("drawer-title").textContent = "Group details"; document.getElementById("drawer-subtitle").textContent = `${group.entries.length} entries in this group.`;
+      document.getElementById("drawer-name").value = group.name; document.getElementById("drawer-group-field").style.display = "none"; document.getElementById("drawer-comment-field").style.display = "none";
+      document.getElementById("group-actions").hidden = false;
+      document.getElementById("danger-title").textContent = "Remove group"; document.getElementById("danger-copy").textContent = "Production should explicitly ask whether its entries are moved or removed.";
+      drawer.classList.add("open"); backdrop.classList.add("open");
+    }
+    ["drawer-close", "drawer-cancel"].forEach(id => document.getElementById(id).addEventListener("click", closeDrawer));
+    backdrop.addEventListener("click", closeDrawer);
+    document.getElementById("drawer-form").addEventListener("submit", event => {
+      event.preventDefault(); const name = document.getElementById("drawer-name").value.trim(); if (!name) return;
+      if (state.activeRow) {
+        const found = findEntry("context", state.activeRow); found.entry.name = name;
+        const nextGroup = state.context.find(group => group.name === document.getElementById("drawer-group").value);
+        if (nextGroup && nextGroup !== found.group) { found.group.entries = found.group.entries.filter(entry => entry.id !== state.activeRow); nextGroup.entries.push(found.entry); }
+      } else if (state.activeGroup) state.context.find(group => group.id === state.activeGroup).name = name;
+      renderTable("context"); closeDrawer(); showToast("Details saved without entering a global edit mode.");
+    });
+    document.getElementById("drawer-delete").addEventListener("click", () => { showToast("Prototype: a focused confirmation would appear next."); });
+    document.getElementById("group-add-entry").addEventListener("click", () => { closeDrawer(); newMenu.querySelector('[data-create="entry"]').click(); showToast("The selected group would already be preselected."); });
+    document.getElementById("group-arrange").addEventListener("click", () => { closeDrawer(); setRecMode("arrange"); });
+
+    const popover = document.getElementById("cell-popover");
+    function openCell(button, variant) {
+      const found = findEntry(variant, button.dataset.cell); if (!found) return;
+      state.activeCell = { variant, entry: found.entry, month: Number(button.dataset.month), button };
+      document.getElementById("cell-title").textContent = `${months[state.activeCell.month]} · ${found.entry.name}`;
+      document.getElementById("cell-amount").value = found.entry.values[state.activeCell.month] || "";
+      document.getElementById("cell-note").value = button.classList.contains("tagged") ? "Planned household restock" : "";
+      const rect = button.getBoundingClientRect(); popover.style.left = `${Math.min(rect.left, innerWidth - 326)}px`; popover.style.top = `${Math.min(rect.bottom + 6, innerHeight - 390)}px`; popover.classList.add("open");
+    }
+    function closeCell() { popover.classList.remove("open"); state.activeCell = null; }
+    document.querySelectorAll(".tag-color").forEach(button => button.addEventListener("click", () => { state.tagColor = button.dataset.color; document.querySelectorAll(".tag-color").forEach(item => item.classList.toggle("active", item === button)); }));
+    document.getElementById("cell-cancel").addEventListener("click", closeCell);
+    document.getElementById("cell-save").addEventListener("click", () => {
+      if (!state.activeCell) return; const amount = Number(String(document.getElementById("cell-amount").value).replace(",", "."));
+      state.activeCell.entry.values[state.activeCell.month] = Number.isFinite(amount) ? amount : 0;
+      renderTable(state.activeCell.variant); closeCell(); showToast("Amount, tag and note saved together.");
+    });
+    document.getElementById("clear-tag").addEventListener("click", () => { document.getElementById("cell-note").value = ""; showToast("Tag cleared in the prototype."); closeCell(); });
+
+    document.getElementById("context-table").addEventListener("click", event => {
+      const entryButton = event.target.closest("[data-entry]"); const groupButton = event.target.closest(".group-more"); const cell = event.target.closest("[data-cell]");
+      if (state.recMode === "arrange" && entryButton) return showToast("Drag preview: this row would move within or between groups.");
+      if (entryButton) openEntryDrawer(entryButton.dataset.entry); else if (groupButton) openGroupDrawer(groupButton.dataset.group); else if (cell && !state.recMode) openCell(cell, "context");
+    });
+    document.getElementById("context-table").addEventListener("change", event => {
+      const input = event.target.closest("[data-select-entry], [data-select-group]"); if (!input) return;
+      if (input.dataset.selectEntry) input.checked ? state.recSelected.add(input.dataset.selectEntry) : state.recSelected.delete(input.dataset.selectEntry);
+      else state.context.find(group => group.id === input.dataset.selectGroup)?.entries.forEach(entry => input.checked ? state.recSelected.add(entry.id) : state.recSelected.delete(entry.id));
+      restoreSelections("context"); updateBulkBar();
+    });
+    function updateBulkBar() {
+      const count = state.recSelected.size; document.getElementById("bulk-count").textContent = `${count} selected`;
+      document.getElementById("bulk-bar").classList.toggle("visible", state.recMode === "select" && count > 0);
+    }
+    document.getElementById("bulk-delete").addEventListener("click", () => showToast("Prototype: one confirmation for selected entries."));
+
+    document.getElementById("inline-table").addEventListener("click", event => {
+      const entryButton = event.target.closest("[data-entry]"); const more = event.target.closest(".row-more");
+      if (entryButton || more) {
+        const id = (entryButton || more).dataset.entry;
+        document.querySelectorAll("#inline-table .inline-rail").forEach(rail => rail.classList.toggle("open", rail.dataset.rail === id && !rail.classList.contains("open")));
+        return;
+      }
+      if (event.target.closest(".group-more")) { showToast("Inline variant: the same rail would expand below this group."); return; }
+      const action = event.target.closest("[data-rail-action]");
+      if (action) { const rail = action.closest(".inline-rail"); const editor = rail.querySelector(".rail-editor"); editor.classList.add("open"); editor.querySelector("input").placeholder = `${action.dataset.railAction}…`; return; }
+      if (event.target.closest(".rail-save")) showToast("Inline change applied; the rail can stay open for the next action.");
+      if (event.target.closest(".rail-close")) event.target.closest(".inline-rail").classList.remove("open");
+      const cell = event.target.closest("[data-cell]"); if (cell) openCell(cell, "inline");
+    });
+
+    const commandInput = document.getElementById("command-input"); const commandPalette = document.getElementById("command-palette");
+    commandInput.addEventListener("focus", () => commandPalette.classList.add("open"));
+    commandInput.addEventListener("input", () => {
+      commandPalette.classList.add("open"); const query = commandInput.value.toLowerCase();
+      commandPalette.querySelectorAll("[data-command]").forEach(button => button.hidden = !button.dataset.command.toLowerCase().includes(query));
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "/" && !["INPUT","TEXTAREA"].includes(document.activeElement.tagName)) { event.preventDefault(); document.querySelector('[data-variant="command"]').click(); commandInput.focus(); }
+      if (event.key === "Escape") { commandPalette.classList.remove("open"); closeCell(); closeDrawer(); }
+    });
+    commandPalette.addEventListener("click", event => { const button = event.target.closest("[data-command]"); if (!button) return; commandInput.value = button.dataset.command; commandPalette.classList.remove("open"); });
+    document.getElementById("run-command").addEventListener("click", () => { const command = commandInput.value || "Choose a command first"; showToast(`${command} · ${state.commandSelected.size} selected`); });
+    document.getElementById("command-table").addEventListener("change", event => {
+      const input = event.target.closest("[data-select-entry], [data-select-group]"); if (!input) return;
+      if (input.dataset.selectEntry) input.checked ? state.commandSelected.add(input.dataset.selectEntry) : state.commandSelected.delete(input.dataset.selectEntry);
+      else state.command.find(group => group.id === input.dataset.selectGroup)?.entries.forEach(entry => input.checked ? state.commandSelected.add(entry.id) : state.commandSelected.delete(entry.id));
+      restoreSelections("command");
+      document.getElementById("command-selection").textContent = state.commandSelected.size ? `${state.commandSelected.size} selected` : "Nothing selected";
+    });
+    document.getElementById("command-table").addEventListener("click", event => { const cell = event.target.closest("[data-cell]"); if (cell) openCell(cell, "command"); });
+    document.querySelectorAll("[data-demo-toast]").forEach(button => button.addEventListener("click", () => showToast(button.dataset.demoToast)));
+
+    renderTable("context"); renderTable("inline"); renderTable("command");
+  </script>
+</body>
+</html>
