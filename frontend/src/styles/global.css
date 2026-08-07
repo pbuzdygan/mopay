@@ -1925,18 +1925,43 @@ html[data-theme='dark'] .table-value.tag-color-red {
   font-size: 0.76rem;
 }
 
-.reports-story-metric-copy strong {
+.reports-story-metric-value {
   color: var(--textPrim);
   font-size: clamp(1.05rem, 2vw, 1.4rem);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
-.reports-story-metric.is-positive strong {
+.reports-metric-comparison {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.12rem;
+  color: var(--textSec);
+  font-size: 0.66rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.reports-metric-comparison > strong {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 600;
+}
+
+.reports-metric-comparison.is-positive > strong {
   color: var(--success);
 }
 
-.reports-story-metric.is-negative strong {
+.reports-metric-comparison.is-negative > strong {
+  color: var(--error);
+}
+
+.reports-story-metric.is-positive .reports-story-metric-value {
+  color: var(--success);
+}
+
+.reports-story-metric.is-negative .reports-story-metric-value {
   color: var(--error);
 }
 

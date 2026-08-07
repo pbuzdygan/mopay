@@ -44,6 +44,19 @@ export type FinancialStory = {
   mostVariableExpense: EntryStability | null;
 };
 
+export type MetricComparison = {
+  kind: 'percentage' | 'no-baseline' | 'turned-positive' | 'turned-negative';
+  direction: 'up' | 'down' | 'flat';
+  tone: 'positive' | 'negative' | 'neutral';
+  percent: number | null;
+};
+
+export type AnnualComparison = {
+  income: MetricComparison;
+  expense: MetricComparison;
+  net: MetricComparison;
+};
+
 const monthValue = (entry: ReportEntry, month: MonthKey) => {
   const raw = month === 'Dec' ? (entry.Decm ?? entry.Dec) : entry[month];
   if (raw === null || raw === undefined) return null;
@@ -166,5 +179,48 @@ export function buildFinancialStory(
     ),
     steadiestIncome: incomeEntries[0] ?? null,
     mostVariableExpense: expenseEntries[0] ?? null,
+  };
+}
+
+function compareMetric(
+  current: number,
+  previous: number,
+  options: { lowerIsBetter?: boolean; detectSignChange?: boolean } = {}
+): MetricComparison {
+  const change = current - previous;
+  const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+
+  if (options.detectSignChange && previous < 0 && current > 0) {
+    return { kind: 'turned-positive', direction, tone: 'positive', percent: null };
+  }
+  if (options.detectSignChange && previous > 0 && current < 0) {
+    return { kind: 'turned-negative', direction, tone: 'negative', percent: null };
+  }
+  if (previous === 0) {
+    return { kind: 'no-baseline', direction, tone: 'neutral', percent: null };
+  }
+
+  const improved = direction === 'flat'
+    ? null
+    : options.lowerIsBetter
+    ? direction === 'down'
+    : direction === 'up';
+
+  return {
+    kind: 'percentage',
+    direction,
+    tone: improved === null ? 'neutral' : improved ? 'positive' : 'negative',
+    percent: change / Math.abs(previous) * 100,
+  };
+}
+
+export function buildAnnualComparison(
+  current: Pick<FinancialStory, 'totalIncome' | 'totalExpense' | 'net'>,
+  previous: Pick<FinancialStory, 'totalIncome' | 'totalExpense' | 'net'>
+): AnnualComparison {
+  return {
+    income: compareMetric(current.totalIncome, previous.totalIncome),
+    expense: compareMetric(current.totalExpense, previous.totalExpense, { lowerIsBetter: true }),
+    net: compareMetric(current.net, previous.net, { detectSignChange: true }),
   };
 }

@@ -2,13 +2,26 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Api } from '../api';
 import { useAppStore } from '../store';
-import { buildFinancialStory, type FinancialStory, type ReportEntry } from '../reports/analytics';
+import {
+  buildAnnualComparison,
+  buildFinancialStory,
+  type FinancialStory,
+  type MetricComparison,
+  type ReportEntry,
+} from '../reports/analytics';
 import { formatCurrency } from '../utils/currency';
 import { Surface } from './Surface';
 
 function useYearEntries() {
   const year = useAppStore((state) => state.year);
   const enabled = !!year;
+  const years = useQuery({
+    queryKey: ['years'],
+    queryFn: Api.years.list,
+  });
+  const previousYear = year ? year - 1 : null;
+  const availableYears = (years.data?.years ?? []) as number[];
+  const hasPreviousYear = previousYear !== null && availableYears.includes(previousYear);
   const incomes = useQuery({
     queryKey: ['entries', 'income', year],
     queryFn: () => Api.entries.list('income', year!),
@@ -19,7 +32,25 @@ function useYearEntries() {
     queryFn: () => Api.entries.list('expense', year!),
     enabled,
   });
-  return { year, incomes, expenses };
+  const previousIncomes = useQuery({
+    queryKey: ['entries', 'income', previousYear],
+    queryFn: () => Api.entries.list('income', previousYear!),
+    enabled: hasPreviousYear,
+  });
+  const previousExpenses = useQuery({
+    queryKey: ['entries', 'expense', previousYear],
+    queryFn: () => Api.entries.list('expense', previousYear!),
+    enabled: hasPreviousYear,
+  });
+  return {
+    year,
+    incomes,
+    expenses,
+    previousYear,
+    hasPreviousYear,
+    previousIncomes,
+    previousExpenses,
+  };
 }
 
 const formatSignedCurrency = (value: number) =>
@@ -52,7 +83,15 @@ const describeYear = (story: FinancialStory) => {
 };
 
 export function ReportsView() {
-  const { year, incomes, expenses } = useYearEntries();
+  const {
+    year,
+    incomes,
+    expenses,
+    previousYear,
+    hasPreviousYear,
+    previousIncomes,
+    previousExpenses,
+  } = useYearEntries();
   const isLoading = incomes.isLoading || expenses.isLoading;
   const isError = incomes.isError || expenses.isError;
 
@@ -61,6 +100,26 @@ export function ReportsView() {
     const expenseEntries = (expenses.data?.entries ?? []) as ReportEntry[];
     return buildFinancialStory(incomeEntries, expenseEntries);
   }, [incomes.data, expenses.data]);
+
+  const previousStory = useMemo(() => {
+    if (!hasPreviousYear || !previousIncomes.isSuccess || !previousExpenses.isSuccess) {
+      return null;
+    }
+    const incomeEntries = (previousIncomes.data?.entries ?? []) as ReportEntry[];
+    const expenseEntries = (previousExpenses.data?.entries ?? []) as ReportEntry[];
+    return buildFinancialStory(incomeEntries, expenseEntries);
+  }, [
+    hasPreviousYear,
+    previousIncomes.isSuccess,
+    previousIncomes.data,
+    previousExpenses.isSuccess,
+    previousExpenses.data,
+  ]);
+
+  const comparison = useMemo(
+    () => previousStory ? buildAnnualComparison(story, previousStory) : null,
+    [story, previousStory]
+  );
 
   if (!year) {
     return <ReportsState message="Select a year to unlock yearly analytics." />;
@@ -84,9 +143,23 @@ export function ReportsView() {
         <p className="reports-story-summary">{describeYear(story)}</p>
 
         <div className="reports-story-metrics" aria-label="Annual totals">
-          <StoryMetric icon="income" label="Income" value={story.totalIncome} />
-          <StoryMetric icon="expenses" label="Expenses" value={story.totalExpense} />
           <StoryMetric
+            comparison={comparison?.income}
+            comparisonYear={comparison ? previousYear : null}
+            icon="income"
+            label="Income"
+            value={story.totalIncome}
+          />
+          <StoryMetric
+            comparison={comparison?.expense}
+            comparisonYear={comparison ? previousYear : null}
+            icon="expenses"
+            label="Expenses"
+            value={story.totalExpense}
+          />
+          <StoryMetric
+            comparison={comparison?.net}
+            comparisonYear={comparison ? previousYear : null}
             icon="net"
             label="Net result"
             value={story.net}
@@ -128,12 +201,16 @@ function ReportsState({ message }: { message: string }) {
 }
 
 function StoryMetric({
+  comparison,
+  comparisonYear,
   icon,
   label,
   value,
   signed = false,
   tone = 'neutral',
 }: {
+  comparison?: MetricComparison;
+  comparisonYear: number | null;
   icon: 'income' | 'expenses' | 'net';
   label: string;
   value: number;
@@ -159,9 +236,45 @@ function StoryMetric({
       </span>
       <div className="reports-story-metric-copy">
         <span>{label}</span>
-        <strong>{signed ? formatSignedCurrency(value) : formatCurrency(value)}</strong>
+        <strong className="reports-story-metric-value">
+          {signed ? formatSignedCurrency(value) : formatCurrency(value)}
+        </strong>
+        {comparison && comparisonYear && (
+          <MetricComparisonRow comparison={comparison} year={comparisonYear} />
+        )}
       </div>
     </div>
+  );
+}
+
+function MetricComparisonRow({
+  comparison,
+  year,
+}: {
+  comparison: MetricComparison;
+  year: number;
+}) {
+  const arrow = comparison.direction === 'up'
+    ? '↑'
+    : comparison.direction === 'down'
+    ? '↓'
+    : '→';
+  const detail = comparison.kind === 'turned-positive'
+    ? 'Turned positive'
+    : comparison.kind === 'turned-negative'
+    ? 'Turned negative'
+    : comparison.kind === 'no-baseline'
+    ? 'No baseline'
+    : `${arrow} ${(comparison.percent ?? 0) > 0 ? '+' : ''}${(comparison.percent ?? 0).toFixed(1)}%`;
+
+  return (
+    <span
+      className={`reports-metric-comparison is-${comparison.tone}`}
+      aria-label={`Compared with ${year}: ${detail}`}
+    >
+      <span>vs {year}</span>
+      <strong>{detail}</strong>
+    </span>
   );
 }
 
