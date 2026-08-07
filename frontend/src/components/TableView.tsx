@@ -10,13 +10,13 @@ import { CSS } from '@dnd-kit/utilities';
 import { motion, useAnimationControls } from 'framer-motion';
 import { Surface } from './Surface';
 import { TagEditorPopover, type TagColor } from './TagEditorPopover';
-import { DropdownItem, DropdownMenu } from './DropdownMenu';
 import { TableHeaderRow, TableTotalRow } from './table/TableGridRows';
 import { useTableQueryState } from './table/useTableQueryState';
+import { TableContextPanel, type TableContextTarget } from './table/TableContextPanel';
 import type { EntryGroup, EntryPatch, EntryRowData, EntryTag } from './table/types';
 
 const GRID_TEMPLATE =
-  'grid grid-cols-[28px_176px_repeat(12,72px)_78px_72px]';
+  'grid grid-cols-[208px_repeat(12,72px)_78px_72px]';
 
 const normalizeEntryMonthKey = (month: string) => (month === 'Dec' ? 'Decm' : month);
 const makeGroupTotals = (list: EntryRowData[]) => {
@@ -37,32 +37,14 @@ const GroupRowSortable = memo(function GroupRowSortable({
   isCollapsed,
   totals,
   showGroupTotals,
-  editMode,
-  removingGroupIds,
-  groupRemoveSelection,
-  onToggleRemoveGroup,
   onToggleCollapse,
-  editingGroupId,
-  groupNameDraft,
-  setGroupNameDraft,
-  onGroupNameSave,
-  onGroupNameEdit,
 }: {
   group: EntryGroup;
   groupEntries: EntryRowData[];
   isCollapsed: boolean;
   totals: { sums: number[]; totalSum: number; totalAvg: number };
   showGroupTotals: boolean;
-  editMode: string;
-  removingGroupIds: number[];
-  groupRemoveSelection: Set<number>;
-  onToggleRemoveGroup: (groupId: number) => void;
   onToggleCollapse: () => void;
-  editingGroupId: number | null;
-  groupNameDraft: string;
-  setGroupNameDraft: (value: string) => void;
-  onGroupNameSave: (groupId: number) => void;
-  onGroupNameEdit: (group: EntryGroup) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id: group.id });
   const style = {
@@ -75,17 +57,9 @@ const GroupRowSortable = memo(function GroupRowSortable({
     <div
       ref={setNodeRef}
       style={style}
-      className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(group.id) ? 'fade-out' : ''}`}
+      className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}
     >
-      <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
-        {editMode === 'remove' ? (
-          <input
-            type="checkbox"
-            className="remove-checkbox remove-checkbox-group mode-enter"
-            checked={groupRemoveSelection.has(group.id)}
-            onChange={() => onToggleRemoveGroup(group.id)}
-          />
-        ) : null}
+      <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
         <button
           type="button"
           className="order-handle group-order-handle mode-enter"
@@ -97,40 +71,17 @@ const GroupRowSortable = memo(function GroupRowSortable({
         </button>
         <button
           type="button"
-          className="group-toggle"
+          className="group-collapse-button"
           onClick={onToggleCollapse}
+          aria-expanded={!isCollapsed}
           aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
         >
-          <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
+          <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
         </button>
-        {editMode === 'name' && editingGroupId === group.id ? (
-          <input
-            autoFocus
-            className="group-name-input"
-            maxLength={40}
-            value={groupNameDraft}
-            onChange={(ev) => setGroupNameDraft(ev.target.value)}
-            onBlur={() => onGroupNameSave(group.id)}
-            onKeyDown={(ev) => {
-              if (ev.key === 'Enter') onGroupNameSave(group.id);
-              if (ev.key === 'Escape') {
-                setGroupNameDraft('');
-              }
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            className={`table-name group-name ${editMode === 'name' ? 'is-editable' : ''}`}
-            onClick={() => {
-              if (editMode !== 'name') return;
-              onGroupNameEdit(group);
-            }}
-          >
-            <span className="font-semibold">{group.name}</span>{' '}
-            <span className="text-textSec">({groupEntries.length})</span>
-          </button>
-        )}
+        <span className="table-name group-name min-w-0">
+          <span className="font-semibold truncate">{group.name}</span>
+          <span className="group-entry-count">{groupEntries.length}</span>
+        </span>
       </div>
       {MONTHS.map((m, idx) => (
         <div key={m} className="text-right text-textSec">
@@ -145,40 +96,28 @@ const GroupRowSortable = memo(function GroupRowSortable({
 
 const Row = memo(function Row({
   e,
-  editingNameId,
-  setEditingNameId,
   removingIds,
-  onNameUpdate,
   onMonthUpdate,
-  groups,
-  onGroupChange,
   tags,
   onRequestTag,
-  onTagHint,
+  onOpenDetails,
 }: {
   e: EntryRowData;
-  editingNameId: number | null;
-  setEditingNameId: (id: number | null) => void;
   removingIds: number[];
-  onNameUpdate: (name: string) => void;
   onMonthUpdate: (month: string, value: number | null) => void;
-  groups: EntryGroup[];
-  onGroupChange: (entryId: number, groupId: number | null) => void;
   tags: Record<string, EntryTag | undefined>;
   onRequestTag: (entryId: number, month: string, target: HTMLButtonElement, tag?: EntryTag) => void;
-  onTagHint: () => void;
+  onOpenDetails: (entry: EntryRowData) => void;
 }) {
   const editMode = useAppStore((s) => s.editMode);
   const toggleRemoveId = useAppStore((s) => s.toggleRemoveId);
   const isRemoveSelected = useAppStore((s) => s.removeSelection.has(e.id));
-  const setComment = useAppStore((s) => s.setComment);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: e.id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging || editMode === 'order' ? 'none' : 'transform 120ms ease-out',
   };
   const isTagMode = editMode === 'tag';
-  const isNameMode = editMode === 'name';
   const canEditValues = !editMode;
 
   const initialNumbers = useMemo(() => {
@@ -190,14 +129,9 @@ const Row = memo(function Row({
     return map;
   }, [e]);
 
-  const [nameValue, setNameValue] = useState(e.name);
   const [monthNumbers, setMonthNumbers] = useState<Record<string, number | null>>(initialNumbers);
   const [editingMonth, setEditingMonth] = useState<string | null>(null);
   const [monthDraft, setMonthDraft] = useState('');
-
-  useEffect(() => {
-    setNameValue(e.name);
-  }, [e.name]);
 
   useEffect(() => {
     setMonthNumbers(initialNumbers);
@@ -217,19 +151,6 @@ const Row = memo(function Row({
     const count = MONTHS.reduce((acc, m) => acc + (monthNumbers[m] === null || monthNumbers[m] === undefined ? 0 : 1), 0);
     return count ? rowSum / count : 0;
   }, [rowSum, monthNumbers]);
-
-  async function saveName() {
-    const trimmed = nameValue.trim().slice(0, 40);
-    if (!trimmed) {
-      setNameValue(e.name);
-      setEditingNameId(null);
-      return;
-    }
-    setNameValue(trimmed);
-    onNameUpdate(trimmed);
-    setEditingNameId(null);
-    await Api.entries.patch(e.id, { name: trimmed });
-  }
 
   async function saveMonth(month: string) {
     const num = parseCurrencyInputNullable(monthDraft);
@@ -251,7 +172,7 @@ const Row = memo(function Row({
                   ${removingIds.includes(e.id) ? 'fade-out' : ''}`}
     >
 
-      <div className="row-leading" key={`lead-${editMode || 'view'}`}>
+      <div className="table-entry-leading flex items-center gap-2 min-w-0 text-textPrim" key={`lead-${editMode || 'view'}`}>
         {editMode === 'order' ? (
           <button
             {...attributes}
@@ -262,52 +183,6 @@ const Row = memo(function Row({
           >
             ↕
           </button>
-        ) : editMode === 'group' ? (
-          <DropdownMenu
-            label={<span className="group-picker-icon" aria-hidden="true">🔀</span>}
-            align="left"
-            buttonClassName="group-picker-btn mode-enter"
-            buttonAriaLabel="Change group"
-            buttonTooltip="Change group"
-            showCaret={false}
-          >
-            {({ close }) => (
-              <>
-                <DropdownItem
-                  onSelect={() => {
-                    onGroupChange(e.id, null);
-                    close();
-                  }}
-                >
-                  Ungrouped
-                </DropdownItem>
-                {groups.map((g) => (
-                  <DropdownItem
-                    key={g.id}
-                    onSelect={() => {
-                      onGroupChange(e.id, g.id);
-                      close();
-                    }}
-                  >
-                    {g.name}
-                  </DropdownItem>
-                ))}
-              </>
-            )}
-          </DropdownMenu>
-        ) : editMode === 'tag' ? (
-          <button
-            type="button"
-            className="tag-mode-icon mode-enter"
-            aria-label="Tagging help"
-            onClick={onTagHint}
-          >
-            🏷️
-          </button>
-        ) : editMode === 'name' ? (
-          <div className="mode-indicator mode-enter" aria-hidden="true">
-            ✏️
-          </div>
         ) : editMode === 'remove' ? (
           <input
             type="checkbox"
@@ -315,45 +190,15 @@ const Row = memo(function Row({
             checked={isRemoveSelected}
             onChange={() => toggleRemoveId(e.id)}
           />
-        ) : (
+        ) : null}
+        <div className="flex items-center gap-2 w-full min-w-0">
           <button
-            className={`table-comment-btn mode-enter ui-tooltip ${e.comment ? 'active' : ''}`}
-            onClick={()=> setComment(e.id, e.comment||'')}
-            aria-label={e.comment ? 'Has comment' : 'Add comment'}
-            data-tooltip={e.comment ? 'Has comment' : 'Add comment'}
+            className={`table-name flex-1 min-w-0 truncate ${!editMode ? 'is-contextual' : ''}`}
+            onClick={() => !editMode && onOpenDetails(e)}
           >
-            💬
+            {e.name}
           </button>
-        )}
-      </div>
-      <div className="flex items-center gap-2 text-textPrim">
-
-        {editingNameId===e.id ? (
-          <input
-            autoFocus
-            className="table-name-input"
-            maxLength={40}
-            value={nameValue}
-            onChange={(ev)=> setNameValue(ev.target.value)}
-            onBlur={saveName}
-            onKeyDown={(ev)=> {
-              if (ev.key === 'Enter') saveName();
-              if (ev.key === 'Escape') {
-                setNameValue(e.name);
-                setEditingNameId(null);
-              }
-            }}
-          />
-        ) : (
-          <div className="flex items-center gap-2 w-full min-w-0">
-            <button
-              className={`table-name flex-1 min-w-0 truncate ${isNameMode ? 'is-editable' : ''}`}
-              onClick={()=>{ if (editMode==='name') setEditingNameId(e.id); }}
-            >
-              {nameValue}
-            </button>
-          </div>
-        )}
+        </div>
       </div>
       {MONTHS.map((m)=> {
         const tag = tags?.[m];
@@ -361,7 +206,7 @@ const Row = memo(function Row({
         const tagHasColor = Boolean(tag && tag.color !== 'none');
         return (
         <div key={m} className="text-right">
-          {(canEditValues && !isTagMode && editingMonth === m) ? (
+          {(canEditValues && editingMonth === m) ? (
             <input
               className="table-input"
               value={monthDraft}
@@ -383,7 +228,7 @@ const Row = memo(function Row({
           ) : (
             <div className={`table-value-wrapper ${tagHasColor ? 'has-tag' : ''}`}>
               <button
-                className={`table-value ${tagHasColor ? `has-tag tag-color-${tag!.color}` : ''}`}
+                className={`table-value ${tagHasColor ? `has-tag tag-color-${tag!.color}` : ''} ${tagText ? 'has-note' : ''} ${isTagMode ? 'is-tag-target' : ''}`}
                 onClick={(ev)=> {
                 if (isTagMode) {
                   onRequestTag(e.id, m, ev.currentTarget, tag);
@@ -413,6 +258,8 @@ export function TableView() {
   const tab = useAppStore((s) => s.tab);
   const year = useAppStore((s) => s.year);
   const editMode = useAppStore((s) => s.editMode);
+  const setEditMode = useAppStore((s) => s.setEditMode);
+  const openAddEntry = useAppStore((s) => s.openAddEntry);
   const clearRemove = useAppStore((s) => s.clearRemove);
   const removeSelection = useAppStore((s) => s.removeSelection);
   const groupRemoveSelection = useAppStore((s) => s.groupRemoveSelection);
@@ -429,15 +276,13 @@ export function TableView() {
     type,
     year,
   });
-  const [editingNameId, setEditingNameId] = useState<number|null>(null);
-  const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
-  const [groupNameDraft, setGroupNameDraft] = useState('');
   const [removingIds, setRemovingIds] = useState<number[]>([]);
   const [removingGroupIds, setRemovingGroupIds] = useState<number[]>([]);
   const [tagEditor, setTagEditor] = useState<null | { entryId: number; month: string; rect: DOMRect; color: TagColor; text: string }>(null);
   const [tagSaving, setTagSaving] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [groupOrder, setGroupOrder] = useState<number[] | null>(null);
+  const [contextTarget, setContextTarget] = useState<TableContextTarget | null>(null);
 
   useEffect(() => {
     setHasRendered(true);
@@ -463,12 +308,6 @@ export function TableView() {
   }, [fadeControls, hasRendered, type, year]);
 
   useEffect(() => {
-    setEditingGroupId(null);
-    setGroupNameDraft('');
-  }, [editMode]);
-
-
-  useEffect(() => {
     if (!year) return;
     const key = `group-collapsed:${type}:${year}`;
     try {
@@ -481,6 +320,7 @@ export function TableView() {
 
   useEffect(() => {
     setGroupOrder(null);
+    setContextTarget(null);
   }, [type, year]);
 
   const setGroupCollapsed = (groupKey: string, collapsed: boolean) => {
@@ -614,31 +454,10 @@ export function TableView() {
     });
   }, [groups, groupOrder]);
 
-  const handleGroupNameSave = async (groupId: number) => {
-    const trimmed = groupNameDraft.trim().slice(0, 40);
-    if (!trimmed) {
-      setEditingGroupId(null);
-      setGroupNameDraft('');
-      return;
-    }
-    await Api.entryGroups.patch(groupId, { name: trimmed });
-    setEditingGroupId(null);
-    setGroupNameDraft('');
-    if (year) qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
-  };
-
-  const handleEntryGroupChange = async (entryId: number, groupId: number | null) => {
-    patchEntryLocal(entryId, { groupId });
-    await Api.entries.patch(entryId, { groupId });
-    if (year) qc.invalidateQueries({ queryKey: ['entries', type, year] });
-  };
-
-
   const totals = useMemo(()=>{
     return makeGroupTotals(rows);
   }, [rows]);
 
-  const handleRowNameUpdate = (entryId: number, name: string) => patchEntryLocal(entryId, { name });
   const handleRowMonthUpdate = (entryId: number, month: string, value: number | null) =>
     patchEntryLocal(entryId, { [normalizeEntryMonthKey(month)]: value } as EntryPatch);
 
@@ -654,8 +473,32 @@ export function TableView() {
     });
   };
 
-  const handleTagHint = () => {
-    window.dispatchEvent(new CustomEvent('tags:hint'));
+  const handleContextEntrySave = async (
+    entryId: number,
+    patch: { name: string; groupId: number | null; comment: string }
+  ) => {
+    await Api.entries.patch(entryId, patch);
+    patchEntryLocal(entryId, patch);
+    await qc.invalidateQueries({ queryKey });
+  };
+
+  const handleContextGroupSave = async (groupId: number, name: string) => {
+    await Api.entryGroups.patch(groupId, { name });
+    if (year) await qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
+  };
+
+  const handleContextEntryRemove = async (entryId: number) => {
+    await Api.entries.remove([entryId]);
+    await qc.invalidateQueries({ queryKey });
+    if (year) await qc.invalidateQueries({ queryKey: ['tags', year] });
+  };
+
+  const handleContextGroupRemove = async (groupId: number) => {
+    await Api.entryGroups.remove([groupId]);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey }),
+      qc.invalidateQueries({ queryKey: ['entry-groups', type, year] }),
+    ]);
   };
 
   const handleTagSave = async () => {
@@ -724,19 +567,7 @@ export function TableView() {
                             isCollapsed={isCollapsed}
                             totals={totals}
                             showGroupTotals={showGroupTotals}
-                            editMode={editMode}
-                            removingGroupIds={removingGroupIds}
-                            groupRemoveSelection={groupRemoveSelection}
-                            onToggleRemoveGroup={toggleRemoveGroupId}
                             onToggleCollapse={() => setGroupCollapsed(groupKey, !isCollapsed)}
-                            editingGroupId={editingGroupId}
-                            groupNameDraft={groupNameDraft}
-                            setGroupNameDraft={setGroupNameDraft}
-                            onGroupNameSave={handleGroupNameSave}
-                            onGroupNameEdit={(group) => {
-                              setEditingGroupId(group.id);
-                              setGroupNameDraft(group.name);
-                            }}
                           />
 
                           {!isCollapsed && (
@@ -751,16 +582,11 @@ export function TableView() {
                                     <Row
                                       key={e.id}
                                       e={e}
-                                      editingNameId={editingNameId}
-                                      setEditingNameId={setEditingNameId}
                                       removingIds={removingIds}
-                                      onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
                                       onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                                      groups={sortedGroups}
-                                      onGroupChange={handleEntryGroupChange}
                                       tags={tagsByEntry.get(e.id) ?? {}}
                                       onRequestTag={handleTagRequest}
-                                      onTagHint={handleTagHint}
+                                      onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
                                     />
                                   ))}
                                 </div>
@@ -781,18 +607,19 @@ export function TableView() {
                       return (
                         <div key={groupKey} className="space-y-2">
                           <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}>
-                            <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
+                            <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
                               <button
                                 type="button"
-                                className="group-toggle"
+                                className="group-collapse-button"
                                 onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
+                                aria-expanded={!isCollapsed}
                                 aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
                               >
-                                <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
+                                <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
                               </button>
-                              <span className="font-semibold group-name-label">
-                                <span>Ungrouped</span>
-                                <span className="text-textSec">({groupEntries.length})</span>
+                              <span className="font-semibold group-name-label min-w-0">
+                                <span className="truncate">Ungrouped</span>
+                                <span className="group-entry-count">{groupEntries.length}</span>
                               </span>
                             </div>
                             {MONTHS.map((m, idx) => (
@@ -816,16 +643,11 @@ export function TableView() {
                                     <Row
                                       key={e.id}
                                       e={e}
-                                      editingNameId={editingNameId}
-                                      setEditingNameId={setEditingNameId}
                                       removingIds={removingIds}
-                                      onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
                                       onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                                      groups={sortedGroups}
-                                      onGroupChange={handleEntryGroupChange}
                                       tags={tagsByEntry.get(e.id) ?? {}}
                                       onRequestTag={handleTagRequest}
-                                      onTagHint={handleTagHint}
+                                      onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
                                     />
                                   ))}
                                 </div>
@@ -848,7 +670,7 @@ export function TableView() {
                   return (
                     <div key={groupKey} className="space-y-2">
                       <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(g.id) ? 'fade-out' : ''}`}>
-                        <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
+                        <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
                           {editMode === 'remove' ? (
                             <input
                               type="checkbox"
@@ -859,42 +681,21 @@ export function TableView() {
                           ) : null}
                           <button
                             type="button"
-                            className="group-toggle"
+                            className="group-collapse-button"
                             onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
+                            aria-expanded={!isCollapsed}
                             aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
                           >
-                            <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
+                            <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
                           </button>
-                          {editMode === 'name' && editingGroupId === g.id ? (
-                            <input
-                              autoFocus
-                              className="group-name-input"
-                              maxLength={40}
-                              value={groupNameDraft}
-                              onChange={(ev) => setGroupNameDraft(ev.target.value)}
-                              onBlur={() => handleGroupNameSave(g.id)}
-                              onKeyDown={(ev) => {
-                                if (ev.key === 'Enter') handleGroupNameSave(g.id);
-                                if (ev.key === 'Escape') {
-                                  setEditingGroupId(null);
-                                  setGroupNameDraft('');
-                                }
-                              }}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className={`table-name group-name ${editMode === 'name' ? 'is-editable' : ''}`}
-                              onClick={() => {
-                                if (editMode !== 'name') return;
-                                setEditingGroupId(g.id);
-                                setGroupNameDraft(g.name);
-                              }}
-                            >
-                              <span className="font-semibold">{g.name}</span>{' '}
-                              <span className="text-textSec">({groupEntries.length})</span>
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className={`table-name group-name min-w-0 ${!editMode ? 'is-contextual' : ''}`}
+                            onClick={() => !editMode && setContextTarget({ kind: 'group', group: g, entryCount: groupEntries.length })}
+                          >
+                            <span className="font-semibold truncate">{g.name}</span>
+                            <span className="group-entry-count">{groupEntries.length}</span>
+                          </button>
                         </div>
                         {MONTHS.map((m, idx) => (
                           <div key={m} className="text-right text-textSec">
@@ -911,16 +712,11 @@ export function TableView() {
                             <Row
                               key={e.id}
                               e={e}
-                              editingNameId={editingNameId}
-                              setEditingNameId={setEditingNameId}
                               removingIds={removingIds}
-                              onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
                               onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                              groups={sortedGroups}
-                              onGroupChange={handleEntryGroupChange}
                               tags={tagsByEntry.get(e.id) ?? {}}
                               onRequestTag={handleTagRequest}
-                              onTagHint={handleTagHint}
+                              onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
                             />
                           ))}
                         </div>
@@ -939,18 +735,19 @@ export function TableView() {
                   return (
                     <div key={groupKey} className="space-y-2">
                       <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}>
-                        <div className="col-span-2 group-leading flex items-center gap-2 text-textPrim">
+                        <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
                           <button
                             type="button"
-                            className="group-toggle"
+                            className="group-collapse-button"
                             onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
+                            aria-expanded={!isCollapsed}
                             aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
                           >
-                            <span className="group-toggle-icon">{isCollapsed ? '▸' : '▾'}</span>
+                            <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
                           </button>
-                          <span className="font-semibold group-name-label">
-                            <span>Ungrouped</span>
-                            <span className="text-textSec">({groupEntries.length})</span>
+                          <span className="font-semibold group-name-label min-w-0">
+                            <span className="truncate">Ungrouped</span>
+                            <span className="group-entry-count">{groupEntries.length}</span>
                           </span>
                         </div>
                         {MONTHS.map((m, idx) => (
@@ -967,16 +764,11 @@ export function TableView() {
                             <Row
                               key={e.id}
                               e={e}
-                              editingNameId={editingNameId}
-                              setEditingNameId={setEditingNameId}
                               removingIds={removingIds}
-                              onNameUpdate={(name) => handleRowNameUpdate(e.id, name)}
                               onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                              groups={sortedGroups}
-                              onGroupChange={handleEntryGroupChange}
                               tags={tagsByEntry.get(e.id) ?? {}}
                               onRequestTag={handleTagRequest}
-                              onTagHint={handleTagHint}
+                              onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
                             />
                           ))}
                         </div>
@@ -1008,6 +800,23 @@ export function TableView() {
           onClose={() => !tagSaving && setTagEditor(null)}
         />
       )}
+      <TableContextPanel
+        target={contextTarget}
+        groups={sortedGroups}
+        onClose={() => setContextTarget(null)}
+        onSaveEntry={handleContextEntrySave}
+        onSaveGroup={handleContextGroupSave}
+        onRemoveEntry={handleContextEntryRemove}
+        onRemoveGroup={handleContextGroupRemove}
+        onAddEntry={(groupId) => {
+          setContextTarget(null);
+          openAddEntry(groupId);
+        }}
+        onArrangeGroup={() => {
+          setContextTarget(null);
+          setEditMode('order');
+        }}
+      />
     </div>
   );
 }

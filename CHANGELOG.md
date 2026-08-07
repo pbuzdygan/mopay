@@ -4,12 +4,14 @@
 
 ### Bug fix
 - fixed PIN rate-limit and security-alert state cleanup so expired per-IP entries are pruned correctly and retained state cannot grow without a configured bound
+- UI adjustments and fixes
 
 ### New Features
-- added a subtle current-month marker to the income and expense table headers when the selected year is the current calendar year
-- redesigned Savings goals as a full-width accordion with compact progress summaries, readable contribution and withdrawal rows, and responsive multiline item editing
-- redesigned Reports as a single responsive yearly financial story with annual results, monthly health, spending breakdown, and income/expense predictability insights
-- added previous-year percentage comparisons to the Reports annual metrics, including expense-aware trend colors, zero-baseline handling, and net-result sign changes
+- current month marker for current year (now you see current month at glance)
+- redesigned Savings goals as a full-width
+- redesigned Reports as a single responsive yearly financial overview
+- added previous-year percentage comparisons to the Reports annual metrics
+- redesigned Expenses and Incomes table operations around a context-first workspace
 
 ### Improvements
 - dependency and runtime security maintenance:

@@ -110,7 +110,7 @@ export function TagEditorPopover({ month, color, text, anchor, saving, onChange,
       style={{ top: `${position.top}px`, left: `${position.left}px`, position: position.mode }}
     >
       <div className="tag-editor-header">
-        <span className="tag-editor-title">Tag {month}</span>
+        <span className="tag-editor-title">{month} details</span>
       </div>
       <div className="tag-editor-section">
         <span className="tag-editor-label">Color</span>

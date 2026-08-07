@@ -77,7 +77,8 @@ type State = {
   year: number | null;
   theme: 'light' | 'dark';
   showGroupTotals: boolean;
-  editMode: null | 'name' | 'group' | 'order' | 'remove' | 'tag';
+  editMode: null | 'order' | 'remove' | 'tag';
+  addEntryGroupId: number | null;
   pinSession: boolean;
   removeSelection: Set<number>;
   groupRemoveSelection: Set<number>;
@@ -110,6 +111,7 @@ type State = {
   clearRemove: () => void;
   requestBulkRemove: () => void;
   openModal: (k: keyof State['modals']) => void;
+  openAddEntry: (groupId?: number | null) => void;
   closeModal: (k: keyof State['modals']) => void;
   setComment: (id: number | null, text: string) => void;
   openGoalModal: (goalId?: number | null) => void;
@@ -129,6 +131,7 @@ export const useAppStore = create<State>((set, get) => ({
   theme: load<'light' | 'dark'>('theme', 'light'),
   showGroupTotals: load<boolean>('showGroupTotals', false),
   editMode: null,
+  addEntryGroupId: null,
   pinSession: false,
   removeSelection: new Set<number>(),
   groupRemoveSelection: new Set<number>(),
@@ -206,8 +209,15 @@ export const useAppStore = create<State>((set, get) => ({
       } as any,
     }),
 
+  openAddEntry: (groupId = null) =>
+    set({
+      addEntryGroupId: groupId,
+      modals: { ...get().modals, add: true },
+    }),
+
   closeModal: (k) =>
     set({
+      ...(k === 'add' ? { addEntryGroupId: null } : {}),
       modals: {
         ...get().modals,
         [k]:

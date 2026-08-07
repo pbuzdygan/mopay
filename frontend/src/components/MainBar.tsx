@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Api } from '../api';
 import { useAppStore } from '../store';
 import { YearDropdown } from './YearDropdown';
@@ -35,8 +35,8 @@ export function MainBar() {
     requestBulkRemove,
     setPinSession,
     openGoalModal,
+    openAddEntry,
   } = useAppStore();
-  const [tagHintVisible, setTagHintVisible] = useState(false);
 
   const yearsQ = useQuery({ queryKey: ['years'], queryFn: Api.years.list });
   const years = (yearsQ.data?.years ?? []) as number[];
@@ -118,6 +118,20 @@ export function MainBar() {
     </span>
   );
 
+  const actionButtonLabel = (icon: string, text: string) => (
+    <span className="mainbar-action-label">
+      <span
+        className="mainbar-action-icon"
+        aria-hidden="true"
+        style={{
+          WebkitMaskImage: `url("${icon}")`,
+          maskImage: `url("${icon}")`,
+        }}
+      />
+      <span>{text}</span>
+    </span>
+  );
+
   const renderUtilityControls = (
     mode: 'mobile' | 'desktop' = 'desktop',
     options: { includeMenu?: boolean } = {}
@@ -182,15 +196,6 @@ export function MainBar() {
     );
   };
 
-  const editLabelMap: Record<string, string> = {
-    name: 'Change name',
-    group: 'Change group',
-    order: 'Change order',
-    remove: 'Remove entry',
-    tag: 'Tags',
-  } as any;
-  const editMenuLabel = editMode ? (editLabelMap[editMode] ?? 'Edit mode') : 'Edit mode';
-
   const exitEditMode = () => {
     if (editMode === 'remove') {
       clearRemove();
@@ -198,84 +203,83 @@ export function MainBar() {
     setEditMode(null);
   };
 
+  const selectAction = (nextMode: 'order' | 'remove' | 'tag') => {
+    if (editMode === nextMode) {
+      exitEditMode();
+      return;
+    }
+    if (editMode === 'remove') clearRemove();
+    setEditMode(nextMode);
+  };
+
+  const actionLabel =
+    editMode === 'order'
+      ? 'Arrange'
+      : editMode === 'remove'
+      ? 'Remove'
+      : editMode === 'tag'
+      ? 'Tags'
+      : null;
+
   const primaryActions = (
     <>
-      <div className="edit-actions-wrap w-full md:w-auto">
-        <div className={`grid grid-cols-2 gap-2 w-full ${editMode ? 'edit-actions-hidden' : ''}`}>
-          <button
-            type="button"
-            className="btn px-5 py-2 rounded-2xl w-full mobile-primary"
-            onClick={() => useAppStore.getState().openModal('add')}
-          >
-            Add entry
-          </button>
-          {(tab === 'expenses' || tab === 'incomes') ? (
-            <SoftButton
-              type="button"
-              className="w-full mobile-primary"
-              disabled={!year}
-              onClick={() => useAppStore.getState().openModal('addGroup')}
-            >
-              Add group
-            </SoftButton>
-          ) : (
-            <div className="w-full" aria-hidden="true" />
+      {editMode ? (
+        <SoftButton
+          type="button"
+          variant="warning"
+          className="w-full md:w-auto mobile-primary mainbar-action-control context-finish-button"
+          onClick={exitEditMode}
+        >
+          Close
+        </SoftButton>
+      ) : (
+        <DropdownMenu
+          label={actionButtonLabel('/icons/ui/square-plus.svg', 'New')}
+          block
+          buttonClassName="mobile-primary mainbar-action-control context-new-button"
+        >
+          {({ close }) => (
+            <>
+              <DropdownItem onSelect={() => { openAddEntry(null); close(); }}>
+                {menuItemLabel('/icons/ui/text-plus.svg', 'Entry')}
+              </DropdownItem>
+              <DropdownItem onSelect={() => { openModal('addGroup'); close(); }}>
+                {menuItemLabel('/icons/ui/category-plus.svg', 'Group')}
+              </DropdownItem>
+            </>
           )}
-        </div>
-        {editMode && (
-          <SoftButton
-            type="button"
-            variant="warning"
-            className="edit-actions-overlay w-full mobile-primary"
-            onClick={exitEditMode}
-          >
-            Exit mode
-          </SoftButton>
+        </DropdownMenu>
+      )}
+      <DropdownMenu
+        label={actionButtonLabel('/icons/ui/automation.svg', actionLabel ? `Actions · ${actionLabel}` : 'Actions')}
+        block
+        buttonClassName={`mobile-primary mainbar-action-control context-actions-button ${editMode ? 'context-action-active' : ''}`}
+        showCaret={!editMode}
+      >
+        {({ close }) => (
+          <>
+            <DropdownItem onSelect={() => { selectAction('order'); close(); }}>
+              {menuItemLabel('/icons/ui/arrows-sort.svg', 'Arrange')}
+            </DropdownItem>
+            <DropdownItem onSelect={() => { selectAction('remove'); close(); }}>
+              {menuItemLabel('/icons/ui/trash.svg', 'Remove')}
+            </DropdownItem>
+            <DropdownItem onSelect={() => { selectAction('tag'); close(); }}>
+              {menuItemLabel('/icons/ui/tag.svg', 'Tags')}
+            </DropdownItem>
+          </>
         )}
-      </div>
-      {editMode === 'remove' ? (
+      </DropdownMenu>
+      {editMode === 'remove' && (
         <SoftButton
           type="button"
           variant="danger"
-          className="w-full md:w-auto mobile-primary"
+          className="w-full md:w-auto mobile-primary mainbar-action-control"
           disabled={removeSelection.size === 0 && groupRemoveSelection.size === 0}
           onClick={requestBulkRemove}
         >
           Remove selected
         </SoftButton>
-      ) : (
-        <div className="relative w-full md:w-auto mainbar-edit-menu">
-          <DropdownMenu
-            label={editMenuLabel}
-            block
-            buttonClassName={`mobile-primary ${editMode ? 'tag-menu-active' : ''}`}
-          >
-            {({ close }) => (
-              <>
-                <DropdownItem onSelect={() => { setEditMode('name'); close(); }}>
-                  Change name
-                </DropdownItem>
-                <DropdownItem onSelect={() => { setEditMode('group'); close(); }}>
-                  Change group
-                </DropdownItem>
-                <DropdownItem onSelect={() => { setEditMode('order'); close(); }}>
-                  Change order
-                </DropdownItem>
-                <DropdownItem onSelect={() => { setEditMode('tag'); close(); }}>
-                  Tags
-                </DropdownItem>
-              <DropdownItem onSelect={() => { setEditMode('remove'); close(); }}>
-                Remove entry
-              </DropdownItem>
-              </>
-            )}
-          </DropdownMenu>
-          {editMode === 'tag' && tagHintVisible && (
-            <span className="feedback-badge ok tag-mode-hint">
-              Tag months by clicking a month cell
-            </span>
-          )}
-        </div>
       )}
     </>
   );
@@ -284,31 +288,14 @@ export function MainBar() {
     if ((tab === 'reports' || tab === 'savings') && editMode) setEditMode(null);
   }, [tab, editMode, setEditMode]);
 
-  useEffect(() => {
-    if (editMode !== 'tag') {
-      setTagHintVisible(false);
-      return;
-    }
-    const onHint = () => {
-      setTagHintVisible(true);
-      window.clearTimeout((onHint as any)._tm);
-      (onHint as any)._tm = window.setTimeout(() => setTagHintVisible(false), 2800);
-    };
-    window.addEventListener('tags:hint', onHint as EventListener);
-    return () => {
-      window.removeEventListener('tags:hint', onHint as EventListener);
-      window.clearTimeout((onHint as any)._tm);
-    };
-  }, [editMode]);
-
   const savingsActions = (
     <button
       type="button"
-      className="btn px-5 py-2 rounded-2xl w-full md:w-auto mobile-primary"
+      className="btn w-full md:w-auto mobile-primary mainbar-action-control"
       onClick={() => openGoalModal()}
       disabled={!year}
     >
-      Add goal
+      {actionButtonLabel('/icons/ui/target-arrow.svg', 'Add goal')}
     </button>
   );
 
@@ -350,7 +337,10 @@ export function MainBar() {
                 role="tab"
                 aria-selected={tab === item.id}
                 className={`chip-button ${tab === item.id ? 'active' : ''}`}
-                onClick={() => setTab(item.id)}
+                onClick={() => {
+                  if (item.id !== tab && editMode) exitEditMode();
+                  setTab(item.id);
+                }}
               >
                 {item.icon && (
                   <span
@@ -378,7 +368,7 @@ export function MainBar() {
                 />
                 <DropdownMenu
                   label={menuIconLabel}
-                  align="right"
+                  align="left"
                   buttonClassName="utility-menu-btn utility-menu-icon-btn utility-menu-btn-sm"
                   buttonAriaLabel="Menu"
                   buttonTooltip="Menu"

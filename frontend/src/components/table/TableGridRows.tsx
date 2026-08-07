@@ -16,7 +16,6 @@ export function TableHeaderRow({
     <div
       className={`table-header-premium ${gridTemplate} gap-1 pl-0 pr-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-textSec`}
     >
-      <div className="text-left">💬</div>
       <div>{tab === 'incomes' ? 'Incomes' : 'Expenses'}</div>
       {MONTHS.map((month) => {
         const isCurrent = month === currentMonth;
@@ -39,7 +38,6 @@ export function TableHeaderRow({
 export function TableTotalRow({ gridTemplate, totals }: { gridTemplate: string; totals: Totals }) {
   return (
     <div className={`table-total-premium ${gridTemplate} gap-1 pl-0 pr-3 py-2 font-semibold text-[0.72rem]`}>
-      <div />
       <div className="font-semibold">Total</div>
       {totals.sums.map((value, idx) => (
         <div key={idx} className="text-right font-semibold">
