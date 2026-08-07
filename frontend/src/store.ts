@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import type { ReportId } from './reports/config';
 
 function normalizeVersion(value: string | null | undefined) {
   if (!value) return null;
@@ -83,7 +82,6 @@ type State = {
   removeSelection: Set<number>;
   groupRemoveSelection: Set<number>;
   bulkRemoveRequestId: number;
-  selectedReports: ReportId[];
   modals: {
     add: boolean;
     comment: { open: boolean; id: number | null; text: string };
@@ -111,8 +109,6 @@ type State = {
   toggleRemoveGroupId: (id: number) => void;
   clearRemove: () => void;
   requestBulkRemove: () => void;
-  toggleReport: (id: ReportId) => void;
-  clearReports: () => void;
   openModal: (k: keyof State['modals']) => void;
   closeModal: (k: keyof State['modals']) => void;
   setComment: (id: number | null, text: string) => void;
@@ -137,7 +133,6 @@ export const useAppStore = create<State>((set, get) => ({
   removeSelection: new Set<number>(),
   groupRemoveSelection: new Set<number>(),
   bulkRemoveRequestId: 0,
-  selectedReports: load<ReportId[]>('selectedReports', []),
   modals: {
     add: false,
     comment: { open: false, id: null, text: '' },
@@ -199,19 +194,6 @@ export const useAppStore = create<State>((set, get) => ({
     set((state) => ({
       bulkRemoveRequestId: state.bulkRemoveRequestId + 1,
     })),
-
-  toggleReport: (id) => {
-    const current = new Set(get().selectedReports);
-    current.has(id) ? current.delete(id) : current.add(id);
-    const arr = Array.from(current);
-    save('selectedReports', arr);
-    set({ selectedReports: arr });
-  },
-
-  clearReports: () => {
-    save('selectedReports', []);
-    set({ selectedReports: [] });
-  },
 
   openModal: (k) =>
     set({

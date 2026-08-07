@@ -6,14 +6,17 @@ import { YearDropdown } from './YearDropdown';
 import { DropdownMenu, DropdownItem } from './DropdownMenu';
 import { SoftButton } from './SoftButton';
 import { Surface } from './Surface';
-import { REPORT_DEFINITIONS } from '../reports/config';
 import { VersionIndicator } from './VersionIndicator';
 
-const TABS: Array<{ id: 'expenses' | 'incomes' | 'savings' | 'reports'; label: string }> = [
-  { id: 'expenses', label: 'Expenses' },
-  { id: 'incomes', label: 'Incomes' },
-  { id: 'savings', label: 'Savings' },
-  { id: 'reports', label: 'Reports' },
+const TABS: Array<{
+  id: 'expenses' | 'incomes' | 'savings' | 'reports';
+  label: string;
+  icon?: string;
+}> = [
+  { id: 'expenses', label: 'Expenses', icon: '/icons/ui/credit-card-pay.svg' },
+  { id: 'incomes', label: 'Incomes', icon: '/icons/ui/wallet.svg' },
+  { id: 'savings', label: 'Savings', icon: '/icons/ui/pig-money.svg' },
+  { id: 'reports', label: 'Reports', icon: '/icons/ui/report-analytics.svg' },
 ];
 
 export function MainBar() {
@@ -31,8 +34,6 @@ export function MainBar() {
     clearRemove,
     requestBulkRemove,
     setPinSession,
-    selectedReports,
-    toggleReport,
     openGoalModal,
   } = useAppStore();
   const [tagHintVisible, setTagHintVisible] = useState(false);
@@ -62,6 +63,8 @@ export function MainBar() {
       ? 'Income overview'
       : tab === 'savings'
       ? 'Savings goals'
+      : tab === 'reports'
+      ? 'Financial story'
       : 'Expense overview';
   const scopeCaption = year
     ? `Working on year ${year}`
@@ -298,27 +301,6 @@ export function MainBar() {
     };
   }, [editMode]);
 
-  const reportActions = (
-    <div className="report-toggle-group" role="group" aria-label="Reports">
-      {REPORT_DEFINITIONS.map((report) => {
-        const active = selectedReports.includes(report.id);
-        return (
-          <button
-            key={report.id}
-            type="button"
-            className={`report-toggle ui-tooltip ${active ? 'active' : ''}`}
-            onClick={() => toggleReport(report.id)}
-            aria-pressed={active}
-            data-tooltip={report.tooltip}
-          >
-            <span className="report-icon">{report.icon}</span>
-            <span className="report-title">{report.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-
   const savingsActions = (
     <button
       type="button"
@@ -331,7 +313,7 @@ export function MainBar() {
   );
 
   const renderActions = () => {
-    if (tab === 'reports') return reportActions;
+    if (tab === 'reports') return null;
     if (tab === 'savings') return savingsActions;
     return primaryActions;
   };
@@ -370,7 +352,17 @@ export function MainBar() {
                 className={`chip-button ${tab === item.id ? 'active' : ''}`}
                 onClick={() => setTab(item.id)}
               >
-                {item.label}
+                {item.icon && (
+                  <span
+                    className="chip-button-icon"
+                    aria-hidden="true"
+                    style={{
+                      WebkitMaskImage: `url("${item.icon}")`,
+                      maskImage: `url("${item.icon}")`,
+                    }}
+                  />
+                )}
+                <span>{item.label}</span>
               </button>
             ))}
           </div>

@@ -8,6 +8,7 @@
 ### New Features
 - added a subtle current-month marker to the income and expense table headers when the selected year is the current calendar year
 - redesigned Savings goals as a full-width accordion with compact progress summaries, readable contribution and withdrawal rows, and responsive multiline item editing
+- redesigned Reports as a single responsive yearly financial story with annual results, monthly health, spending breakdown, and income/expense predictability insights
 
 ### Improvements
 - dependency and runtime security maintenance:
