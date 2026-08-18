@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.6.1
+
+### Bug fix
+- fixed an infinite React update loop when table query data was temporarily unavailable (for example after an expired session), which could leave the entry details panel stuck in `Saving…`
+- corrected Settings toggle UI alignment and UI elements visibility
+- corrected Expense and Income tables reaction on entering value field
+
+### Improvements
+
+- Improving UI elements ergonomy, look and behaviour
+  - widened the desktop workspace and introduced aligned, flexible amount columns sized for six-digit monthly values and larger sum/average totals
+- Compact view introduction
+  - added a persistent `Normal` / `Compact` view preference that applies denser typography and spacing across the entire desktop application while preserving mobile touch targets
+  - extended Compact density to mobile views
+- added an accent-aware search field beside the main navigation with instant filtering for Expenses, Incomes, and Savings, automatic reset when changing sections, and a clear active-filter state
+- Reports section improvements, reorganization and new section introduction (Savings Overview)
+
 ## v1.6.0
 
 ### Bug fix

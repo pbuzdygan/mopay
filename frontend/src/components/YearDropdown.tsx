@@ -19,11 +19,19 @@ export function YearDropdown({ years, value, onChange, className, triggerClassNa
         setOpen(false);
       }
     };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
   }, []);
 
   const label = value?.toString() ?? "Select year";
+  const sortedYears = [...years].sort((a, b) => b - a);
 
   return (
     <div className={`relative inline-flex items-center ${className ?? ''}`.trim()} ref={ref}>
@@ -50,21 +58,25 @@ export function YearDropdown({ years, value, onChange, className, triggerClassNa
       {open && (
         <div
           className="dropdown-panel year-panel absolute top-full left-0 mt-2 z-50 animate-dropdown"
-          role="listbox"
         >
-          {years.map((y) => (
-            <button
-              key={y}
-              className={`dropdown-item ${value === y ? "active" : ""}`}
-              onClick={() => {
-                onChange(y);
-                setOpen(false);
-              }}
-              type="button"
-            >
-              {y}
-            </button>
-          ))}
+          <div className="year-panel-label">Select year</div>
+          <div className="year-panel-grid" role="listbox" aria-label="Available years">
+            {sortedYears.map((y) => (
+              <button
+                key={y}
+                className={`dropdown-item year-option ${value === y ? "active" : ""}`}
+                onClick={() => {
+                  onChange(y);
+                  setOpen(false);
+                }}
+                type="button"
+                role="option"
+                aria-selected={value === y}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
 
           {years.length === 0 && (
             <div className="px-3 py-2 type-body-sm text-textSec">

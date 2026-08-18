@@ -99,7 +99,7 @@ export function AddEntryModal() {
             </label>
             <select
               id="entry-group-input"
-              className="input"
+              className="input app-select"
               value={groupId ?? ""}
               onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : null)}
             >

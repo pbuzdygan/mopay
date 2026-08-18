@@ -5,14 +5,18 @@ import { useAppStore } from '../store';
 import {
   buildAnnualComparison,
   buildFinancialStory,
+  buildSavingsStory,
   type FinancialStory,
   type MetricComparison,
   type ReportEntry,
+  type ReportEntryGroup,
+  type SavingsReportGoal,
+  type SavingsStory,
 } from '../reports/analytics';
 import { formatCurrency } from '../utils/currency';
 import { Surface } from './Surface';
 
-function useYearEntries() {
+function useReportData() {
   const year = useAppStore((state) => state.year);
   const enabled = !!year;
   const years = useQuery({
@@ -32,6 +36,16 @@ function useYearEntries() {
     queryFn: () => Api.entries.list('expense', year!),
     enabled,
   });
+  const expenseGroups = useQuery({
+    queryKey: ['entry-groups', 'expense', year],
+    queryFn: () => Api.entryGroups.list('expense', year!),
+    enabled,
+  });
+  const savings = useQuery({
+    queryKey: ['savings', year],
+    queryFn: () => Api.savings.list(year!),
+    enabled,
+  });
   const previousIncomes = useQuery({
     queryKey: ['entries', 'income', previousYear],
     queryFn: () => Api.entries.list('income', previousYear!),
@@ -46,6 +60,8 @@ function useYearEntries() {
     year,
     incomes,
     expenses,
+    expenseGroups,
+    savings,
     previousYear,
     hasPreviousYear,
     previousIncomes,
@@ -56,50 +72,32 @@ function useYearEntries() {
 const formatSignedCurrency = (value: number) =>
   `${value > 0 ? '+' : ''}${formatCurrency(value)}`;
 
-const describeYear = (story: FinancialStory) => {
-  const result = story.net > 0
-    ? `You finished the year ${formatCurrency(story.net)} ahead.`
-    : story.net < 0
-    ? `You finished the year ${formatCurrency(Math.abs(story.net))} behind.`
-    : 'Income and expenses balanced this year.';
-
-  const incomeDescription = story.incomeStability === null
-    ? null
-    : story.incomeStability >= 80
-    ? 'Income stayed steady'
-    : story.incomeStability >= 55
-    ? 'Income was moderately predictable'
-    : 'Income varied noticeably';
-  const expenseDescription = story.mostVariableExpense
-    ? `${story.mostVariableExpense.name} varied most month to month`
-    : null;
-
-  if (incomeDescription && expenseDescription) {
-    return `${result} ${incomeDescription}, while ${expenseDescription}.`;
-  }
-  if (incomeDescription) return `${result} ${incomeDescription}.`;
-  if (expenseDescription) return `${result} ${expenseDescription}.`;
-  return result;
-};
-
 export function ReportsView() {
   const {
     year,
     incomes,
     expenses,
+    expenseGroups,
+    savings,
     previousYear,
     hasPreviousYear,
     previousIncomes,
     previousExpenses,
-  } = useYearEntries();
-  const isLoading = incomes.isLoading || expenses.isLoading;
-  const isError = incomes.isError || expenses.isError;
+  } = useReportData();
+  const isLoading = incomes.isLoading || expenses.isLoading || expenseGroups.isLoading || savings.isLoading;
+  const isError = incomes.isError || expenses.isError || expenseGroups.isError;
 
   const story = useMemo(() => {
     const incomeEntries = (incomes.data?.entries ?? []) as ReportEntry[];
     const expenseEntries = (expenses.data?.entries ?? []) as ReportEntry[];
-    return buildFinancialStory(incomeEntries, expenseEntries);
-  }, [incomes.data, expenses.data]);
+    const groups = (expenseGroups.data?.groups ?? []) as ReportEntryGroup[];
+    return buildFinancialStory(incomeEntries, expenseEntries, groups);
+  }, [incomes.data, expenses.data, expenseGroups.data]);
+
+  const savingsStory = useMemo(() => {
+    const goals = (savings.data?.goals ?? []) as SavingsReportGoal[];
+    return buildSavingsStory(goals);
+  }, [savings.data]);
 
   const previousStory = useMemo(() => {
     if (!hasPreviousYear || !previousIncomes.isSuccess || !previousExpenses.isSuccess) {
@@ -133,62 +131,161 @@ export function ReportsView() {
     return <ReportsState message="The financial story could not be prepared. Try again in a moment." />;
   }
 
-  if (!story.hasActivity) {
-    return <ReportsState message="Add income or expense values to build your financial story." />;
+  if (!story.hasActivity && savings.isError && !savings.data) {
+    return <ReportsState message="The financial and savings reports could not be prepared. Try again in a moment." />;
+  }
+
+  if (!story.hasActivity && !savingsStory.hasGoals) {
+    return <ReportsState message="Add income or expense values, or create a Savings goal, to build your financial story." />;
   }
 
   return (
     <div className="reports-story mode-enter">
       <Surface variant="layer" className="reports-story-hero">
-        <p className="reports-story-summary">{describeYear(story)}</p>
+        <div className="reports-story-overview">
+          <div className="reports-financial-overview">
+            <div className="reports-story-metrics" aria-label="Annual totals">
+              <StoryMetric
+                comparison={comparison?.income}
+                comparisonYear={comparison ? previousYear : null}
+                icon="income"
+                label="Income"
+                value={story.totalIncome}
+              />
+              <StoryMetric
+                comparison={comparison?.expense}
+                comparisonYear={comparison ? previousYear : null}
+                icon="expenses"
+                label="Expenses"
+                value={story.totalExpense}
+              />
+              <StoryMetric
+                comparison={comparison?.net}
+                comparisonYear={comparison ? previousYear : null}
+                icon="net"
+                label="Net result"
+                value={story.net}
+                signed
+                tone={story.net >= 0 ? 'positive' : 'negative'}
+              />
+            </div>
 
-        <div className="reports-story-metrics" aria-label="Annual totals">
-          <StoryMetric
-            comparison={comparison?.income}
-            comparisonYear={comparison ? previousYear : null}
-            icon="income"
-            label="Income"
-            value={story.totalIncome}
-          />
-          <StoryMetric
-            comparison={comparison?.expense}
-            comparisonYear={comparison ? previousYear : null}
-            icon="expenses"
-            label="Expenses"
-            value={story.totalExpense}
-          />
-          <StoryMetric
-            comparison={comparison?.net}
-            comparisonYear={comparison ? previousYear : null}
-            icon="net"
-            label="Net result"
-            value={story.net}
-            signed
-            tone={story.net >= 0 ? 'positive' : 'negative'}
-          />
+            <MonthHealthStrip story={story} />
+          </div>
+
+          <SavingsReportPanel story={savingsStory} error={savings.isError && !savings.data} />
         </div>
-
-        <MonthHealthStrip story={story} />
       </Surface>
 
       <div className="reports-story-details">
-        <Surface variant="layer" className="reports-story-panel">
+        <Surface variant="layer" className="reports-story-panel reports-spending-panel">
           <SectionHeading
             title="Where money went"
-            caption="Top expense lines and their share of annual expenses"
+            caption="Expense groups, annual shares and top entries"
           />
           <SpendingPanel story={story} />
         </Surface>
 
-        <Surface variant="layer" className="reports-story-panel">
+        <Surface variant="layer" className="reports-story-panel reports-predictability-panel">
           <SectionHeading
             title="Predictability"
-            caption="How consistent income and expenses were across active months"
+            caption="Stability and year-over-year change across active months"
           />
-          <PredictabilityPanel story={story} />
+          <PredictabilityPanel
+            story={story}
+            previousStory={previousStory}
+            previousYear={previousStory ? previousYear : null}
+          />
         </Surface>
       </div>
     </div>
+  );
+}
+
+function SavingsReportPanel({
+  story,
+  error,
+}: {
+  story: SavingsStory;
+  error: boolean;
+}) {
+  const roundedProgress = story.targetProgress === null
+    ? null
+    : Math.round(story.targetProgress);
+  const coveredTargetTotal = story.targetProgress === null
+    ? 0
+    : story.targetTotal * story.targetProgress / 100;
+
+  return (
+    <section className="reports-savings-panel" aria-labelledby="reports-savings-heading">
+      <header className="reports-savings-heading">
+        <span className="reports-savings-icon" aria-hidden="true" />
+        <div>
+          <h3 id="reports-savings-heading">Savings overview</h3>
+          <p>Current balances and target coverage</p>
+        </div>
+      </header>
+
+      {error ? (
+        <p className="reports-savings-empty" role="status">
+          Savings data could not be loaded.
+        </p>
+      ) : !story.hasGoals ? (
+        <p className="reports-savings-empty">
+          Add a Savings goal to include its balance and progress in this report.
+        </p>
+      ) : (
+        <>
+          <div className="reports-savings-total">
+            <span>Total saved</span>
+            <strong className={story.totalSaved < 0 ? 'is-negative' : ''}>
+              {formatCurrency(story.totalSaved)}
+            </strong>
+          </div>
+
+          {roundedProgress === null ? (
+            <p className="reports-savings-target-empty">
+              Add target values to measure overall progress.
+            </p>
+          ) : (
+            <div className="reports-savings-progress">
+              <div className="reports-savings-progress-label">
+                <span>Target progress</span>
+                <strong>{roundedProgress}%</strong>
+              </div>
+              <div
+                className="reports-savings-progress-track"
+                role="progressbar"
+                aria-label="Overall savings target progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={roundedProgress}
+              >
+                <span style={{ width: `${roundedProgress}%` }} />
+              </div>
+              <small>
+                {formatCurrency(coveredTargetTotal)} of {formatCurrency(story.targetTotal)} covered
+              </small>
+            </div>
+          )}
+
+          <div className="reports-savings-facts">
+            <div>
+              <strong>{story.targetGoalCount > 0 ? formatCurrency(story.remainingToTargets) : '—'}</strong>
+              <span>remaining</span>
+            </div>
+            <div>
+              <strong>{story.targetGoalCount > 0 ? `${story.reachedGoals} of ${story.targetGoalCount}` : '—'}</strong>
+              <span>goals reached</span>
+            </div>
+            <div>
+              <strong>{formatCurrency(story.withoutTargetBalance)}</strong>
+              <span>without target</span>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -221,7 +318,7 @@ function StoryMetric({
     ? '/icons/ui/wallet.svg'
     : icon === 'expenses'
     ? '/icons/ui/credit-card-pay.svg'
-    : '/icons/ui/pig-money.svg';
+    : '/icons/ui/report-money.svg';
 
   return (
     <div className={`reports-story-metric is-${tone}`}>
@@ -308,6 +405,7 @@ function MonthHealthStrip({ story }: { story: FinancialStory }) {
               key={month.month}
               className={`reports-month ${month.hasActivity ? '' : 'is-empty'} ${isBest ? 'is-best' : ''} ${isWorst ? 'is-worst' : ''}`}
               aria-label={label}
+              title={label}
             >
               <div className="reports-month-topline">
                 <span>{month.month}</span>
@@ -349,39 +447,113 @@ function SpendingPanel({ story }: { story: FinancialStory }) {
   }
 
   const largestExpense = story.topExpenses[0]?.total || 1;
+  const groupedTotal = story.expenseGroups.reduce((sum, group) => sum + group.total, 0);
+  const groupsWithColors = story.expenseGroups.map((group, index) => ({
+    ...group,
+    color: SPENDING_GROUP_COLORS[index % SPENDING_GROUP_COLORS.length],
+  }));
+  let segmentStart = 0;
+  const donutSegments = groupsWithColors.map((group) => {
+    const start = segmentStart;
+    segmentStart += group.share;
+    return `${group.color} ${start}% ${segmentStart}%`;
+  });
+  const donutLabel = groupsWithColors
+    .map((group) => `${group.name}: ${formatCurrency(group.total)}, ${group.share.toFixed(1)}%`)
+    .join('; ');
+
   return (
-    <div className="reports-spending-list">
-      {story.topExpenses.map((expense, index) => (
-        <div className="reports-spending-row" key={`${expense.name}-${index}`}>
-          <span className="reports-spending-rank">{index + 1}</span>
-          <div className="reports-spending-main">
-            <div className="reports-spending-label">
-              <strong>{expense.name}</strong>
-              <span>{expense.share.toFixed(1)}%</span>
-            </div>
-            <div className="reports-spending-track" aria-hidden="true">
-              <span style={{ width: `${expense.total / largestExpense * 100}%` }} />
-            </div>
-          </div>
-          <strong className="reports-spending-amount">{formatCurrency(expense.total)}</strong>
+    <div className="reports-spending-content">
+      <div className="reports-spending-groups">
+        <div
+          className="reports-spending-donut"
+          role="img"
+          aria-label={`Expense distribution by group. ${donutLabel}`}
+          style={{ background: `conic-gradient(${donutSegments.join(', ')})` }}
+        >
+          <span className="reports-spending-donut-center" aria-hidden="true">
+            <small>Total</small>
+            <strong>{formatCurrency(groupedTotal)}</strong>
+          </span>
         </div>
-      ))}
+
+        <div className="reports-spending-legend" aria-label="Expense group legend">
+          {groupsWithColors.map((group) => (
+            <div className="reports-spending-legend-row" key={group.groupId ?? 'ungrouped'}>
+              <span
+                className="reports-spending-legend-swatch"
+                style={{ backgroundColor: group.color }}
+                aria-hidden="true"
+              />
+              <strong>{group.name}</strong>
+              <span className="reports-spending-legend-value">
+                {formatCurrency(group.total)}
+                <small>{group.share.toFixed(1)}%</small>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="reports-spending-ranking">
+        <span className="reports-spending-ranking-title">Top expense entries</span>
+        <div className="reports-spending-list">
+          {story.topExpenses.map((expense, index) => (
+            <div className="reports-spending-row" key={`${expense.name}-${index}`}>
+              <span className="reports-spending-rank">{index + 1}</span>
+              <div className="reports-spending-main">
+                <div className="reports-spending-label">
+                  <strong>{expense.name}</strong>
+                  <span>{expense.share.toFixed(1)}%</span>
+                </div>
+                <div className="reports-spending-track" aria-hidden="true">
+                  <span style={{ width: `${expense.total / largestExpense * 100}%` }} />
+                </div>
+              </div>
+              <strong className="reports-spending-amount">{formatCurrency(expense.total)}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-function PredictabilityPanel({ story }: { story: FinancialStory }) {
+const SPENDING_GROUP_COLORS = [
+  '#938ce3',
+  '#4fb58b',
+  '#e9ad4f',
+  '#529bd3',
+  '#db718f',
+  '#4cb8b5',
+  '#bd7fd5',
+  '#df8268',
+];
+
+function PredictabilityPanel({
+  story,
+  previousStory,
+  previousYear,
+}: {
+  story: FinancialStory;
+  previousStory: FinancialStory | null;
+  previousYear: number | null;
+}) {
   return (
     <div className="reports-predictability">
       <StabilityGauge
         icon="/icons/ui/wallet.svg"
         label="Income"
         score={story.incomeStability}
+        previousScore={previousStory?.incomeStability ?? null}
+        previousYear={previousYear}
       />
       <StabilityGauge
         icon="/icons/ui/credit-card-pay.svg"
         label="Expenses"
         score={story.expenseStability}
+        previousScore={previousStory?.expenseStability ?? null}
+        previousYear={previousYear}
       />
 
       <div className="reports-insights">
@@ -428,11 +600,25 @@ function StabilityGauge({
   icon,
   label,
   score,
+  previousScore,
+  previousYear,
 }: {
   icon: string;
   label: string;
   score: number | null;
+  previousScore: number | null;
+  previousYear: number | null;
 }) {
+  const change = score !== null && previousScore !== null ? score - previousScore : null;
+  const changeDirection = change === null || change === 0
+    ? 'flat'
+    : change > 0
+    ? 'up'
+    : 'down';
+  const changeLabel = change === null
+    ? null
+    : `${change > 0 ? '↑ +' : change < 0 ? '↓ ' : '→ '}${change} pp`;
+
   return (
     <div className="reports-stability-row">
       <div className="reports-stability-label">
@@ -447,7 +633,14 @@ function StabilityGauge({
           />
           <span>{label}</span>
         </strong>
-        <span>{score === null ? 'Not enough data' : `${score}% stable`}</span>
+        <span className="reports-stability-values">
+          <span>{score === null ? 'Not enough data' : `${score}% stable`}</span>
+          {changeLabel && previousYear && (
+            <small className={`is-${changeDirection}`}>
+              {changeLabel} <span>vs {previousYear}</span>
+            </small>
+          )}
+        </span>
       </div>
       <div
         className={`reports-stability-track ${score === null ? 'is-empty' : ''}`}

@@ -27,6 +27,8 @@ export function MainBar() {
     setYear,
     theme,
     setTheme,
+    searchQuery,
+    setSearchQuery,
     editMode,
     setEditMode,
     removeSelection,
@@ -204,6 +206,7 @@ export function MainBar() {
   };
 
   const selectAction = (nextMode: 'order' | 'remove' | 'tag') => {
+    if (searchQuery) setSearchQuery('');
     if (editMode === nextMode) {
       exitEditMode();
       return;
@@ -220,6 +223,15 @@ export function MainBar() {
       : editMode === 'tag'
       ? 'Tags'
       : null;
+  const searchDisabled = tab === 'reports';
+  const searchActive = Boolean(searchQuery.trim());
+  const searchPlaceholder = tab === 'expenses'
+    ? 'Search expenses'
+    : tab === 'incomes'
+    ? 'Search incomes'
+    : tab === 'savings'
+    ? 'Search savings'
+    : 'Search';
 
   const primaryActions = (
     <>
@@ -252,6 +264,7 @@ export function MainBar() {
       )}
       <DropdownMenu
         label={actionButtonLabel('/icons/ui/automation.svg', actionLabel ? `Actions · ${actionLabel}` : 'Actions')}
+        align="right"
         block
         buttonClassName={`mobile-primary mainbar-action-control context-actions-button ${editMode ? 'context-action-active' : ''}`}
         showCaret={!editMode}
@@ -274,7 +287,7 @@ export function MainBar() {
         <SoftButton
           type="button"
           variant="danger"
-          className="w-full md:w-auto mobile-primary mainbar-action-control"
+          className="w-full md:w-auto mobile-primary mainbar-action-control context-remove-selected-button"
           disabled={removeSelection.size === 0 && groupRemoveSelection.size === 0}
           onClick={requestBulkRemove}
         >
@@ -320,7 +333,7 @@ export function MainBar() {
             <img
               src="/icon-128x128.png"
               alt="MOPAY"
-              className="h-[76px] w-auto object-contain drop-shadow-lg"
+              className="mainbar-logo h-[76px] w-auto object-contain drop-shadow-lg"
             />
           </div>
           <div className="hidden md:flex items-center gap-2 justify-end md:justify-self-end utility-group mainbar-desktop-only">
@@ -355,6 +368,47 @@ export function MainBar() {
                 <span>{item.label}</span>
               </button>
             ))}
+          </div>
+          <div className={`mainbar-search ${searchActive ? 'is-active' : ''} ${searchDisabled ? 'is-disabled' : ''}`}>
+            <label className="sr-only" htmlFor="mainbar-search-input">
+              {searchPlaceholder}
+            </label>
+            <span className="mainbar-search-icon" aria-hidden="true" />
+            <input
+              id="mainbar-search-input"
+              type="search"
+              className="mainbar-search-input"
+              value={searchQuery}
+              placeholder={searchPlaceholder}
+              disabled={searchDisabled}
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={80}
+              onChange={(event) => {
+                if (editMode) exitEditMode();
+                setSearchQuery(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setSearchQuery('');
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+            {searchActive && !searchDisabled && (
+              <button
+                type="button"
+                className="mainbar-search-clear"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery('')}
+              >
+                ×
+              </button>
+            )}
+            <span className="sr-only" aria-live="polite">
+              {searchActive ? 'Current view is filtered' : 'Showing all items'}
+            </span>
           </div>
           <div className="flex flex-col gap-2 w-full md:w-auto mainbar-mobile-controls">
             <div className="flex flex-col gap-2 md:hidden mainbar-mobile-only">
