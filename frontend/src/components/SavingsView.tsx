@@ -5,6 +5,7 @@ import { useAppStore } from '../store';
 import { Surface } from './Surface';
 import { SoftButton } from './SoftButton';
 import { formatCurrency, formatCurrencyPlain, parseCurrencyInput } from '../utils/currency';
+import { includesSearch, normalizeSearchText } from '../utils/search';
 
 type SavingsItem = {
   id: number;
@@ -43,6 +44,7 @@ const formatSignedCurrency = (value: number) =>
 
 export function SavingsView() {
   const year = useAppStore((s) => s.year);
+  const searchQuery = useAppStore((s) => s.searchQuery);
   const openGoalModal = useAppStore((s) => s.openGoalModal);
   const [expandedGoalId, setExpandedGoalId] = useState<number | null>(null);
 
@@ -53,6 +55,14 @@ export function SavingsView() {
   });
 
   const goals = (savingsQuery.data?.goals ?? []) as SavingsGoal[];
+  const normalizedSearch = normalizeSearchText(searchQuery);
+  const visibleGoals = useMemo(() => {
+    if (!normalizedSearch) return goals;
+    return goals.filter((goal) =>
+      includesSearch(goal.name, normalizedSearch)
+      || goal.items.some((item) => includesSearch(item.name, normalizedSearch))
+    );
+  }, [goals, normalizedSearch]);
   const goalIdsKey = goals.map((goal) => goal.id).join(',');
 
   useEffect(() => {
@@ -98,14 +108,22 @@ export function SavingsView() {
     );
   }
 
+  if (normalizedSearch && !visibleGoals.length) {
+    return (
+      <Surface variant="layer" className="savings-placeholder search-results-empty" role="status">
+        <p>No savings goals match “{searchQuery.trim()}”.</p>
+      </Surface>
+    );
+  }
+
   return (
     <div className="savings-accordion">
-      {goals.map((goal) => (
+      {visibleGoals.map((goal) => (
         <GoalCard
           key={goal.id}
           year={year}
           goal={goal}
-          expanded={expandedGoalId === goal.id}
+          expanded={normalizedSearch ? true : expandedGoalId === goal.id}
           onToggle={() =>
             setExpandedGoalId((current) => (current === goal.id ? null : goal.id))
           }

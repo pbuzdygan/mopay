@@ -3,6 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Api } from '../../api';
 import type { EntryGroup, EntryPatch, EntryRowData, EntryTag } from './types';
 
+const EMPTY_ENTRIES: EntryRowData[] = [];
+const EMPTY_GROUPS: EntryGroup[] = [];
+const EMPTY_TAGS: EntryTag[] = [];
+
 export function useTableQueryState({
   type,
   year,
@@ -26,15 +30,18 @@ export function useTableQueryState({
     queryFn: () => Api.tags.list(year!),
   });
 
-  const entriesFromServer = (entriesQuery.data?.entries ?? []) as EntryRowData[];
-  const groups = (groupsQuery.data?.groups ?? []) as EntryGroup[];
-  const tagsList = (tagsQuery.data?.tags ?? []) as EntryTag[];
+  const entriesFromServer = (entriesQuery.data?.entries ?? EMPTY_ENTRIES) as EntryRowData[];
+  const groups = (groupsQuery.data?.groups ?? EMPTY_GROUPS) as EntryGroup[];
+  const tagsList = (tagsQuery.data?.tags ?? EMPTY_TAGS) as EntryTag[];
 
   const [entryOverrides, setEntryOverrides] = useState<Record<number, EntryPatch>>({});
 
   useEffect(() => {
     setEntryOverrides((prev) => {
       const validIds = new Set(entriesFromServer.map((entry) => entry.id));
+      const hasStaleOverrides = Object.keys(prev).some((id) => !validIds.has(Number(id)));
+      if (!hasStaleOverrides) return prev;
+
       const next: Record<number, EntryPatch> = {};
       Object.entries(prev).forEach(([id, patch]) => {
         const numericId = Number(id);

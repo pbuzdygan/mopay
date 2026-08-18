@@ -107,6 +107,7 @@ export function TableContextPanel({
       onClose();
     } catch (removeError) {
       setError(errorMessage(removeError));
+    } finally {
       setSaving(false);
     }
   };
@@ -174,7 +175,7 @@ export function TableContextPanel({
                   <label className="field-stack">
                     <span className="field-label">Group</span>
                     <select
-                      className="input"
+                      className="input app-select"
                       value={groupId ?? ''}
                       onChange={(event) => setGroupId(event.target.value ? Number(event.target.value) : null)}
                     >
@@ -183,7 +184,6 @@ export function TableContextPanel({
                         <option key={group.id} value={group.id}>{group.name}</option>
                       ))}
                     </select>
-                    <span className="field-helper">Moving one entry belongs here, not in selection mode.</span>
                   </label>
                   <label className="field-stack">
                     <span className="field-label">Comment</span>
@@ -212,32 +212,31 @@ export function TableContextPanel({
 
               {error && <p className="table-context-error" role="alert">{error}</p>}
 
-              <div className="table-context-save-row">
-                <SoftButton type="button" variant="ghost" onClick={onClose} disabled={saving}>Cancel</SoftButton>
-                <button type="button" className="btn px-5" onClick={() => void save()} disabled={!name.trim() || saving}>
-                  {saving ? 'Saving…' : 'Save changes'}
-                </button>
-              </div>
-
-              <section className="table-context-danger">
-                <div>
-                  <strong>{target.kind === 'entry' ? 'Remove entry' : 'Remove group'}</strong>
-                  <p>
-                    {target.kind === 'entry'
-                      ? 'The entry and its values will be removed.'
-                      : 'Entries will remain and move to Ungrouped.'}
-                  </p>
-                </div>
+              <div className="table-context-actions">
                 {!confirmRemove ? (
-                  <SoftButton type="button" variant="danger" onClick={() => setConfirmRemove(true)} disabled={saving}>Remove</SoftButton>
+                  <SoftButton
+                    type="button"
+                    variant="danger"
+                    className="table-context-remove-button ui-tooltip"
+                    aria-label={target.kind === 'entry' ? 'Remove entry' : 'Remove group'}
+                    data-tooltip={target.kind === 'entry' ? 'Remove entry' : 'Remove group'}
+                    onClick={() => setConfirmRemove(true)}
+                    disabled={saving}
+                  >
+                    <span className="table-context-remove-icon" aria-hidden="true" />
+                  </SoftButton>
                 ) : (
-                  <div className="table-context-confirm">
-                    <span>Are you sure?</span>
-                    <SoftButton type="button" variant="ghost" onClick={() => setConfirmRemove(false)} disabled={saving}>No</SoftButton>
-                    <SoftButton type="button" variant="danger" onClick={() => void remove()} disabled={saving}>Yes, remove</SoftButton>
-                  </div>
+                  <SoftButton type="button" variant="warning" onClick={() => void remove()} disabled={saving}>
+                    {saving ? 'Working…' : 'Confirm'}
+                  </SoftButton>
                 )}
-              </section>
+                <div className="table-context-save-row">
+                  <SoftButton type="button" variant="ghost" onClick={onClose} disabled={saving}>Cancel</SoftButton>
+                  <button type="button" className="btn px-5" onClick={() => void save()} disabled={!name.trim() || saving}>
+                    {saving ? 'Saving…' : 'Save changes'}
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.aside>
         </div>

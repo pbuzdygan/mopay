@@ -27,6 +27,7 @@ import "./styles/global.css";
 
 export default function App() {
   const theme = useAppStore((s) => s.theme);
+  const viewMode = useAppStore((s) => s.viewMode);
   const tab = useAppStore((s) => s.tab);
   const setMigrationNotice = useAppStore((s) => s.setMigrationNotice);
   const setKeyMismatch = useAppStore((s) => s.setKeyMismatch);
@@ -60,6 +61,10 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    document.documentElement.setAttribute('data-view', viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
     (async () => {
       try {
         const status = await Api.encryption.status();
@@ -88,7 +93,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="py-4 lg:py-6">
+      <main className="app-main py-4 lg:py-6">
         <div className="app-container">
           {tab === 'reports'
             ? <ReportsView />

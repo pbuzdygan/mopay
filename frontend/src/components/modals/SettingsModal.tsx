@@ -9,6 +9,8 @@ export function SettingsModal(){
   const { modals, closeModal, theme, setTheme } = useAppStore();
   const showGroupTotals = useAppStore((s) => s.showGroupTotals);
   const setShowGroupTotals = useAppStore((s) => s.setShowGroupTotals);
+  const viewMode = useAppStore((s) => s.viewMode);
+  const setViewMode = useAppStore((s) => s.setViewMode);
   const appVersion = useAppStore((s) => s.appVersion);
   const latestVersion = useAppStore((s) => s.latestVersion);
   const latestReleaseUrl = useAppStore((s) => s.latestReleaseUrl);
@@ -94,6 +96,30 @@ export function SettingsModal(){
               <span className="settings-toggle-track">
                 <span className="settings-toggle-label settings-toggle-label-left">Off</span>
                 <span className="settings-toggle-label settings-toggle-label-right">On</span>
+              </span>
+              <span className="settings-toggle-knob" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-text">
+              <div className="settings-title">
+                <span className="settings-icon" aria-hidden="true">
+                  <img src="/icons/ui/ruler-measure.svg" alt="" className="settings-icon-svg" />
+                </span>
+                View
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`settings-toggle settings-view-toggle ${viewMode === 'compact' ? 'is-on' : ''}`}
+              aria-label="View density"
+              aria-pressed={viewMode === 'compact'}
+              onClick={() => setViewMode(viewMode === 'normal' ? 'compact' : 'normal')}
+            >
+              <span className="settings-toggle-track">
+                <span className="settings-toggle-label settings-toggle-label-left">Normal</span>
+                <span className="settings-toggle-label settings-toggle-label-right">Compact</span>
               </span>
               <span className="settings-toggle-knob" aria-hidden="true" />
             </button>

@@ -71,11 +71,14 @@ function save(k: string, v: any) {
 }
 
 type Tab = 'expenses' | 'incomes' | 'savings' | 'reports';
+type ViewMode = 'normal' | 'compact';
 
 type State = {
   tab: Tab;
   year: number | null;
   theme: 'light' | 'dark';
+  viewMode: ViewMode;
+  searchQuery: string;
   showGroupTotals: boolean;
   editMode: null | 'order' | 'remove' | 'tag';
   addEntryGroupId: number | null;
@@ -104,6 +107,8 @@ type State = {
   setTab: (t: Tab) => void;
   setYear: (y: number | null) => void;
   setTheme: (m: 'light' | 'dark') => void;
+  setViewMode: (mode: ViewMode) => void;
+  setSearchQuery: (query: string) => void;
   setEditMode: (m: State['editMode']) => void;
   setPinSession: (ok: boolean) => void;
   toggleRemoveId: (id: number) => void;
@@ -129,6 +134,8 @@ export const useAppStore = create<State>((set, get) => ({
   tab: load<Tab>('tab', 'expenses'),
   year: load<number | null>('year', null),
   theme: load<'light' | 'dark'>('theme', 'light'),
+  viewMode: load<ViewMode>('viewMode', 'normal'),
+  searchQuery: '',
   showGroupTotals: load<boolean>('showGroupTotals', false),
   editMode: null,
   addEntryGroupId: null,
@@ -157,7 +164,7 @@ export const useAppStore = create<State>((set, get) => ({
 
   setTab: (tab) => {
     save('tab', tab);
-    set({ tab });
+    set((state) => state.tab === tab ? { tab } : { tab, searchQuery: '' });
   },
 
   setYear: (year) => {
@@ -169,6 +176,13 @@ export const useAppStore = create<State>((set, get) => ({
     save('theme', theme);
     set({ theme });
   },
+
+  setViewMode: (viewMode) => {
+    save('viewMode', viewMode);
+    set({ viewMode });
+  },
+
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
 
   setShowGroupTotals: (showGroupTotals) => {
     save('showGroupTotals', showGroupTotals);

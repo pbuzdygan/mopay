@@ -4,6 +4,7 @@ import { useAppStore } from '../store';
 import { Api } from '../api';
 import { getCurrentMonthForYear, MONTHS } from '../utils/months';
 import { formatCurrency, formatCurrencyPlain, parseCurrencyInputNullable } from '../utils/currency';
+import { includesSearch, normalizeSearchText } from '../utils/search';
 import { DndContext, closestCenter, PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -16,7 +17,7 @@ import { TableContextPanel, type TableContextTarget } from './table/TableContext
 import type { EntryGroup, EntryPatch, EntryRowData, EntryTag } from './table/types';
 
 const GRID_TEMPLATE =
-  'grid grid-cols-[208px_repeat(12,72px)_78px_72px]';
+  'table-data-grid';
 
 const normalizeEntryMonthKey = (month: string) => (month === 'Dec' ? 'Decm' : month);
 const makeGroupTotals = (list: EntryRowData[]) => {
@@ -67,7 +68,7 @@ const GroupRowSortable = memo(function GroupRowSortable({
           {...listeners}
           aria-label="Reorder group"
         >
-          ↕
+          <span className="order-handle-icon" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -181,7 +182,7 @@ const Row = memo(function Row({
             style={{ background: 'var(--panel-subtle)' }}
             aria-label="Reorder"
           >
-            ↕
+            <span className="order-handle-icon" aria-hidden="true" />
           </button>
         ) : editMode === 'remove' ? (
           <input
@@ -205,7 +206,7 @@ const Row = memo(function Row({
         const tagText = tag?.text?.trim();
         const tagHasColor = Boolean(tag && tag.color !== 'none');
         return (
-        <div key={m} className="text-right">
+        <div key={m} className="table-month-cell text-right">
           {(canEditValues && editingMonth === m) ? (
             <input
               className="table-input"
@@ -269,6 +270,7 @@ export function TableView() {
   const type = tableTab === 'incomes' ? 'income' : 'expense';
   const currentMonth = getCurrentMonthForYear(year);
   const showGroupTotals = useAppStore((s) => s.showGroupTotals);
+  const searchQuery = useAppStore((s) => s.searchQuery);
   const qc = useQueryClient();
   const fadeControls = useAnimationControls();
   const [hasRendered, setHasRendered] = useState(false);
@@ -283,6 +285,25 @@ export function TableView() {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [groupOrder, setGroupOrder] = useState<number[] | null>(null);
   const [contextTarget, setContextTarget] = useState<TableContextTarget | null>(null);
+  const normalizedSearch = normalizeSearchText(searchQuery);
+  const matchingGroupIds = useMemo(() => {
+    if (!normalizedSearch) return new Set<number>();
+    return new Set(
+      groups
+        .filter((group) => includesSearch(group.name, normalizedSearch))
+        .map((group) => group.id)
+    );
+  }, [groups, normalizedSearch]);
+  const visibleRows = useMemo(() => {
+    if (!normalizedSearch) return rows;
+    const matchesUngrouped = 'ungrouped'.includes(normalizedSearch);
+    return rows.filter((entry) =>
+      includesSearch(entry.name, normalizedSearch)
+      || includesSearch(entry.comment, normalizedSearch)
+      || (entry.groupId !== null && matchingGroupIds.has(entry.groupId))
+      || (entry.groupId === null && matchesUngrouped)
+    );
+  }, [matchingGroupIds, normalizedSearch, rows]);
 
   useEffect(() => {
     setHasRendered(true);
@@ -322,6 +343,10 @@ export function TableView() {
     setGroupOrder(null);
     setContextTarget(null);
   }, [type, year]);
+
+  useEffect(() => {
+    setContextTarget(null);
+  }, [normalizedSearch]);
 
   const setGroupCollapsed = (groupKey: string, collapsed: boolean) => {
     if (!year) return;
@@ -429,7 +454,7 @@ export function TableView() {
 
   const entriesByGroup = useMemo(() => {
     const map = new Map<number | null, EntryRowData[]>();
-    for (const e of rows) {
+    for (const e of visibleRows) {
       const key = e.groupId ?? null;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
@@ -439,7 +464,7 @@ export function TableView() {
       map.set(key, list);
     }
     return map;
-  }, [rows]);
+  }, [visibleRows]);
 
   const sortedGroups = useMemo(() => {
     const list = [...groups];
@@ -454,9 +479,16 @@ export function TableView() {
     });
   }, [groups, groupOrder]);
 
+  const visibleGroups = useMemo(() => {
+    if (!normalizedSearch) return sortedGroups;
+    return sortedGroups.filter((group) =>
+      matchingGroupIds.has(group.id) || entriesByGroup.has(group.id)
+    );
+  }, [entriesByGroup, matchingGroupIds, normalizedSearch, sortedGroups]);
+
   const totals = useMemo(()=>{
-    return makeGroupTotals(rows);
-  }, [rows]);
+    return makeGroupTotals(visibleRows);
+  }, [visibleRows]);
 
   const handleRowMonthUpdate = (entryId: number, month: string, value: number | null) =>
     patchEntryLocal(entryId, { [normalizeEntryMonthKey(month)]: value } as EntryPatch);
@@ -541,7 +573,7 @@ export function TableView() {
         <motion.div animate={fadeControls} initial={{ opacity: 1 }}>
           <div className="overflow-x-auto">
             <div
-              className="inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
+              className="table-content inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
               style={{ width: 'max-content' }}
             >
             <TableHeaderRow gridTemplate={GRID_TEMPLATE} tab={tableTab} currentMonth={currentMonth} />
@@ -552,12 +584,12 @@ export function TableView() {
                 collisionDetection={closestCenter}
                 onDragEnd={handleGroupDragEnd}
               >
-                <SortableContext items={sortedGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={visibleGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2">
-                    {sortedGroups.map((g) => {
+                    {visibleGroups.map((g) => {
                       const groupKey = `g:${g.id}`;
                       const groupEntries = entriesByGroup.get(g.id) ?? [];
-                      const isCollapsed = Boolean(collapsedGroups[groupKey]);
+                      const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
                       const totals = makeGroupTotals(groupEntries);
                       return (
                         <div key={groupKey} className="space-y-2">
@@ -600,9 +632,9 @@ export function TableView() {
                     {(() => {
                       const groupKey = 'ungrouped';
                       const groupEntries = entriesByGroup.get(null) ?? [];
-                      const isCollapsed = Boolean(collapsedGroups[groupKey]);
+                      const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
                       const totals = makeGroupTotals(groupEntries);
-                      const shouldRender = groupEntries.length > 0 || sortedGroups.length === 0;
+                      const shouldRender = groupEntries.length > 0 || (!normalizedSearch && visibleGroups.length === 0);
                       if (!shouldRender) return null;
                       return (
                         <div key={groupKey} className="space-y-2">
@@ -662,10 +694,10 @@ export function TableView() {
               </DndContext>
             ) : (
               <div className="space-y-2">
-                {sortedGroups.map((g) => {
+                {visibleGroups.map((g) => {
                   const groupKey = `g:${g.id}`;
                   const groupEntries = entriesByGroup.get(g.id) ?? [];
-                  const isCollapsed = Boolean(collapsedGroups[groupKey]);
+                  const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
                   const totals = makeGroupTotals(groupEntries);
                   return (
                     <div key={groupKey} className="space-y-2">
@@ -728,9 +760,9 @@ export function TableView() {
                 {(() => {
                   const groupKey = 'ungrouped';
                   const groupEntries = entriesByGroup.get(null) ?? [];
-                  const isCollapsed = Boolean(collapsedGroups[groupKey]);
+                  const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
                   const totals = makeGroupTotals(groupEntries);
-                  const shouldRender = groupEntries.length > 0 || sortedGroups.length === 0;
+                  const shouldRender = groupEntries.length > 0 || (!normalizedSearch && visibleGroups.length === 0);
                   if (!shouldRender) return null;
                   return (
                     <div key={groupKey} className="space-y-2">
@@ -779,6 +811,12 @@ export function TableView() {
               </div>
             )}
 
+            {normalizedSearch && visibleRows.length === 0 && visibleGroups.length === 0 && (
+              <div className="table-search-empty" role="status">
+                No entries match “{searchQuery.trim()}”.
+              </div>
+            )}
+
             <TableTotalRow gridTemplate={GRID_TEMPLATE} totals={totals} />
             </div>
           </div>
@@ -814,6 +852,7 @@ export function TableView() {
         }}
         onArrangeGroup={() => {
           setContextTarget(null);
+          useAppStore.getState().setSearchQuery('');
           setEditMode('order');
         }}
       />

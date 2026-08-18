@@ -4,7 +4,13 @@ export type ReportEntry = {
   id: number;
   name: string;
   comment?: string | null;
+  groupId?: number | null;
   [key: string]: number | string | null | undefined;
+};
+
+export type ReportEntryGroup = {
+  id: number;
+  name: string;
 };
 
 export type ReportMonth = {
@@ -23,6 +29,10 @@ export type SpendingBreakdown = {
   share: number;
 };
 
+export type SpendingGroupBreakdown = SpendingBreakdown & {
+  groupId: number | null;
+};
+
 export type EntryStability = {
   name: string;
   score: number;
@@ -38,6 +48,7 @@ export type FinancialStory = {
   worstMonth: ReportMonth | null;
   maxMonthlyFlow: number;
   topExpenses: SpendingBreakdown[];
+  expenseGroups: SpendingGroupBreakdown[];
   incomeStability: number | null;
   expenseStability: number | null;
   steadiestIncome: EntryStability | null;
@@ -55,6 +66,22 @@ export type AnnualComparison = {
   income: MetricComparison;
   expense: MetricComparison;
   net: MetricComparison;
+};
+
+export type SavingsReportGoal = {
+  targetValue: number | null;
+  items: Array<{ value: number }>;
+};
+
+export type SavingsStory = {
+  hasGoals: boolean;
+  totalSaved: number;
+  targetTotal: number;
+  targetProgress: number | null;
+  remainingToTargets: number;
+  reachedGoals: number;
+  targetGoalCount: number;
+  withoutTargetBalance: number;
 };
 
 const monthValue = (entry: ReportEntry, month: MonthKey) => {
@@ -104,7 +131,8 @@ const entryStabilities = (entries: ReportEntry[], activeMonths: MonthKey[]) =>
 
 export function buildFinancialStory(
   incomes: ReportEntry[],
-  expenses: ReportEntry[]
+  expenses: ReportEntry[],
+  expenseGroupDefinitions: ReportEntryGroup[] = []
 ): FinancialStory {
   const months = MONTHS.map((month) => {
     const incomeResult = aggregateMonth(incomes, month);
@@ -135,15 +163,34 @@ export function buildFinancialStory(
 
   const totalIncome = months.reduce((sum, month) => sum + month.income, 0);
   const totalExpense = months.reduce((sum, month) => sum + month.expense, 0);
-  const topExpenses = expenses
+  const expenseEntryTotals = expenses
     .map((entry) => ({ name: entry.name, total: entryTotal(entry) }))
-    .filter((entry) => entry.total > 0)
+    .filter((entry) => entry.total > 0);
+  const topExpenses = expenseEntryTotals
     .sort((left, right) => right.total - left.total)
     .slice(0, 5)
     .map((entry) => ({
       ...entry,
       share: totalExpense > 0 ? (entry.total / totalExpense) * 100 : 0,
     }));
+  const groupNames = new Map(expenseGroupDefinitions.map((group) => [group.id, group.name]));
+  const groupTotals = new Map<number | null, number>();
+  expenses.forEach((entry) => {
+    const total = entryTotal(entry);
+    if (total <= 0) return;
+    const groupId = entry.groupId ?? null;
+    groupTotals.set(groupId, (groupTotals.get(groupId) ?? 0) + total);
+  });
+  const groupedExpenseTotal = Array.from(groupTotals.values())
+    .reduce((sum, total) => sum + total, 0);
+  const expenseGroups = Array.from(groupTotals.entries())
+    .map(([groupId, total]) => ({
+      groupId,
+      name: groupId === null ? 'Ungrouped' : groupNames.get(groupId) ?? `Group ${groupId}`,
+      total,
+      share: groupedExpenseTotal > 0 ? total / groupedExpenseTotal * 100 : 0,
+    }))
+    .sort((left, right) => right.total - left.total);
 
   const incomeEntries = entryStabilities(incomes, activeMonthKeys)
     .sort((left, right) => right.score - left.score);
@@ -171,6 +218,7 @@ export function buildFinancialStory(
       ...months.flatMap((month) => [Math.abs(month.income), Math.abs(month.expense)])
     ),
     topExpenses,
+    expenseGroups,
     incomeStability: stabilityScore(
       analysisMonths.filter((month) => month.incomeHasData).map((month) => month.income)
     ),
@@ -222,5 +270,43 @@ export function buildAnnualComparison(
     income: compareMetric(current.totalIncome, previous.totalIncome),
     expense: compareMetric(current.totalExpense, previous.totalExpense, { lowerIsBetter: true }),
     net: compareMetric(current.net, previous.net, { detectSignChange: true }),
+  };
+}
+
+export function buildSavingsStory(goals: SavingsReportGoal[]): SavingsStory {
+  const balances = goals.map((goal) => ({
+    goal,
+    saved: goal.items.reduce((sum, item) => {
+      const value = Number(item.value ?? 0);
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0),
+  }));
+  const targetGoals = balances
+    .filter(({ goal }) => Number(goal.targetValue) > 0)
+    .map(({ goal, saved }) => {
+      const target = Number(goal.targetValue);
+      return {
+        saved,
+        target,
+        remaining: Math.max(0, target - saved),
+        reached: saved >= target,
+      };
+    });
+  const targetTotal = targetGoals.reduce((sum, goal) => sum + goal.target, 0);
+  const fundedTargetTotal = targetGoals.reduce(
+    (sum, goal) => sum + Math.min(goal.target, Math.max(0, goal.saved)),
+    0
+  );
+  const withoutTarget = balances.filter(({ goal }) => Number(goal.targetValue) <= 0);
+
+  return {
+    hasGoals: goals.length > 0,
+    totalSaved: balances.reduce((sum, goal) => sum + goal.saved, 0),
+    targetTotal,
+    targetProgress: targetTotal > 0 ? fundedTargetTotal / targetTotal * 100 : null,
+    remainingToTargets: targetGoals.reduce((sum, goal) => sum + goal.remaining, 0),
+    reachedGoals: targetGoals.filter((goal) => goal.reached).length,
+    targetGoalCount: targetGoals.length,
+    withoutTargetBalance: withoutTarget.reduce((sum, goal) => sum + goal.saved, 0),
   };
 }
