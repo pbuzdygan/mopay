@@ -271,3 +271,9 @@ If You like results of my efforts, feel free to show that by supporting me.
 <p align="left">
   <img src="branding/bmc_qr.png" width="25%" alt="BMC QR code">
 </p>
+
+## Search shortcuts and mobile forms
+
+In Expenses, Incomes and Savings, press `/` or **Ctrl+K** (**Cmd+K** on macOS) to focus search when not editing another field. **Escape** clears search and leaves the field. Shortcuts do not move focus behind the PIN screen or an open dialog; search remains unavailable in Reports.
+
+On mobile, search shares the row with Year, Menu, Lock and Theme, filling the space between Menu and Lock. Editable fields keep at least 16px text on small/touch screens to avoid small-text focus zoom; manual pinch zoom remains available. The layout and font sizes were checked in Chromium mobile emulation, including landscape; real iOS/Safari keyboard behavior still needs a device check.

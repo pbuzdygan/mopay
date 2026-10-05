@@ -3,6 +3,7 @@
 ## v1.6.2
 
 ### Bug fix
+- prevented small mobile form text from triggering focus zoom by preserving at least 16px editable text, including search, PIN, table fields and dialogs, without disabling user zoom
 - fixed the PIN login overlay briefly flashing back after a successful unlock and preserved mobile card alignment during its exit animation
 - bounded XLSX import/validation archive expansion and worksheet structure, isolated parsing with a time/heap budget, and prevented concurrent parsing from exhausting the backend
 - fixed malformed export requests and asynchronous XLSX download failures that could terminate the backend; export years are validated, limited to 100 per request, and deduplicated
@@ -14,6 +15,7 @@
 - simplified entry/group details transitions and replaced animated full-screen backdrop blur with stable dimming for shared dialogs and details panels
 
 ### Improvements
+- moved mobile search into the year/menu/lock/theme row, using available space between Menu and Lock; added `/` and Ctrl/Cmd+K search focus shortcuts that preserve editing and modal/PIN focus
 - hardened the runtime image with a digest-pinned Node 24 base and Debian security updates, removed runtime npm/Yarn and unused system SQLite, and replaced gosu with existing setpriv; verified privilege dropping, permission denial and SIGTERM handling and documented full container scan results and residual vendor advisories
 - enforced a restrictive browser Content Security Policy and denied framing of the app, while preserving PIN animations, GitHub release checks, blob downloads and PWA offline assets; refreshed the PWA document revision for adoption of the new headers
 - migrated to Tailwind CSS 4 with its official Vite plugin, preserving existing theme/layout behavior and removing the vulnerable Tailwind 3/braces build chain; full frontend dependency audits now gate CI

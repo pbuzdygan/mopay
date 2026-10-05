@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Api } from '../api';
 import { useAppStore } from '../store';
 import { YearDropdown } from './YearDropdown';
@@ -39,6 +39,27 @@ export function MainBar() {
     openGoalModal,
     openAddEntry,
   } = useAppStore();
+
+  const desktopSearchRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      const shortcut = (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key === '/')
+        || ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k');
+      if (!shortcut || event.defaultPrevented || event.isComposing || event.repeat) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
+      if (!useAppStore.getState().pinSession || document.querySelector('.modal-overlay-premium, .table-context-panel, .pin-guard-overlay')) return;
+      const input = [mobileSearchRef.current, desktopSearchRef.current].find(node => node && node.getClientRects().length);
+      if (!input || input.disabled || !input.getClientRects().length) return;
+      event.preventDefault();
+      input.focus();
+      input.select();
+    };
+    document.addEventListener('keydown', focusSearch);
+    return () => document.removeEventListener('keydown', focusSearch);
+  }, []);
 
   const yearsQ = useQuery({ queryKey: ['years'], queryFn: Api.years.list });
   const years = (yearsQ.data?.years ?? []) as number[];
@@ -318,6 +339,53 @@ export function MainBar() {
     return primaryActions;
   };
 
+  const renderSearch = (location: 'desktop' | 'mobile') => (
+    <div className={`mainbar-search mainbar-search-${location} ${location === 'desktop' ? 'mainbar-desktop-only' : ''} ${searchActive ? 'is-active' : ''} ${searchDisabled ? 'is-disabled' : ''}`}>
+      <label className="sr-only" htmlFor={`mainbar-search-${location}`}>
+        {searchPlaceholder}
+      </label>
+      <span className="mainbar-search-icon" aria-hidden="true" />
+      <input
+        id={`mainbar-search-${location}`}
+        ref={location === 'mobile' ? mobileSearchRef : desktopSearchRef}
+        aria-keyshortcuts="/ Control+k Meta+k"
+        title="Search (/ or Ctrl/Cmd+K)"
+        type="search"
+        className="mainbar-search-input"
+        value={searchQuery}
+        placeholder={searchPlaceholder}
+        disabled={searchDisabled}
+        autoComplete="off"
+        spellCheck={false}
+        maxLength={80}
+        onChange={(event) => {
+          if (editMode) exitEditMode();
+          setSearchQuery(event.target.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            setSearchQuery('');
+            event.currentTarget.blur();
+          }
+        }}
+      />
+      {searchActive && !searchDisabled && (
+        <button
+          type="button"
+          className="mainbar-search-clear"
+          aria-label="Clear search"
+          onClick={() => setSearchQuery('')}
+        >
+          ×
+        </button>
+      )}
+      <span className="sr-only" aria-live="polite">
+        {searchActive ? 'Current view is filtered' : 'Showing all items'}
+      </span>
+    </div>
+  );
+
   return (
     <div className="py-2">
       <Surface className="stack gap-4 mainbar-shell">
@@ -369,47 +437,7 @@ export function MainBar() {
               </button>
             ))}
           </div>
-          <div className={`mainbar-search ${searchActive ? 'is-active' : ''} ${searchDisabled ? 'is-disabled' : ''}`}>
-            <label className="sr-only" htmlFor="mainbar-search-input">
-              {searchPlaceholder}
-            </label>
-            <span className="mainbar-search-icon" aria-hidden="true" />
-            <input
-              id="mainbar-search-input"
-              type="search"
-              className="mainbar-search-input"
-              value={searchQuery}
-              placeholder={searchPlaceholder}
-              disabled={searchDisabled}
-              autoComplete="off"
-              spellCheck={false}
-              maxLength={80}
-              onChange={(event) => {
-                if (editMode) exitEditMode();
-                setSearchQuery(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  setSearchQuery('');
-                  event.currentTarget.blur();
-                }
-              }}
-            />
-            {searchActive && !searchDisabled && (
-              <button
-                type="button"
-                className="mainbar-search-clear"
-                aria-label="Clear search"
-                onClick={() => setSearchQuery('')}
-              >
-                ×
-              </button>
-            )}
-            <span className="sr-only" aria-live="polite">
-              {searchActive ? 'Current view is filtered' : 'Showing all items'}
-            </span>
-          </div>
+          {renderSearch('desktop')}
           <div className="flex flex-col gap-2 w-full md:w-auto mainbar-mobile-controls">
             <div className="flex flex-col gap-2 md:hidden mainbar-mobile-only">
               <div className="flex flex-wrap items-center gap-2 mainbar-mobile-top-row">
@@ -445,6 +473,7 @@ export function MainBar() {
                     </>
                   )}
                 </DropdownMenu>
+                {renderSearch('mobile')}
                 <div className="mainbar-mobile-inline-utils mainbar-mobile-inline-utils-push">
                   {mobileUtilityButtons}
                 </div>

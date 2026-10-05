@@ -943,11 +943,52 @@ html[data-view='compact'] {
   }
 }
 
-@media (max-width: 767px) {
-  .mainbar-search {
-    flex: none;
-    width: 100%;
+@media (max-width: 767px), (max-height: 450px) and (orientation: landscape) {
+  .mainbar-search-desktop {
+    display: none;
+  }
+
+  .mainbar-search-mobile {
+    flex: 1 1 0;
+    width: auto;
     min-width: 0;
+  }
+
+  .mainbar-mobile-top-row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .mainbar-mobile-top-row > .dropdown-root,
+  .mainbar-mobile-inline-utils {
+    flex-shrink: 0;
+  }
+
+  .mainbar-mobile-inline-utils {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mainbar-year-dropdown-mobile {
+    flex: 0 0 76px;
+    width: 76px;
+    min-width: 76px;
+  }
+
+  .mainbar-search-mobile .mainbar-search-input {
+    height: 32px;
+    padding-left: 1.75rem;
+    padding-right: 0.4rem;
+  }
+
+  .mainbar-search-mobile.is-active .mainbar-search-input {
+    padding-right: 1.8rem;
+  }
+
+  .mainbar-search-mobile .mainbar-search-icon {
+    left: 0.5rem;
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -4708,9 +4749,9 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
   }
 
   .mainbar-mobile-top-row .mainbar-year-dropdown-mobile {
-    flex: 0 0 96px;
-    width: 96px;
-    min-width: 96px;
+    flex: 0 0 76px;
+    width: 76px;
+    min-width: 76px;
     height: 32px;
   }
 
@@ -4990,5 +5031,36 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
   .table-context-actions .btn {
     padding-left: 0.7rem;
     padding-right: 0.7rem;
+  }
+}
+
+/* Small editable text triggers automatic focus zoom on mobile browsers.
+   Preserve readable form text while leaving user pinch zoom available. */
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']),
+  textarea,
+  select,
+  [contenteditable='true'],
+  [contenteditable='plaintext-only'] {
+    font-size: max(16px, 1rem) !important;
+  }
+}
+
+@media (max-height: 450px) and (orientation: landscape) {
+  .mainbar-mobile-controls {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .mainbar-mobile-inline-utils {
+    display: flex;
+  }
+
+  .mainbar-tabs {
+    flex: 0 1 auto;
+  }
+
+  .mainbar-compact-utilities {
+    display: none;
   }
 }

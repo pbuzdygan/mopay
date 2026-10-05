@@ -80,6 +80,14 @@ function monotonic(frames, direction) {
 }
 
 async function capture(page, name) {
+  const smallInputs = await page.evaluate(() => {
+    if (!matchMedia('(max-width: 767px), (hover: none) and (pointer: coarse)').matches) return [];
+    return [...document.querySelectorAll('input, textarea, select, [contenteditable="true"]')]
+      .filter(node => node.getClientRects().length && !['checkbox', 'radio', 'range', 'color', 'file', 'hidden', 'button', 'submit', 'reset'].includes(node.type))
+      .filter(node => parseFloat(getComputedStyle(node).fontSize) < 16)
+      .map(node => node.id || node.className);
+  });
+  assert.deepEqual(smallInputs, [], 'Mobile editable fields use at least 16px text');
   if (process.env.MOPAY_SCREENSHOTS) {
     await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/${name}.png` });
   }
@@ -108,6 +116,8 @@ for (const mobile of [false, true]) {
         const page = await browser.newPage({
           viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
           serviceWorkers: 'block',
+          isMobile: mobile,
+          hasTouch: mobile,
         });
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
@@ -137,6 +147,9 @@ for (const mobile of [false, true]) {
         const card = await page.locator('.pin-guard-card').boundingBox();
         assert.ok(card.x >= 0 && card.y >= 0 && card.x + card.width <= (mobile ? 390 : 1440), 'PIN card stays inside viewport');
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-pin`);
+        await page.getByRole('button', { name: 'Enter', exact: true }).focus();
+        await page.keyboard.press('Control+k');
+        assert.equal(await page.locator('.mainbar-search-input:focus').count(), 0, 'Shortcut cannot focus the app behind PIN');
         await page.locator('#pin-guard-input').fill('0000');
         await page.getByRole('button', { name: 'Enter', exact: true }).click();
         await page.getByText('Wrong PIN', { exact: true }).waitFor();
@@ -167,6 +180,8 @@ for (const mobile of [false, true]) {
         const page = await browser.newPage({
           viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
           serviceWorkers: 'block',
+          isMobile: mobile,
+          hasTouch: mobile,
         });
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
@@ -202,6 +217,58 @@ for (const mobile of [false, true]) {
         }), true);
         assert.ok(rapidFrames.every(value => value === 1), 'Rapid switches must not dim the table');
 
+        for (const [section, item] of [['Expenses', 'Test groceries'], ['Incomes', 'Test salary'], ['Savings', 'Synthetic savings']]) {
+          await page.getByRole('tab', { name: section, exact: true }).click();
+          await page.getByText(item, { exact: true }).waitFor();
+          const search = page.locator('.mainbar-search-input:visible');
+          assert.equal(await search.count(), 1);
+          for (const key of ['/', 'Control+k', 'Meta+k']) {
+            await search.evaluate(node => node.blur());
+            await page.keyboard.press(key);
+            assert.equal(await search.evaluate(node => node === document.activeElement), true);
+          }
+          await search.fill('No matching synthetic fixture');
+          await page.getByText(item, { exact: true }).waitFor({ state: 'hidden' });
+          await search.fill(item);
+          await page.getByText(item, { exact: true }).waitFor();
+          await search.press('/');
+          assert.equal(await search.inputValue(), item + '/');
+          await search.press('Escape');
+          assert.equal(await search.inputValue(), '');
+          assert.equal(await search.evaluate(node => node === document.activeElement), false);
+          await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-search-${section.toLowerCase()}`);
+        }
+        await page.getByRole('tab', { name: 'Reports', exact: true }).click();
+        const disabledSearch = page.locator('.mainbar-search-input:visible');
+        assert.equal(await disabledSearch.isDisabled(), true);
+        await page.keyboard.press('Control+k');
+        assert.equal(await disabledSearch.evaluate(node => node === document.activeElement), false);
+        await page.getByRole('tab', { name: 'Expenses', exact: true }).click();
+        await page.getByText('Test groceries', { exact: true }).waitFor();
+
+        if (mobile) {
+          for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }, { width: 767, height: 844 }, { width: 900, height: 400 }]) {
+            await page.setViewportSize(viewport);
+            await page.waitForTimeout(200);
+            const row = page.locator('.mainbar-mobile-top-row');
+            const year = await row.locator('.year-trigger').boundingBox();
+            const menu = await row.getByRole('button', { name: 'Menu', exact: true }).boundingBox();
+            const search = await row.locator('.mainbar-search-input').boundingBox();
+            const lock = await row.getByRole('button', { name: 'Lock session' }).boundingBox();
+            const themeButton = await row.getByRole('button', { name: 'Toggle theme' }).boundingBox();
+            await capture(page, `mobile-${theme}-${viewport.width}-search-row`);
+            const layout = JSON.stringify({ viewport, year, menu, search, lock, themeButton });
+            assert.ok(year.x + year.width <= menu.x && menu.x + menu.width <= search.x && search.x + search.width <= lock.x && lock.x + lock.width <= themeButton.x, layout);
+            assert.ok(search.width >= 60 && themeButton.x + themeButton.width <= viewport.width, 'Search fits between menu and lock without toolbar overflow: ' + layout);
+            assert.ok(Math.abs(menu.y - search.y) < 7 && Math.abs(lock.y - search.y) < 7, 'Controls share one row');
+            assert.equal(await page.locator('.mainbar-search-input:visible').count(), 1);
+            await page.keyboard.press('/');
+            assert.equal(await row.locator('.mainbar-search-input').evaluate(node => node === document.activeElement), true);
+            await page.keyboard.press('Escape');
+            await capture(page, `mobile-${theme}-${viewport.width}-search-row`);
+          }
+          await page.setViewportSize({ width: 390, height: 844 });
+        }
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-table`);
         for (const section of ['Savings', 'Reports']) {
           await page.getByRole('tab', { name: section }).click();
@@ -222,7 +289,14 @@ for (const mobile of [false, true]) {
         monotonic(await sample(page, '.modal-card-premium', openEntry, true), 1);
         assert.equal(await page.locator(modal).evaluate(node => getComputedStyle(node).backdropFilter), 'none');
         await page.locator('#entry-name-input').fill('Draft');
+        await page.keyboard.press('Control+k');
+        assert.equal(await page.locator('#entry-name-input').evaluate(node => node === document.activeElement), true);
+        await page.locator('#entry-name-input').press('/');
+        assert.equal(await page.locator('#entry-name-input').inputValue(), 'Draft/');
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-modal`);
+        await page.locator(`${modal} .btn-ghost-premium`).focus();
+        await page.keyboard.press('/');
+        assert.equal(await page.locator('.mainbar-search-input:focus').count(), 0, 'Shortcut cannot steal focus from an open modal');
         monotonic(await sample(page, '.modal-card-premium', () => page.locator(`${modal} .btn-ghost-premium`).click(), true), -1);
         await openEntry();
         await page.locator(`${modal} .btn-ghost-premium`).click();

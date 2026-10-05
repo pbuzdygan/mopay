@@ -6,7 +6,7 @@ Name a plan `T-NNN-short-slug.md` and link it from `.ai/STATE.md`. The plan must
 
 ## Closure registry (2026-10-05)
 
-All listed tasks are **done**; handoff is **ready**. This records verified scope completion, not Git commit, release or deployment. T-010 through T-012 changes remain in the worktree for user review; preserve them. Current snapshot is the ignored `.ai/STATE.md`. Residual vendor vulnerabilities and production/browser verification limits are explicit in [container assessment](../../docs/CONTAINER_SECURITY.md) and individual plans; they are not silently marked fixed.
+All listed tasks are **done**; handoff is **ready**. This records verified scope completion, not Git commit, release or deployment. T-010 through T-012 were committed externally as 76700dd; completed T-013 changes remain in the worktree for user review. Preserve them. Current snapshot is the ignored `.ai/STATE.md`. Residual vendor vulnerabilities and production/browser verification limits are explicit in [container assessment](../../docs/CONTAINER_SECURITY.md) and individual plans; they are not silently marked fixed.
 
 | Task | Completed scope / evidence |
 | --- | --- |
@@ -22,6 +22,7 @@ All listed tasks are **done**; handoff is **ready**. This records verified scope
 | [T-010](T-010-browser-security.md) | CSP/framing/PWA;23backend/8UI/2browser security/image gates |
 | [T-011](T-011-container-scan.md) | Successful baseline scan and OOM recovery; remediation transferred to T-012 |
 | [T-012](T-012-container-remediation.md) | Assessed container fixes; full rescan,5entrypoint regressions/image smoke and residual vendor review |
+| [T-013](T-013-mobile-search.md) | Mobile editable text sizing/search toolbar and shortcuts; final8UI scenarios and build passed |
 
 Copy the template below and remove guidance that does not apply.
 
