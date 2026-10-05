@@ -1,6 +1,6 @@
 # T-002: Correct one README phrase and verify session handoff
 
-- Status: complete
+- Status: done
 - Owner: claude-code (Opus 5.5) / resuming session 2026-10-05
 - Created: 2026-10-05
 - Updated: 2026-10-05

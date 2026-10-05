@@ -14,6 +14,8 @@
 - simplified entry/group details transitions and replaced animated full-screen backdrop blur with stable dimming for shared dialogs and details panels
 
 ### Improvements
+- hardened the runtime image with a digest-pinned Node 24 base and Debian security updates, removed runtime npm/Yarn and unused system SQLite, and replaced gosu with existing setpriv; verified privilege dropping, permission denial and SIGTERM handling and documented full container scan results and residual vendor advisories
+- enforced a restrictive browser Content Security Policy and denied framing of the app, while preserving PIN animations, GitHub release checks, blob downloads and PWA offline assets; refreshed the PWA document revision for adoption of the new headers
 - migrated to Tailwind CSS 4 with its official Vite plugin, preserving existing theme/layout behavior and removing the vulnerable Tailwind 3/braces build chain; full frontend dependency audits now gate CI
 - pinned security and image-publishing runners to Ubuntu 24.04 to avoid automatic host OS changes during the ubuntu-latest migration
 - patched compatible backend and frontend build dependencies; upgraded and SHA-pinned GitHub Actions to Node 24

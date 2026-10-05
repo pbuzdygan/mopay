@@ -1,4 +1,5 @@
 import express from 'express';
+import { browserSecurity } from './browserSecurity.js';
 import morgan from 'morgan';
 import cors from 'cors';
 import path from 'path';
@@ -525,12 +526,7 @@ const getYearRow = (yearValue) => {
   return db.prepare('SELECT id FROM years WHERE year=?').get(numericYear);
 };
 
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
-  next();
-});
+app.use(browserSecurity);
 app.use(morgan('dev'));
 
 if (CORS_ALLOWED_ORIGINS.length > 0) {

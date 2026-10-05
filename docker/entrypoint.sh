@@ -24,7 +24,7 @@ if [ "$(id -u)" = "0" ]; then
   chown -R node:node /app /data 2>/dev/null || true
   chmod -R u+rwX /data 2>/dev/null || true
   ensure_db_writable_or_exit
-  exec gosu node "$@"
+  exec setpriv --reuid=node --regid=node --init-groups "$@"
 fi
 
 ensure_db_writable_or_exit

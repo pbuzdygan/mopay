@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { resolve, sep } from 'node:path';
 import { test } from 'node:test';
 import { randomInt, randomBytes } from 'node:crypto';
+import { browserSecurityHeaders } from '../../backend/browserSecurity.js';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.MOPAY_PLAYWRIGHT_MODULE || 'playwright');
@@ -36,7 +37,7 @@ async function fixture(route) {
   try {
     const body = await readFile(file);
     const extension = file.slice(file.lastIndexOf('.'));
-    await route.fulfill({ body, contentType: mime[extension] || 'application/octet-stream' });
+    await route.fulfill({ body, headers: browserSecurityHeaders, contentType: mime[extension] || 'application/octet-stream' });
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     await route.fulfill({ status: 404, body: '' });
@@ -110,6 +111,12 @@ for (const mobile of [false, true]) {
         });
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
+        await page.addInitScript(() => {
+          window.cspViolations = [];
+          document.addEventListener('securitypolicyviolation', event => {
+            window.cspViolations.push(`${event.effectiveDirective}: ${event.blockedURI}`);
+          });
+        });
         const pin = String(randomInt(10000000, 99999999));
         const token = randomBytes(32).toString('base64url');
         await page.route('**/*', async route => {
@@ -143,6 +150,7 @@ for (const mobile of [false, true]) {
         assert.equal(await page.locator('.pin-guard-overlay').count(), 0, 'Successful login does not reinsert PIN overlay');
         await page.getByText('Test groceries', { exact: true }).waitFor();
         assert.deepEqual(errors, []);
+        assert.deepEqual(await page.evaluate(() => window.cspViolations), [], 'Existing UI produces no CSP violations');
       } finally {
         await browser.close();
       }
@@ -162,6 +170,12 @@ for (const mobile of [false, true]) {
         });
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
+        await page.addInitScript(() => {
+          window.cspViolations = [];
+          document.addEventListener('securitypolicyviolation', event => {
+            window.cspViolations.push(`${event.effectiveDirective}: ${event.blockedURI}`);
+          });
+        });
         await page.route('**/*', fixture);
         await page.addInitScript(({ theme, viewMode }) => {
           localStorage.setItem('year', '2026');

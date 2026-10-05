@@ -44,7 +44,7 @@ Apply the instruction priority in AGENTS.md. No new product specification or for
 
 **Confirmed** — [backend package](../backend/package.json), [frontend package](../frontend/package.json), [Dockerfile](../Dockerfile):
 
-- Runtime: Node.js `>=24 <25`; Docker uses `node:24-bookworm-slim`. The minor/patch version and image digest are not pinned.
+- Runtime: Node.js `>=24 <25`; Docker pins reviewed `node:24.21.0-bookworm-slim` manifest digest (T-012). Runtime build applies available same-release Debian updates, uses existing setpriv and omits global npm/Yarn and unused system libsqlite3; native better-sqlite3 provides SQLite. See [container assessment](../docs/CONTAINER_SECURITY.md).
 - Dependencies: npm with separate tracked `package-lock.json` files under `backend/` and `frontend/`.
 - Backend: JavaScript ES modules, Express, better-sqlite3, ExcelJS.
 - Frontend: TypeScript/TSX, React 18, Vite 7, Tailwind 4 with the official Vite plugin (T-009), React Query, Zustand, PWA plugin.
@@ -164,7 +164,9 @@ Until testing is established, completion reports must identify behavior not veri
 - Imports require `mopay_import_template.xlsx`, validate input, and use overwrite confirmation/transaction orchestration ([server](../backend/server.js), [export](../backend/export.js)).
 - T-007 bounds import/validation in a shared worker parser; byte/structure/time budgets and retryable API errors are documented in [README](../README.md#xlsx-import-limits). No schema migration or stored-data rewrite accompanies this change.
 - PWA caches documents/assets; `/api/` requests are `NetworkOnly`. Offline assets do not establish offline financial editing ([Vite config](../frontend/vite.config.ts)).
+- T-010 enforces [browser security headers](../backend/browserSecurity.js): no framing or inline/eval scripts; same-origin UI/API/assets/workers with an explicit GitHub API connection allowance. React/Motion style attributes remain allowed. Header-policy changes must also increment the document revision comment in frontend/index.html so PWA precaches refresh. Local browser enforcement/PWA checks are documented in frontend/tests/README.md; production proxy behavior is unverified.
 - One process per DB file is the recommendation in the server's busy-error response; avoid designing tests around shared live DB access.
+- T-011 container scan and T-012 remediation are documented in docs/CONTAINER_SECURITY.md; OS findings are not zero (including scanner/vendor backport discrepancies). CI npm audits remain separate; repeat the local OS scan with a current DB before accepting new base/update changes. `MOPAY_TEST_IMAGE=<local-image> node --test docker/tests/entrypoint.test.mjs` verifies actual entrypoint root/non-root/denial/SIGTERM behavior with disposable tmpfs and no real data.
 
 ## Accepted user decisions
 

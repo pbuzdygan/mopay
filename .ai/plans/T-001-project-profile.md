@@ -1,6 +1,6 @@
 # T-001: Prepare the Mopay project profile draft
 
-- Status: complete
+- Status: done
 - Owner: codex
 - Created: 2026-10-05
 - Updated: 2026-10-05

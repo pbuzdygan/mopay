@@ -439,3 +439,27 @@ test('normal import, duplicate handling, selection and explicit overwrite remain
   assert.deepEqual(skipped.body.skipped, [2028]);
   assert.deepEqual(entrySnapshot(), afterOverwrite);
 });
+
+test('browser security headers cover healthy, denied, malformed and static responses', async () => {
+  const { browserSecurityHeaders } = await import('../browserSecurity.js');
+  await fs.mkdir(path.join(root, 'public'), { recursive: true });
+  await fs.writeFile(path.join(root, 'public', 'index.html'), '<!doctype html><title>Synthetic UI</title>');
+  await fs.writeFile(path.join(root, 'public', 'fixture.js'), '/* synthetic asset */');
+  for (const [endpoint, options, status] of [
+    ['/health', { auth: false }, 200],
+    ['/api/meta', { auth: false }, 200],
+    ['/api/years', { auth: false }, 401],
+    ['/api/pin/verify', { auth: false, method: 'POST', raw: '{' }, 400],
+    ['/', { auth: false }, 200],
+    ['/fixture.js', { auth: false }, 200],
+    ['/client-side-route', { auth: false }, 200],
+  ]) {
+    const response = await request(endpoint, options);
+    assert.equal(response.status, status, endpoint);
+    for (const [name, value] of Object.entries(browserSecurityHeaders)) {
+      assert.equal(response.headers.get(name), value, `${endpoint}: ${name}`);
+    }
+    if (endpoint.startsWith('/api/')) assert.equal(response.headers.get('cache-control'), 'no-store');
+    await response.arrayBuffer();
+  }
+});
