@@ -105,6 +105,9 @@ services:
       - APP_PIN=123456 #PIN 4-8 digits
       - APP_ENC_KEY=REPLACE_WITH_YOUR_KEY
       - NODE_ENV=production
+      # Use only behind one trusted reverse-proxy hop (for example Nginx Proxy Manager):
+      # - APP_TRUST_PROXY=1
+      # - CORS_ALLOWED_ORIGINS=https://mopay.example.com
       # Optional security settings: see docs/CONFIGURATION.md
 
 
