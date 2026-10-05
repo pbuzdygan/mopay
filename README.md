@@ -72,6 +72,8 @@
 
 The easiest way to get started is to use compose file:
 
+Full descriptions of environment variables and optional settings are in [Configuration](docs/CONFIGURATION.md).
+
 Notes:
 - `ghcr.io/pbuzdygan/mopay:latest` tracks releases from `main`.
 - `ghcr.io/pbuzdygan/mopay:dev_latest` tracks releases from `dev`.
@@ -97,29 +99,14 @@ services:
     environment:
 #      - PORT=8010 #in network_mode host You can set different than default port
       - DB_FILE=/data/mopay.sqlite
+      # Optional storage owner (defaults to 1000:1000):
+      # - PUID=1000
+      # - PGID=1000
       - APP_PIN=123456 #PIN 4-8 digits
       - APP_ENC_KEY=REPLACE_WITH_YOUR_KEY
       - NODE_ENV=production
-      # Optional security hardening (v1.5.3+):
-      # - APP_SESSION_TTL_SECONDS=43200
-      # - APP_SESSION_MAX_ACTIVE=5000
-      # - APP_PIN_RATE_LIMIT_PER_MIN=12
-      # - APP_PIN_RATE_LIMIT_BURST=4
-      # - APP_PIN_RATE_LIMIT_BURST_WINDOW_MS=10000
-      # - APP_PIN_LOCK_THRESHOLD=6
-      # - APP_PIN_LOCK_BASE_MS=120000
-      # - APP_PIN_LOCK_MAX_MS=1800000
-      # - APP_PIN_MIN_RESPONSE_MS=250
-      # - APP_PIN_MAX_CONCURRENT=2
-      # - APP_PIN_MAX_TRACKED_IPS=10000
-      # Use only behind one trusted reverse-proxy hop (for example Nginx Proxy Manager):
-      # - APP_TRUST_PROXY=1
-      # - CORS_ALLOWED_ORIGINS=https://mopay.example.com
-      # - SECURITY_WEBHOOK_URL=https://example.com/webhook
-      # - SECURITY_ALERT_PIN_FAIL_THRESHOLD=20
-      # - SECURITY_ALERT_PIN_FAIL_WINDOW_MS=600000
-      # - SECURITY_ALERT_COOLDOWN_MS=900000
-      # - SQLITE_BUSY_TIMEOUT_MS=5000
+      # Optional security settings: see docs/CONFIGURATION.md
+
 
 # Health check (optional but recommended)
 #    healthcheck:
@@ -130,7 +117,7 @@ services:
 ```
 ### Generate Your APP_ENC_KEY
 
-Result of below command is Your encryption key - stored it securley - without it, Your Mopay will not start and Your data will be lost.
+Result of below command is Your encryption key - store it securely - without it, Your Mopay will not start and Your data will be lost.
 
 ```bash
 openssl rand -base64 32
@@ -144,78 +131,55 @@ Accepted formats:
 
 ## Import notes
 
-- Use the template downloaded from Mopay. The backend expects the uploaded file name to stay `mopay_import_template.xlsx`.
-- Import supports new years and overwriting existing years after explicit confirmation.
-- Imported workbook data includes entries, groups, month tags, savings goals, and savings items.
+Download the Mopay template and keep its name `mopay_import_template.xlsx`. See [Import and export](docs/IMPORT_EXPORT.md) for the supported data, overwrite behavior and limits.
 
 ## Release check
 
-- The frontend can display release/update information in Settings.
-- Release status is resolved from backend metadata and GitHub Releases for the configured repository/channel.
-- In restricted environments, outbound browser access to `api.github.com` may be required for update detection.
+Settings shows release/update information. See [release checks and metadata configuration](docs/CONFIGURATION.md#release-check), including the browser network requirement.
 
-## Security environment variables (v1.5.3+)
+<a id="security-environment-variables-v153"></a>
 
-Mopay now protects backend API endpoints with a PIN session token (`X-Mopay-Session`).
-Below variables let you tune security behavior.
+## Environment variables
 
-- `APP_SESSION_TTL_SECONDS` (default: `43200`)
-  - PIN session idle timeout (sliding expiration in seconds).
-- `APP_SESSION_MAX_ACTIVE` (default: `5000`)
-  - Max number of in-memory active sessions before oldest entries are evicted.
+The **full environment-variable reference**, including defaults, security options and release metadata, is in [Configuration](docs/CONFIGURATION.md). See [basic variables](docs/CONFIGURATION.md#basic-environment-variables) and [security environment variables (v1.5.3+)](docs/CONFIGURATION.md#security-environment-variables-v153).
 
-- `APP_PIN_RATE_LIMIT_PER_MIN` (default: `12`)
-  - Max PIN verify attempts per IP per minute.
-- `APP_PIN_RATE_LIMIT_BURST` (default: `4`)
-  - Max burst attempts per IP in short window.
-- `APP_PIN_RATE_LIMIT_BURST_WINDOW_MS` (default: `10000`)
-  - Burst window size in milliseconds.
+## Backend regression tests
 
-- `APP_PIN_LOCK_THRESHOLD` (default: `6`)
-  - Failed PIN attempts required to trigger lockout.
-- `APP_PIN_LOCK_BASE_MS` (default: `120000`)
-  - Initial lockout duration in milliseconds.
-- `APP_PIN_LOCK_MAX_MS` (default: `1800000`)
-  - Max lockout duration in milliseconds.
-- `APP_PIN_MIN_RESPONSE_MS` (default: `250`)
-  - Minimum response duration for `/api/pin/verify` to reduce timing signal.
-- `APP_PIN_MAX_CONCURRENT` (default: `2`)
-  - Max number of concurrent PIN hash checks. Additional requests receive `429` and can retry.
-- `APP_PIN_MAX_TRACKED_IPS` (default: `10000`)
-  - Max number of IP entries retained by the PIN rate limiter and alert tracker.
-- `APP_TRUST_PROXY` (default: empty)
-  - Number of trusted reverse-proxy hops. Set `1` when Mopay is reached through one Nginx Proxy Manager hop.
-  - Leave empty when Mopay is accessed directly. Mopay does not add or configure a proxy container.
+Commands, fixture isolation, coverage and failure behavior are documented in [Testing](docs/TESTING.md#backend-regression-tests).
 
-- `CORS_ALLOWED_ORIGINS` (default: empty)
-  - Optional comma-separated allowlist for cross-origin API calls.
-  - Example: `https://mopay.example.com,https://admin.example.com`
-  - If empty, Mopay does not enable cross-origin API access.
+## XLSX import limits
 
-- `SECURITY_WEBHOOK_URL` (default: empty)
-  - Optional webhook endpoint for security alerts.
-- `SECURITY_ALERT_PIN_FAIL_THRESHOLD` (default: `20`)
-  - Failed PIN events required to trigger alert.
-- `SECURITY_ALERT_PIN_FAIL_WINDOW_MS` (default: `600000`)
-  - Time window for counting failed PIN events.
-- `SECURITY_ALERT_COOLDOWN_MS` (default: `900000`)
-  - Minimum interval between repeated alerts for the same source.
+Workbook size/structure limits, parsing budgets and error responses are listed in [Import and export](docs/IMPORT_EXPORT.md#xlsx-import-limits).
 
-- `SQLITE_BUSY_TIMEOUT_MS` (default: `5000`)
-  - SQLite busy timeout in milliseconds.
-  - Useful when storage is slow or the DB file is temporarily locked.
+## Automated security checks
+
+CI gates and their scope are documented in [Security](docs/SECURITY.md#automated-security-checks). The separate [container assessment](docs/CONTAINER_SECURITY.md) covers OS findings and remediation.
 
 ## Deployment notes
 
+### Browser security headers
+
+Serve the UI and API through the same browser origin. See [browser security headers](docs/SECURITY.md#browser-security-headers) for CSP, framing protection, proxy requirements and PWA updates.
+
 - API JSON is parsed only after session authentication, except for the PIN endpoint, which has a `2 KB` limit. Normal authenticated API requests have a `64 KB` limit; authenticated import requests retain the `10 MB` limit. Export response size is unaffected.
-- Mopay runtime process runs as a non-root user (`node`) by default.
-- Startup entrypoint performs compatibility `chown` for `/data` and then drops privileges to `node`.
+- Mopay runs without root privileges, using UID/GID `1000:1000` by default. Set `PUID` and `PGID` in Compose to select another storage owner; see [storage ownership configuration](docs/CONFIGURATION.md#storage-ownership-uidgid).
+- Startup entrypoint repairs `/data` ownership, drops privileges to the selected UID/GID and checks database write access.
+- The runtime image uses existing Debian `setpriv` for privilege dropping and omits npm/Yarn and unused system SQLite. Dependencies are installed during build; run the service with `node server.js`. The reviewed Node 24.21.0 base is digest-pinned; available same-release Debian updates are applied during runtime build. See the [container assessment](docs/CONTAINER_SECURITY.md) for rebuild/scan commands and remaining vendor advisories.
 - For production, keep persistent storage mounted only for `/data`.
-- If using bind mounts, keep `./data` writable by container user UID `1000` (or adjust host permissions accordingly).
+- Bind-mounted `./data` must be writable by the configured UID/GID.
 - Avoid sharing one SQLite file between multiple Mopay instances.
 - Avoid NAS/sync folders for the live database when possible, because SQLite lock contention will degrade reliability.
 - If logs show `SQLITE_READONLY`, repair host permissions once and restart:
-  - `sudo chown -R 1000:1000 ./data && sudo chmod -R u+rwX ./data`
+  - `sudo chown -R 1000:1000 ./data && sudo chmod -R u+rwX ./data` (replace both IDs with your configured `PUID:PGID`).
+
+## Documentation
+
+- [Configuration](docs/CONFIGURATION.md) — full environment-variable reference, security settings and release checks.
+- [Import and export](docs/IMPORT_EXPORT.md) — supported workbook data, validation limits and error responses.
+- [Testing](docs/TESTING.md) — backend regressions and links to UI/container checks.
+- [Security](docs/SECURITY.md) — automated checks, browser headers and deployment requirements.
+- [Container assessment](docs/CONTAINER_SECURITY.md) — image scan results, remediation and remaining findings.
+- [Architecture](docs/ARCHITECTURE.md) — application structure and design.
 
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.
@@ -224,3 +188,9 @@ If You like results of my efforts, feel free to show that by supporting me.
 <p align="left">
   <img src="branding/bmc_qr.png" width="25%" alt="BMC QR code">
 </p>
+
+## Search shortcuts and mobile forms
+
+In Expenses, Incomes and Savings, press `/` or **Ctrl+K** (**Cmd+K** on macOS) to focus search when not editing another field. **Escape** clears search and leaves the field. Shortcuts do not move focus behind the PIN screen or an open dialog; search remains unavailable in Reports.
+
+On mobile, search shares the row with Year, Menu, Lock and Theme, filling the space between Menu and Lock. Editable fields keep at least 16px text on small/touch screens to avoid small-text focus zoom; manual pinch zoom remains available. The layout and font sizes were checked in Chromium mobile emulation, including landscape; real iOS/Safari keyboard behavior still needs a device check.

@@ -8,6 +8,9 @@ services:
     environment:
 #      - PORT=8010
       - DB_FILE=/data/mopay.sqlite
+      # Optional storage owner (defaults to 1000:1000):
+      # - PUID=1000
+      # - PGID=1000
       - APP_PIN=123456
       - APP_ENC_KEY=YOUR_ENC_KEY_HERE
       - NODE_ENV=production

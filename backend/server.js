@@ -1,10 +1,12 @@
 import express from 'express';
+import { browserSecurity } from './browserSecurity.js';
 import morgan from 'morgan';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 import ExcelJS from 'exceljs';
+import { loadImportWorkbook } from './importParser.js';
 import { exportYearsToWorkbook, exportImportTemplateWorkbook } from './export.js';
 import { encryptNumber, decryptToNumber, KEY_FINGERPRINT } from './encryption.js';
 import { runEncryptionMigration, evaluateEncryptionState, repairEncryptionState } from './migration.js';
@@ -238,6 +240,7 @@ const TAG_COLORS = new Set(['none', 'grey', 'green', 'orange', 'red']);
 const MONTH_COLUMN_SET = new Set(MONTH_COLUMNS);
 const ENTRY_NAME_MAX_LEN = 80;
 const ENTRY_COMMENT_MAX_LEN = 240;
+const MAX_EXPORT_YEARS = 100;
 
 const clampText = (value, max = 80) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -362,9 +365,25 @@ const parseTagFromCell = (cell) => {
   return { color: resolvedColor, text: noteText };
 };
 
-const parseImportWorkbook = async (buffer) => {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buffer);
+function respondImportLimit(res, error) {
+  const status = {
+    IMPORT_LIMIT_EXCEEDED: 413,
+    IMPORT_BUSY: 429,
+    IMPORT_TIMEOUT: 408,
+  }[error?.code];
+  if (typeof status !== 'number') return false;
+  if (status === 429) res.setHeader('Retry-After', '1');
+  const messages = {
+    IMPORT_LIMIT_EXCEEDED: 'The file exceeds import limits. Split it into smaller files or remove unused worksheets and media.',
+    IMPORT_BUSY: 'Another file is being checked. Please wait and try again.',
+    IMPORT_TIMEOUT: 'Import took too long. Try a smaller file.',
+  };
+  res.status(status).json({ ok: false, error: error.code, message: messages[error.code] });
+  return true;
+}
+
+const parseImportWorkbook = async (data) => {
+  const wb = await loadImportWorkbook(data);
   const sheets = wb.worksheets;
   if (!sheets.length) {
     const err = new Error('NO_SHEETS');
@@ -507,12 +526,7 @@ const getYearRow = (yearValue) => {
   return db.prepare('SELECT id FROM years WHERE year=?').get(numericYear);
 };
 
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
-  next();
-});
+app.use(browserSecurity);
 app.use(morgan('dev'));
 
 if (CORS_ALLOWED_ORIGINS.length > 0) {
@@ -958,7 +972,7 @@ app.patch('/api/entries/:id', (req,res)=>{
   const entryId = Number(id);
   if (!Number.isInteger(entryId)) return res.status(400).json({ error: 'Invalid id' });
 
-  let groupUpdated = false;
+  let groupChange = null;
   const patchGroup = ('groupId' in payload) || ('group_id' in payload);
   if (patchGroup) {
     const newGroupRaw = 'groupId' in payload ? payload.groupId : payload.group_id;
@@ -980,27 +994,7 @@ app.patch('/api/entries/:id', (req,res)=>{
     }
 
     if ((entry.groupId ?? null) !== newGroupId) {
-      const maxRow =
-        newGroupId === null
-          ? db
-              .prepare(
-                'SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id IS NULL'
-              )
-              .get(entry.yearId, entry.type)
-          : db
-              .prepare(
-                'SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id=?'
-              )
-              .get(entry.yearId, entry.type, newGroupId);
-      const nextIndex = Number(maxRow?.mx ?? 0) + 1;
-
-      const tx = db.transaction(() => {
-        db.prepare('UPDATE entries SET group_id=?, sort_index=? WHERE id=?').run(newGroupId, nextIndex, entryId);
-        normalizeEntrySortIndexes(entry.yearId, entry.type, entry.groupId ?? null);
-        normalizeEntrySortIndexes(entry.yearId, entry.type, newGroupId);
-      });
-      tx();
-      groupUpdated = true;
+      groupChange = { entry, newGroupId };
     }
   }
 
@@ -1035,13 +1029,29 @@ app.patch('/api/entries/:id', (req,res)=>{
     sets.push(`${col}=?`);
     vals.push(encryptNumber(normalized.value));
   }
-  if (!sets.length) {
-    if (groupUpdated) return res.json({ ok: true, updated: 1 });
+  if (!sets.length && !groupChange) {
     return res.status(400).json({ error: 'Nothing to update' });
   }
-  vals.push(entryId);
-  const info = db.prepare(`UPDATE entries SET ${sets.join(', ')} WHERE id=?`).run(...vals);
-  res.json({ ok: true, updated: info.changes });
+
+  // All validation must finish before any grouping, ordering or field writes.
+  const updateEntry = db.transaction(() => {
+    if (groupChange) {
+      const { entry, newGroupId } = groupChange;
+      const maxRow = newGroupId === null
+        ? db.prepare('SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id IS NULL')
+            .get(entry.yearId, entry.type)
+        : db.prepare('SELECT COALESCE(MAX(sort_index),0) mx FROM entries WHERE year_id=? AND type=? AND group_id=?')
+            .get(entry.yearId, entry.type, newGroupId);
+      const nextIndex = Number(maxRow?.mx ?? 0) + 1;
+      db.prepare('UPDATE entries SET group_id=?, sort_index=? WHERE id=?').run(newGroupId, nextIndex, entryId);
+      normalizeEntrySortIndexes(entry.yearId, entry.type, entry.groupId ?? null);
+      normalizeEntrySortIndexes(entry.yearId, entry.type, newGroupId);
+    }
+    if (!sets.length) return 1;
+    const info = db.prepare(`UPDATE entries SET ${sets.join(', ')} WHERE id=?`).run(...vals, entryId);
+    return info.changes;
+  });
+  res.json({ ok: true, updated: updateEntry() });
 });
 app.delete('/api/entries', (req,res)=>{
   if (guardKeyMismatch(res)) return;
@@ -1174,7 +1184,7 @@ app.post('/api/savings/:goalId/items', (req,res)=>{
   const { name = '', value = 0 } = req.body || {};
   const trimmedName = clampText(name, 80);
   const numericValue = Number(value);
-  if (Number.isNaN(numericValue)) return res.status(400).json({ error: 'Invalid value' });
+  if (!Number.isFinite(numericValue)) return res.status(400).json({ error: 'Invalid value' });
   const mx = db.prepare('SELECT COALESCE(MAX(sort_index),0) AS mx FROM savings_items WHERE goal_id=?').get(goalId)
     .mx;
   const info = db
@@ -1214,29 +1224,38 @@ app.delete('/api/savings/items/:itemId', (req,res)=>{
 });
 
 // Export
-app.post('/api/export', async (req,res)=>{
+app.post('/api/export', async (req,res,next)=>{
   if (guardKeyMismatch(res)) return;
-  const { years } = req.body;
+  const { years } = req.body || {};
   if (!Array.isArray(years) || years.length===0) return res.status(400).json({ error: 'No years' });
+  if (years.length > MAX_EXPORT_YEARS) return res.status(400).json({ error: `Too many years (maximum ${MAX_EXPORT_YEARS})` });
+  if (years.some((year) => !Number.isInteger(year) || year < 1000 || year > 9999)) {
+    return res.status(400).json({ error: 'Invalid years' });
+  }
   try {
-    const wb = await exportYearsToWorkbook(years);
+    const wb = await exportYearsToWorkbook([...new Set(years)]);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="mopay_export.xlsx"');
     await wb.xlsx.write(res);
     res.end();
   } catch (err) {
-    if (isSqliteBusyError(err)) return respondSqliteBusy(res);
-    throw err;
+    if (!res.headersSent && isSqliteBusyError(err)) return respondSqliteBusy(res);
+    return next(err);
   }
 });
 
-app.get('/api/import/template', async (_req,res)=>{
+app.get('/api/import/template', async (_req,res,next)=>{
   if (guardKeyMismatch(res)) return;
-  const wb = await exportImportTemplateWorkbook();
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="mopay_import_template.xlsx"');
-  await wb.xlsx.write(res);
-  res.end();
+  try {
+    const wb = await exportImportTemplateWorkbook();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="mopay_import_template.xlsx"');
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    if (!res.headersSent && isSqliteBusyError(err)) return respondSqliteBusy(res);
+    return next(err);
+  }
 });
 
 app.post('/api/import/validate', async (req,res)=>{
@@ -1250,8 +1269,7 @@ app.post('/api/import/validate', async (req,res)=>{
   }
 
   try {
-    const buffer = Buffer.from(data, 'base64');
-    const sheets = await parseImportWorkbook(buffer);
+    const sheets = await parseImportWorkbook(data);
     const years = sheets.map(({ year }) => year);
     const existing = years.length
       ? db.prepare(`SELECT year FROM years WHERE year IN (${years.map(() => '?').join(',')})`).all(...years)
@@ -1262,6 +1280,7 @@ app.post('/api/import/validate', async (req,res)=>{
       years: years.map((year) => ({ year, exists: existingSet.has(year) })),
     });
   } catch (err) {
+    if (respondImportLimit(res, err)) return;
     if (isSqliteBusyError(err)) return respondSqliteBusy(res);
     console.error('Import template validation failed', err);
     res.status(400).json({ ok: false, error: 'INVALID_FILE' });
@@ -1297,8 +1316,7 @@ app.post('/api/import', async (req,res)=>{
 
   try {
     importInProgress = true;
-    const buffer = Buffer.from(data, 'base64');
-    const allSheets = await parseImportWorkbook(buffer);
+    const allSheets = await parseImportWorkbook(data);
     const workbookYears = allSheets.map(({ year }) => year);
     const yearsToImport = importYearSet.size ? workbookYears.filter((y) => importYearSet.has(y)) : workbookYears;
     const sheets = allSheets.filter(({ year }) => yearsToImport.includes(year));
@@ -1439,6 +1457,7 @@ app.post('/api/import', async (req,res)=>{
     }
     res.json({ ok: true, ...results });
   } catch (err) {
+    if (respondImportLimit(res, err)) return;
     if (isSqliteBusyError(err)) return respondSqliteBusy(res);
     console.error('Import failed', err);
     res.status(400).json({ ok: false, error: 'IMPORT_FAILED' });
@@ -1486,7 +1505,9 @@ app.post('/api/encryption/reset', (req,res)=>{
   res.json({ ok: true });
 });
 
-app.use('/api', (err, _req, res, _next) => {
+app.use('/api', (err, _req, res, next) => {
+  // A partially streamed XLSX cannot be replaced with a JSON error response.
+  if (res.headersSent) return next(err);
   if (err?.type === 'entity.too.large') {
     return res.status(413).json({ ok: false, error: 'PAYLOAD_TOO_LARGE' });
   }

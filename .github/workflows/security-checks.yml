@@ -1,0 +1,48 @@
+name: Security checks
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # Keep the host OS stable across ubuntu-latest migrations.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6, Node 24
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install backend dependencies without lifecycle scripts
+        run: npm --prefix backend ci --omit=dev --ignore-scripts --no-audit
+
+      - name: Audit backend production dependencies
+        run: npm --prefix backend audit --omit=dev --audit-level=moderate
+
+      - name: Run backend security regressions
+        run: node --test backend/tests/*.test.mjs
+
+      - name: Audit frontend production dependencies
+        run: npm --prefix frontend audit --package-lock-only --omit=dev --audit-level=moderate
+
+      - name: Audit all frontend dependencies
+        run: npm --prefix frontend audit --package-lock-only --audit-level=moderate
+
+      - name: Install and build frontend
+        run: |
+          npm --prefix frontend ci --no-audit
+          npm --prefix frontend run build

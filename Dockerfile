@@ -1,7 +1,7 @@
 # ───────────────────────────────────────────────
 # 1️⃣ BUILD STAGE – build frontend
 # ───────────────────────────────────────────────
-FROM node:24-bookworm-slim AS build
+FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
 ARG APP_VERSION=dev
 ARG APP_REPO=pbuzdygan/mopay
 ARG APP_CHANNEL=main
@@ -34,7 +34,7 @@ RUN cd frontend && npm run build
 # ───────────────────────────────────────────────
 # 2️⃣ RUNTIME STAGE – backend + built frontend
 # ───────────────────────────────────────────────
-FROM node:24-bookworm-slim AS runtime
+FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
 ARG APP_VERSION=dev
 ARG APP_REPO=pbuzdygan/mopay
 ARG APP_CHANNEL=main
@@ -48,13 +48,18 @@ ENV NODE_ENV=production
 ENV PORT=8010
 EXPOSE 8010
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libsqlite3-0 gosu \
+RUN apt-get update && apt-get upgrade -y \
+ && command -v setpriv \
  && rm -rf /var/lib/apt/lists/*
 
 # 1. Install deps
 COPY backend/package*.json /app/
 RUN npm ci --omit=dev --ignore-scripts --no-audit --prefer-offline && npm cache clean --force
+
+# Installation tools are unnecessary in the running service; their bundled
+# dependencies otherwise remain a separate source of runtime image advisories.
+RUN rm -rf /usr/local/lib/node_modules/npm /opt/yarn-v1.22.22 \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 # 2. Copy FULL backend – this brings schema.sql!
 COPY backend /app

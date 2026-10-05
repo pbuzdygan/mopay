@@ -15,6 +15,7 @@ export function PinGuard() {
   const [locked, setLocked] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const errorTimerRef = useRef<number | null>(null);
 
   // restore session
@@ -34,7 +35,8 @@ export function PinGuard() {
 
   useEffect(() => {
     if (pinOk) return;
-    const root = document.documentElement;
+    const root = overlayRef.current;
+    if (!root) return;
     const vv = window.visualViewport;
     let maxViewportHeight = window.innerHeight;
     const updateInset = () => {
@@ -52,7 +54,7 @@ export function PinGuard() {
       // so adding extra padding would double-count and push the card off-screen.
       root.style.setProperty("--keyboard-inset", `${layoutDelta}px`);
 
-      const cardHeight = document.querySelector(".pin-guard-card")?.getBoundingClientRect().height ?? 0;
+      const cardHeight = root.querySelector(".pin-guard-card")?.getBoundingClientRect().height ?? 0;
       const rootFontSize = Number.parseFloat(getComputedStyle(root).fontSize || "16");
       const basePaddingPx = 0.85 * rootFontSize;
       const centerShift = basePaddingPx + cardHeight / 2 - maxViewportHeight / 2;
@@ -70,8 +72,7 @@ export function PinGuard() {
       vv?.removeEventListener("resize", updateInset);
       vv?.removeEventListener("scroll", updateInset);
       window.removeEventListener("resize", updateInset);
-      root.style.setProperty("--keyboard-inset", "0px");
-      root.style.setProperty("--pin-guard-shift", "0px");
+      // Keep the exiting card's viewport alignment until AnimatePresence removes it.
     };
   }, [pinOk]);
 
@@ -123,15 +124,21 @@ export function PinGuard() {
     <AnimatePresence>
       {!pinOk && (
         <motion.div
-          className="pin-guard-overlay fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          ref={overlayRef}
+          className="pin-guard-overlay fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-xs"
+          // Native opacity completion can restore full visibility before unmount.
+          style={{ opacity: 'var(--pin-opacity)' }}
+          initial={{ '--pin-opacity': 0 }}
+          animate={{ '--pin-opacity': 1 }}
+          exit={{ '--pin-opacity': 0 }}
+          transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
         >
           <motion.div
-            initial={{ scale: 0.94, opacity: 0, y: 10 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.92, opacity: 0, y: 8 }}
+            style={{ opacity: 'var(--pin-card-opacity)' }}
+            initial={{ scale: 0.94, '--pin-card-opacity': 0, y: 10 }}
+            animate={{ scale: 1, '--pin-card-opacity': 1, y: 0 }}
+            exit={{ scale: 0.92, '--pin-card-opacity': 0, y: 8 }}
+            transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
           >
             <div className="layer-card compact pin-guard-card w-full max-w-sm stack">
               <div className="flex justify-center">

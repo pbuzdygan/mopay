@@ -35,10 +35,14 @@ export function ModalBase({
     <AnimatePresence>
       {open && (
         <motion.div
-          className={`fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-center justify-center ${overlayClass}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          className={`fixed inset-0 z-[90] bg-black/40 flex items-center justify-center ${overlayClass}`}
+          // Animate a CSS variable so opacity stays in Motion's frame loop.
+          // Native opacity animation completion can briefly restore opacity: 0.
+          style={{ opacity: 'var(--modal-opacity)' }}
+          initial={{ '--modal-opacity': 0 }}
+          animate={{ '--modal-opacity': 1 }}
+          exit={{ '--modal-opacity': 0 }}
+          transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
           onMouseDown={() => {
             if (!disableClose) onClose();
           }}
@@ -46,9 +50,10 @@ export function ModalBase({
           <motion.div
             className={`card modal-card-premium w-full ${widthClass}`}
             onMouseDown={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, y: 14, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.97 }}
+            style={{ opacity: 'var(--modal-card-opacity)' }}
+            initial={{ '--modal-card-opacity': 0, y: 14, scale: 0.96 }}
+            animate={{ '--modal-card-opacity': 1, y: 0, scale: 1 }}
+            exit={{ '--modal-card-opacity': 0, y: 10, scale: 0.97 }}
             transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
           >
             {/* Header */}

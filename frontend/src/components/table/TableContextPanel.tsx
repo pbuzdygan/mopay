@@ -120,9 +120,12 @@ export function TableContextPanel({
             type="button"
             aria-label="Close details"
             className="table-context-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            // Keep opacity in the same frame loop as the panel (see ModalBase).
+            style={{ opacity: 'var(--details-backdrop-opacity)' }}
+            initial={{ '--details-backdrop-opacity': 0 }}
+            animate={{ '--details-backdrop-opacity': 1 }}
+            exit={{ '--details-backdrop-opacity': 0 }}
+            transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
             onClick={() => !saving && onClose()}
           />
           <motion.aside
@@ -130,9 +133,10 @@ export function TableContextPanel({
             aria-modal="true"
             aria-labelledby="table-context-title"
             className="table-context-panel"
-            initial={{ opacity: 0.7 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            style={{ opacity: 'var(--details-opacity)' }}
+            initial={{ '--details-opacity': 0 }}
+            animate={{ '--details-opacity': 1 }}
+            exit={{ '--details-opacity': 0 }}
             transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
           >
             <header className="table-context-header">

@@ -8,7 +8,6 @@ import { includesSearch, normalizeSearchText } from '../utils/search';
 import { DndContext, closestCenter, PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { motion, useAnimationControls } from 'framer-motion';
 import { Surface } from './Surface';
 import { TagEditorPopover, type TagColor } from './TagEditorPopover';
 import { TableHeaderRow, TableTotalRow } from './table/TableGridRows';
@@ -272,8 +271,6 @@ export function TableView() {
   const showGroupTotals = useAppStore((s) => s.showGroupTotals);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const qc = useQueryClient();
-  const fadeControls = useAnimationControls();
-  const [hasRendered, setHasRendered] = useState(false);
   const { rows, groups, tagsByEntry, patchEntryLocal, setEntryOverrides } = useTableQueryState({
     type,
     year,
@@ -304,29 +301,6 @@ export function TableView() {
       || (entry.groupId === null && matchesUngrouped)
     );
   }, [matchingGroupIds, normalizedSearch, rows]);
-
-  useEffect(() => {
-    setHasRendered(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasRendered) return;
-    let cancelled = false;
-    (async () => {
-      await fadeControls.start({
-        opacity: 0.55,
-        transition: { duration: 0.08, ease: 'easeOut' },
-      });
-      if (cancelled) return;
-      await fadeControls.start({
-        opacity: 1,
-        transition: { duration: 0.14, ease: 'easeOut' },
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fadeControls, hasRendered, type, year]);
 
   useEffect(() => {
     if (!year) return;
@@ -570,7 +544,7 @@ export function TableView() {
   return (
     <div className="stack">
       <Surface variant="table">
-        <motion.div animate={fadeControls} initial={{ opacity: 1 }}>
+        <div>
           <div className="overflow-x-auto">
             <div
               className="table-content inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
@@ -820,7 +794,7 @@ export function TableView() {
             <TableTotalRow gridTemplate={GRID_TEMPLATE} totals={totals} />
             </div>
           </div>
-        </motion.div>
+        </div>
       </Surface>
 
       {tagEditor && (
