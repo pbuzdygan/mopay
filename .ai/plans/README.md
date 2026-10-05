@@ -1,12 +1,32 @@
 # Execution Plans
 
-Use a plan only for work that is ambiguous, risky, crosses subsystems, changes architecture or persistent data, requires migration, or is likely to outlive one focused session. Small and obvious changes should be implemented directly.
+Plan only when complexity or risk warrants it. Save a plan here only when it must survive a session; otherwise a brief message is enough. Use a descriptive filename, without mandatory task IDs, owners, or status fields.
 
-Name a plan `T-NNN-short-slug.md` and link it from `.ai/STATE.md`. The plan must be understandable from the repository and the file itself without relying on a previous chat.
+Keep only the sections needed:
+
+```markdown
+# Intended outcome
+
+Observable result and acceptance criteria.
+
+## Approach
+
+- Concrete implementation steps.
+
+## Risks and verification
+
+Relevant constraints, checks, and migration or rollback needs.
+
+## References
+
+Links to relevant code, specifications, or durable decisions.
+```
+
+Update at meaningful changes to the approach, not after every action. Do not duplicate a handoff note or Git history. Use existing project planning and decision conventions before adding another system.
 
 ## Closure registry (2026-10-05)
 
-All listed tasks are **done**; handoff is **ready**. This records verified scope completion, not Git commit, release or deployment. T-010 through T-012 were committed externally as 76700dd and T-013 as e1ab0b4; T-014 was committed externally as 5eed656. T-015 was committed externally as b945430. Completed T-016 screenshot changes remain in the worktree for user review. Preserve them. Current snapshot is the ignored `.ai/STATE.md`. Residual vendor vulnerabilities and production/browser verification limits are explicit in [container assessment](../../docs/CONTAINER_SECURITY.md) and individual plans; they are not silently marked fixed.
+All listed tasks are **done**; handoff is **ready**. This records verified scope completion, not Git commit, release or deployment. T-010 through T-012 were committed externally as 76700dd and T-013 as e1ab0b4; T-014 was committed externally as 5eed656. T-015 was committed externally as b945430. Residual vendor vulnerabilities and production/browser verification limits are explicit in [container assessment](../../docs/CONTAINER_SECURITY.md) and individual plans; they are not silently marked fixed.
 
 | Task | Completed scope / evidence |
 | --- | --- |
@@ -28,54 +48,3 @@ All listed tasks are **done**; handoff is **ready**. This records verified scope
 | [T-015](T-015-storage-identity.md) | Configurable PUID/PGID; image build,17entrypoint tests, custom-identity application smoke, Compose and101documentation links passed |
 
 | [T-016](T-016-readme-screenshots.md) | Ten current UI screenshots in light/dark; frontend build, Chromium rendering, visual inspection, PNG dimensions and README image links passed |
-
-Copy the template below and remove guidance that does not apply.
-
-```markdown
-# T-NNN: Outcome
-
-- Status: idle | in_progress | blocked | done
-- Owner: codex | claude | human | other
-- Created: YYYY-MM-DD
-- Updated: YYYY-MM-DD
-
-## Outcome and acceptance
-
-State the observable result and a short checklist proving it is complete.
-
-## Context
-
-Link the relevant specifications, decisions, code entry points, and tests. Summarize only facts that are not obvious from those sources.
-
-## Scope
-
-- In scope:
-- Out of scope:
-
-## Constraints and risks
-
-List compatibility, security, data, migration, deployment, resource, or rollback constraints.
-
-## Implementation steps
-
-- [ ] 1. A concrete, verifiable increment.
-- [ ] 2. The next increment.
-- [ ] 3. Documentation, migration, or cleanup required by the change.
-
-Update this checklist as work proceeds. Do not leave completed work marked open.
-
-## Verification
-
-List exact commands, manual checks, expected results, and failure cases. Include security checks when `.ai/SECURITY.md` applies.
-
-## Decisions
-
-Record minor decisions here. Create and link an ADR for choices that affect architecture, public contracts, persistent formats, security boundaries, or major dependencies.
-
-## Handoff
-
-Keep the current checkpoint here only when detail would make `.ai/STATE.md` too large. State what is done, what remains, changed files, verification evidence, risks, and the exact next action.
-```
-
-A completed plan may remain as focused design history if it explains the resulting system. Remove or archive plans that only duplicate Git history or current documentation.
-
