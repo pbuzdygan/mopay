@@ -3577,15 +3577,7 @@ html.theme-changing * {
 
 /* === PREMIUM MODAL LOOK === */
 
-.modal-overlay-premium {
-  /* we already have blur and background; smooth it slightly */
-  animation: modalOverlayFade 0.18s ease-out;
-}
-
-@keyframes modalOverlayFade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+/* Shared modal opacity is controlled by Motion, including its exit transition. */
 
 .modal-card-premium {
   border-radius: 1.5rem;
@@ -4844,12 +4836,6 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
   height: 100%;
   border: 0;
   background: color-mix(in srgb, #171624 26%, transparent);
-  backdrop-filter: blur(1px);
-}
-
-@keyframes tableContextSlideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
 }
 
 .table-context-panel {
@@ -4863,7 +4849,6 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
   border-left: 1px solid var(--soft-border);
   background: var(--panel-solid);
   box-shadow: -20px 0 56px rgba(20, 19, 38, 0.18);
-  animation: tableContextSlideIn 0.2s ease-out;
 }
 
 .table-context-header {
@@ -4967,11 +4952,6 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
 }
 
 @media (max-width: 640px) {
-  @keyframes tableContextSlideInMobile {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
-
   .table-context-panel {
     top: auto;
     left: 0;
@@ -4981,7 +4961,6 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
     border-left: 0;
     border-radius: 1.25rem 1.25rem 0 0;
     box-shadow: 0 -20px 56px rgba(20, 19, 38, 0.2);
-    animation-name: tableContextSlideInMobile;
   }
 
   .table-context-header,

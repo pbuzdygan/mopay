@@ -1,89 +1,87 @@
-#!backend/schema.sql
-# Node artifacts
-#**/node_modules
-#**/dist
-#**/build
+# Version control, local agent context and documentation
+.git
+.gitignore
+.dockerignore
+.codex
+.agents
+.ai
+.github
+docs
+AGENTS.md
+CLAUDE.md
+README*
+CHANGELOG.md
 
-# System files
-#.DS_Store
-#Thumbs.db
-
-# Git
-#.git
-#.gitignore
-
-# Editor / IDE
-#.vscode
-#.idea
-#*.log
-
-# Local runtime
-#data
-#.env
-
-#__pycache__
-#*.pyc
-#*.pyo
-#*.env
-# Dane lokalne (bazy, logi)
-#data/*.db
-#data/*.sqlite*
-#data/*.bak
-#data/*.log
-
-# Frontend - build artefakty i zależności
-#frontend/node_modules
-#frontend/.npm
-#frontend/.cache
-#frontend/dist
-#frontend/.vite
-#frontend/.env*
-#frontend/coverage
-#frontend/test-results
-
-# Backend - cache i środowiska
-#backend/__pycache__
-#backend/.mypy_cache
-#backend/.pytest_cache
-#backend/.venv
-#backend/.coverage
-#venv/
-#.env/
-#.env.*
-
-# Dokumentacja / pomocnicze
-#README_*
-#CHANGELOG.md
-#*.md
-#*.txt
-
-!backend/schema.sql
-
-# Node artifacts
+# Dependencies are installed inside the image; frontend assets are built there
 **/node_modules
 **/dist
 **/build
+**/.npm
+**/.cache
+**/.vite
+**/*.tsbuildinfo
+**/*.tgz
 
-# System files
-.DS_Store
-Thumbs.db
+# Test sources and generated reports are not runtime/build inputs
+**/tests
+**/test
+**/__tests__
+**/e2e
+**/*.test.*
+**/*.spec.*
+**/coverage
+**/.nyc_output
+**/test-results
+**/playwright-report
+**/playwright/.cache
 
-# Git
-.git
-.gitignore
+# Local environment, credentials and runtime data must not enter build context
+**/.env
+**/.env.*
+**/.aws
+**/.ssh
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+data
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite-*
+**/*.sqlite3
+**/*.sqlite3-*
 
-# Backend - cache i środowiska
-backend/__pycache__
-backend/.mypy_cache
-backend/.pytest_cache
-backend/.venv
-backend/.coverage
-venv/
-.env/
-.env.*
+# Logs, temporary files and backups
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/*.pid
+**/*.pid.lock
+tmp
+temp
+**/.tmp
+**/*.tmp
+**/*.temp
+**/*.bak
+**/*.swp
+**/*.swo
+**/*~
 
-# Dokumentacja / pomocnicze
-README_*
-CHANGELOG.md
-*.md
-*.txt
+# Editor, OS and legacy Python cache artifacts
+**/.idea
+**/.vscode
+**/.DS_Store
+**/Thumbs.db
+**/Desktop.ini
+**/*:Zone.Identifier
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.mypy_cache
+**/.pytest_cache
+**/.venv
+venv
+**/.coverage

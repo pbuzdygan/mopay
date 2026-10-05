@@ -130,7 +130,7 @@ services:
 ```
 ### Generate Your APP_ENC_KEY
 
-Result of below command is Your encryption key - stored it securley - without it, Your Mopay will not start and Your data will be lost.
+Result of below command is Your encryption key - store it securely - without it, Your Mopay will not start and Your data will be lost.
 
 ```bash
 openssl rand -base64 32

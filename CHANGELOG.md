@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.6.2
+
+### Bug fix
+- removed the whole-table dimming animation when switching Expenses/Incomes or years, including unnecessary fading of cached tables
+- fixed competing CSS and Motion opacity animations on shared modal overlays that could cause flashes when opening or closing dialogs
+- fixed a one-frame opacity reset at the end of native fade animations in shared dialogs and entry/group details panels
+- simplified entry/group details transitions and replaced animated full-screen backdrop blur with stable dimming for shared dialogs and details panels
+
+### Improvements
+- expanded Git and Docker ignore rules for dependencies, generated builds/test reports, local environment and credential files, SQLite data, logs and temporary/editor artifacts; Docker builds also exclude test sources and local agent context
+
 ## v1.6.1
 
 ### Bug fix
