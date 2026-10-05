@@ -1,0 +1,65 @@
+name: Security checks
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6, Node 24
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install backend dependencies without lifecycle scripts
+        run: npm --prefix backend ci --omit=dev --ignore-scripts --no-audit
+
+      - name: Audit backend production dependencies
+        run: npm --prefix backend audit --omit=dev --audit-level=moderate
+
+      - name: Run backend security regressions
+        run: node --test backend/tests/*.test.mjs
+
+      - name: Audit frontend production dependencies
+        run: npm --prefix frontend audit --package-lock-only --omit=dev --audit-level=moderate
+
+      # Full build-tool audit remains visible. The unpatched braces advisory
+      # requires a separately tested Tailwind migration; runtime audits gate release.
+      - name: Report frontend build dependency advisories
+        shell: bash
+        run: |
+          set +e
+          npm --prefix frontend audit --package-lock-only --json > frontend-audit.json
+          audit_status=$?
+          set -e
+          node --input-type=module - "$audit_status" <<'JS'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync('frontend-audit.json', 'utf8'));
+          if (report.error || !report.metadata || Number(process.argv[2]) > 1) {
+            throw new Error('Frontend dependency audit could not complete');
+          }
+          console.log(JSON.stringify(report, null, 2));
+          if (report.metadata.vulnerabilities.total) {
+            console.log('::warning::Frontend build dependencies have advisories; review the full report.');
+          }
+          JS
+
+      - name: Install and build frontend
+        run: |
+          npm --prefix frontend ci --no-audit
+          npm --prefix frontend run build

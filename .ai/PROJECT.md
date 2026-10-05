@@ -75,7 +75,7 @@ Use symbol searches before reading central files in full. This table is a naviga
 | Backend development | From `backend/`: `npm start` | Only with isolated absolute `DB_FILE`, disposable valid PIN/key, explicit loopback-safe execution environment; startup changes DB and may trigger configured integrations |
 | Format / lint | Unavailable: no script/config found in reviewed tracked files | Do not claim these passed |
 | Type check | Unavailable: no typecheck script or `tsconfig` found | TypeScript dependency exists; Vite build is not a substitute for type checking |
-| Targeted / full tests | Unavailable: no test scripts or tracked test suite found | Add meaningful regression tests when behavior changes; setup is a separate scoped change |
+| Backend security regressions | `node --test backend/tests/*.test.mjs` | Added in T-006/T-007; disposable DB/source fixtures, loopback-only API and bounded worker tests; not a comprehensive application suite |
 | Frontend build | `npm --prefix frontend run build` | Writes `frontend/dist`; requires dependencies; no backend/security coverage |
 | Full image build | `docker build -t mopay-local-review .` | Local image only; uses network, disk and native dependencies; do not publish |
 | Security dependencies | Candidate: `npm --prefix backend audit` / `npm --prefix frontend audit` | Not an established project gate; communicates dependency information to the configured registry; not run |
@@ -98,7 +98,7 @@ Use symbol searches before reading central files in full. This table is a naviga
 
 - Current local branch: `dev`; local `origin/HEAD` points to `origin/main`. This is cached local Git metadata, not live verification of hosting settings.
 - Recent history includes releases merged from `dev`; existing commit subjects do not establish a mandatory naming convention.
-- [Workflow](../.github/workflows/docker-publish.yml) runs on published GitHub releases targeting `main` or `dev`, builds an image and pushes to GHCR. It contains no lint/typecheck/test steps.
+- [Workflow](../.github/workflows/docker-publish.yml) runs on published GitHub releases targeting `main` or `dev`, builds an image and pushes to GHCR. T-007 added reusable [security checks](../.github/workflows/security-checks.yml): backend regressions, backend/frontend production dependency audit gates, a full build-tool advisory report and frontend build. No lint/typecheck or container OS CVE scan is established.
 - Channels/tags: `main` → `latest` and version tag; `dev` → `dev_latest` and `dev_` version tag.
 - [Changelog](../CHANGELOG.md) groups release changes into fixes/features/improvements.
 - Existing [AGENTS.md](../AGENTS.md) requires explicit user requests for commits, merges, pushes, PRs, releases, deployment and external mutations.
@@ -162,6 +162,7 @@ Until testing is established, completion reports must identify behavior not veri
 - Protected API requests are authenticated before parsing; current public API allowlist is PIN verify/logout, metadata, encryption status. JSON limits are 2 KB for PIN verification, 64 KB for standard requests, 10 MB for import ([server](../backend/server.js)).
 - Monetary values use application-level AES-256-GCM; preserve existing key compatibility and mismatch safeguards ([encryption](../backend/encryption.js), [migration](../backend/migration.js)). Do not imply every database field is encrypted.
 - Imports require `mopay_import_template.xlsx`, validate input, and use overwrite confirmation/transaction orchestration ([server](../backend/server.js), [export](../backend/export.js)).
+- T-007 bounds import/validation in a shared worker parser; byte/structure/time budgets and retryable API errors are documented in [README](../README.md#xlsx-import-limits). No schema migration or stored-data rewrite accompanies this change.
 - PWA caches documents/assets; `/api/` requests are `NetworkOnly`. Offline assets do not establish offline financial editing ([Vite config](../frontend/vite.config.ts)).
 - One process per DB file is the recommendation in the server's busy-error response; avoid designing tests around shared live DB access.
 

@@ -3,12 +3,18 @@
 ## v1.6.2
 
 ### Bug fix
+- bounded XLSX import/validation archive expansion and worksheet structure, isolated parsing with a time/heap budget, and prevented concurrent parsing from exhausting the backend
+- fixed malformed export requests and asynchronous XLSX download failures that could terminate the backend; export years are validated, limited to 100 per request, and deduplicated
+- made entry patches atomic: rejected fields or database failures no longer leave changed groups, neighbouring row order, or partially saved values
+- rejected non-finite savings item amounts on creation, matching existing update validation
 - removed the whole-table dimming animation when switching Expenses/Incomes or years, including unnecessary fading of cached tables
 - fixed competing CSS and Motion opacity animations on shared modal overlays that could cause flashes when opening or closing dialogs
 - fixed a one-frame opacity reset at the end of native fade animations in shared dialogs and entry/group details panels
 - simplified entry/group details transitions and replaced animated full-screen backdrop blur with stable dimming for shared dialogs and details panels
 
 ### Improvements
+- patched compatible backend and frontend build dependencies; upgraded and SHA-pinned GitHub Actions to Node 24
+- added recurring backend security regressions, runtime dependency audit gates and frontend build checks before image publication, with a visible report for remaining build-tool advisories
 - expanded Git and Docker ignore rules for dependencies, generated builds/test reports, local environment and credential files, SQLite data, logs and temporary/editor artifacts; Docker builds also exclude test sources and local agent context
 
 ## v1.6.1

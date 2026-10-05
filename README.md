@@ -205,6 +205,42 @@ Below variables let you tune security behavior.
   - SQLite busy timeout in milliseconds.
   - Useful when storage is slow or the DB file is temporarily locked.
 
+## Backend regression tests
+
+With Node.js 24 and backend dependencies installed, run from the repository root:
+
+```sh
+node --test backend/tests/*.test.mjs
+```
+
+Tests cover authenticated XLSX downloads, bounded import parsing and failure paths, atomic entry patches, and finite savings amounts. API tests create a temporary source copy and SQLite database, generate disposable credentials, bind only to `127.0.0.1`, and do not inherit local secrets or webhook settings. Faults are injected only in the temporary copy or test workers; the test server is stopped and fixture files are removed after the run. Test sources are versioned and excluded from Docker build contexts.
+
+Export requests accept 1–100 numeric four-digit integer years (`1000`–`9999`); duplicate years produce one sheet. Invalid requests return `400`, and unexpected download failures before streaming return a generic `500`. A download failure after streaming starts closes the connection; retry the download. Entry patches validate all supplied fields before writing and roll back grouping, ordering, and field changes together on database failure. Savings item creation and updates reject non-finite amounts; existing stored values are not rewritten by this release.
+
+## XLSX import limits
+
+Validation and import share one parser slot. The authenticated JSON body limit remains 10 MB; XLSX data must use canonical base64 and stay within these fixed budgets:
+
+| Resource | Limit |
+| --- | --- |
+| Compressed XLSX | 6 MiB |
+| Actual expanded archive content | 24 MiB total, 4 MiB per member |
+| Archive members / worksheets | 128 / 20 |
+| Rows / columns | 5000 / 64 per worksheet, including declared dimensions; 10000 rows total |
+| Explicit cells / merged cell area | 100000 each, across the workbook |
+| XML nesting depth | 32 |
+| Parsing deadline / worker old-space | 30 seconds / 192 MiB |
+
+Members are streamed and counted before ExcelJS parsing, then rebuilt with checked names/content to avoid differing ZIP filename interpretations. No archive is extracted. DTDs, encrypted/unsupported archives, duplicate/traversal paths and excessively long/deep member names are rejected. Sparse rows and ranges count toward dimension limits. An additional sheet-ID bound prevents pathological sparse allocation; returned model IDs are normalized internally. Parsing runs in a worker without inherited environment credentials; its heap bound complements byte budgets and is not an operating-system memory limit.
+
+Excessive files return `413 IMPORT_LIMIT_EXCEEDED`; concurrent parsing returns `429 IMPORT_BUSY` with `Retry-After: 1`; the deadline returns `408 IMPORT_TIMEOUT`. Existing `423 IMPORT_IN_PROGRESS` protects a running import. Both endpoints apply the same limits before database writes. Split oversized workbooks by year or remove unused content before retrying.
+
+## Automated security checks
+
+[Security checks](.github/workflows/security-checks.yml) run on pull requests/pushes to `main` and `dev`, and are required by the release image workflow before publication. They use SHA-pinned Node 24 actions, run backend regressions, gate on moderate-or-higher backend/frontend production dependency advisories, and build the frontend. The full frontend build-tool audit is reported visibly but is informational.
+
+As of 2026-10-05, the patched lockfiles have zero backend and frontend production npm audit findings. The full frontend audit still reports `braces` and four propagated package records through Tailwind 3 ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)); no patched `braces` release is available. A separately tested Tailwind migration remains necessary. These checks do not scan container OS packages or verify production proxy/TLS configuration.
+
 ## Deployment notes
 
 - API JSON is parsed only after session authentication, except for the PIN endpoint, which has a `2 KB` limit. Normal authenticated API requests have a `64 KB` limit; authenticated import requests retain the `10 MB` limit. Export response size is unaffected.

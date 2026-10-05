@@ -5,7 +5,13 @@ on:
     types: [ published ]
 
 jobs:
+  security-checks:
+    uses: ./.github/workflows/security-checks.yml
+    permissions:
+      contents: read
+
   build-and-push:
+    needs: security-checks
     if: github.event.release.target_commitish == 'main' || github.event.release.target_commitish == 'dev'
     runs-on: ubuntu-latest
 
@@ -15,7 +21,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+        with:
+          persist-credentials: false
 
       - name: Determine build version
         id: vars
@@ -31,7 +39,7 @@ jobs:
           if [[ "${RELEASE_BRANCH}" == "dev" ]]; then
             CHANNEL="dev"
           fi
-          IMAGE="ghcr.io/${{ github.repository }}"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           PRIMARY_TAG="latest"
           if [[ "${CHANNEL}" == "dev" ]]; then
             PRIMARY_TAG="dev_latest"
@@ -44,37 +52,51 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0, Node 24
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Docker image (NO CACHE)
+        env:
+          MOPAY_BUILD_VERSION: ${{ steps.vars.outputs.version }}
+          MOPAY_IMAGE: ${{ steps.vars.outputs.image }}
+          MOPAY_PRIMARY_TAG: ${{ steps.vars.outputs.primary_tag }}
+          MOPAY_CHANNEL: ${{ steps.vars.outputs.channel }}
         run: |
             docker build \
             --no-cache \
-            --build-arg APP_VERSION=${{ steps.vars.outputs.version }} \
-            --build-arg APP_REPO=${{ github.repository }} \
-            --build-arg APP_CHANNEL=${{ steps.vars.outputs.channel }} \
-            -t ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.primary_tag }} \
+            --build-arg "APP_VERSION=${MOPAY_BUILD_VERSION}" \
+            --build-arg "APP_REPO=${GITHUB_REPOSITORY}" \
+            --build-arg "APP_CHANNEL=${MOPAY_CHANNEL}" \
+            -t "${MOPAY_IMAGE}:${MOPAY_PRIMARY_TAG}" \
             .
 
 
       - name: Push Docker image (primary tag)
+        env:
+          MOPAY_IMAGE: ${{ steps.vars.outputs.image }}
+          MOPAY_PRIMARY_TAG: ${{ steps.vars.outputs.primary_tag }}
         run: |
-          docker push ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.primary_tag }}
+          docker push "${MOPAY_IMAGE}:${MOPAY_PRIMARY_TAG}"
 
       - name: Tag image with release version
         if: startsWith(github.ref, 'refs/tags/') && github.event.release.target_commitish == 'main'
+        env:
+          MOPAY_IMAGE: ${{ steps.vars.outputs.image }}
+          MOPAY_PRIMARY_TAG: ${{ steps.vars.outputs.primary_tag }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          docker tag ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.primary_tag }} ${{ steps.vars.outputs.image }}:$VERSION
-          docker push ${{ steps.vars.outputs.image }}:$VERSION
+          VERSION="${GITHUB_REF#refs/tags/}"
+          docker tag "${MOPAY_IMAGE}:${MOPAY_PRIMARY_TAG}" "${MOPAY_IMAGE}:${VERSION}"
+          docker push "${MOPAY_IMAGE}:${VERSION}"
 
       - name: Tag dev image with release version
         if: startsWith(github.ref, 'refs/tags/') && github.event.release.target_commitish == 'dev'
+        env:
+          MOPAY_IMAGE: ${{ steps.vars.outputs.image }}
+          MOPAY_PRIMARY_TAG: ${{ steps.vars.outputs.primary_tag }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          docker tag ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.primary_tag }} ${{ steps.vars.outputs.image }}:dev_${VERSION}
-          docker push ${{ steps.vars.outputs.image }}:dev_${VERSION}
+          VERSION="${GITHUB_REF#refs/tags/}"
+          docker tag "${MOPAY_IMAGE}:${MOPAY_PRIMARY_TAG}" "${MOPAY_IMAGE}:dev_${VERSION}"
+          docker push "${MOPAY_IMAGE}:dev_${VERSION}"
