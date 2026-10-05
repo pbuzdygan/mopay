@@ -3,7 +3,7 @@
 - Status: proposed | accepted | superseded | rejected
 - Date: YYYY-MM-DD
 - Deciders: human or approved project role
-- Related task: T-NNN
+- Related work: optional link
 - Supersedes: none
 
 ## Context

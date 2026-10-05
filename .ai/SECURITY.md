@@ -4,19 +4,19 @@ Security is part of design and completion, not a final polish step. Apply the re
 
 ## When this file is required
 
-Read and apply the relevant checklist before changing:
+Locate and read the relevant sections when a change affects trust boundaries, sensitive data, permissions, active content, untrusted input, or execution privileges. Start with headings or repository search; do not preload this entire document for routine work.
 
-- authentication, sessions, identity, password reset, or account recovery;
-- authorization, roles, ownership, tenancy, sharing, or administration;
-- APIs, forms, webhooks, email, search, or other externally influenced input;
-- SQL, databases, caches, queues, migrations, imports, exports, or backups;
-- HTML, Markdown, SVG, templates, rich text, or browser-side code;
-- uploads, downloads, archives, file previews, paths, or filesystem operations;
-- outbound HTTP, URL fetches, integrations, OAuth, MCP, or cloud services;
-- secrets, logs, telemetry, errors, audit trails, or debug tooling;
-- dependencies, build pipelines, containers, deployment, or production configuration.
+Typical matches:
 
-Record task-specific security evidence in `.ai/STATE.md`. For a substantial or high-risk change, add a short threat model or security section to its plan.
+- Identity or access changes: Authentication and sessions; Authorization and tenancy.
+- Untrusted input or active content: Input, queries, and resource limits; Browser output and active content.
+- Files or remote integrations: Files, paths, and archives; External requests and integrations.
+- Credentials, telemetry, or personal data: Trust boundaries and data; Secrets and credentials; Errors, logging, and audit.
+- Packages, pipelines, infrastructure, or tool privileges: Dependencies, build, and supply chain; Containers and deployment; Agent and tool safety.
+
+An API, database, or frontend edit alone is not a reason to audit every category. Follow the affected data flow and expand the review if evidence exposes another boundary. For a broad security review, inspect all applicable sections.
+
+Keep task-specific evidence in the final report or an existing plan. Add it to a handoff only if unfinished work needs it; no routine state updates are required.
 
 ## Trust boundaries and data
 
@@ -152,7 +152,7 @@ When first reviewing an existing project:
 5. Record untested areas and unavailable tools. Never mark an unchecked item as verified or describe a partial review as a full audit.
 6. For a review-only request, report fixes without implementing them. When implementation is requested, fix in-scope issues and verify regression cases; flag unrelated findings.
 
-Keep detailed unpublished findings in local `STATE.md` until reviewed for public disclosure. Do not include secrets or sensitive payloads even in local notes.
+Keep detailed unpublished findings in an appropriate local, ignored document until reviewed for public disclosure. Do not include secrets or sensitive payloads even in local notes.
 
 Before declaring relevant work complete, record evidence that:
 
