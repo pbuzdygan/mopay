@@ -23,30 +23,30 @@
 
 ### Main UI
 <p align="center">
-  <img src="branding/0_dark.png" width="45%" alt="Main UI Expenses Dark">
-  <img src="branding/0_light.png" width="45%" alt="Main UI Expenses Dark">
+  <img src="branding/0_dark_new.png" width="45%" alt="Main UI Expenses Dark">
+  <img src="branding/0_light_new.png" width="45%" alt="Main UI Expenses Light">
 </p>
 <p align="center">
-  <img src="branding/1_dark.png" width="45%" alt="Main UI Incomes Dark">
-  <img src="branding/1_light.png" width="45%" alt="Main UI Incomes Dark">
+  <img src="branding/1_dark_new.png" width="45%" alt="Main UI Incomes Dark">
+  <img src="branding/1_light_new.png" width="45%" alt="Main UI Incomes Light">
 </p>
 
 ### Savings
 <p align="center">
-  <img src="branding/2_dark.png" width="45%" alt="Savings Dark">
-  <img src="branding/2_light.png" width="45%" alt="Savings Light">
+  <img src="branding/2_dark_new.png" width="45%" alt="Savings Dark">
+  <img src="branding/2_light_new.png" width="45%" alt="Savings Light">
 </p>
 
 ### Reports
 <p align="center">
-  <img src="branding/3_dark.png" width="45%" alt="Reports Dark">
-  <img src="branding/3_light.png" width="45%" alt="Reports Light">
+  <img src="branding/3_dark_new.png" width="45%" alt="Reports Dark">
+  <img src="branding/3_light_new.png" width="45%" alt="Reports Light">
 </p>
 
-### Settings
+### Year operations
 <p align="center">
-  <img src="branding/4_dark.png" width="45%" alt="Settings Dark">
-  <img src="branding/4_light.png" width="45%" alt="Settings Light">
+  <img src="branding/4_dark_new.png" width="45%" alt="Year operations Dark">
+  <img src="branding/4_light_new.png" width="45%" alt="Year operations Light">
 </p>
 
 ---
