@@ -15,6 +15,7 @@
 - simplified entry/group details transitions and replaced animated full-screen backdrop blur with stable dimming for shared dialogs and details panels
 
 ### Improvements
+- shortened README by moving detailed configuration, import limits, regression tests and browser/CI security documentation into linked guides under docs
 - moved mobile search into the year/menu/lock/theme row, using available space between Menu and Lock; added `/` and Ctrl/Cmd+K search focus shortcuts that preserve editing and modal/PIN focus
 - hardened the runtime image with a digest-pinned Node 24 base and Debian security updates, removed runtime npm/Yarn and unused system SQLite, and replaced gosu with existing setpriv; verified privilege dropping, permission denial and SIGTERM handling and documented full container scan results and residual vendor advisories
 - enforced a restrictive browser Content Security Policy and denied framing of the app, while preserving PIN animations, GitHub release checks, blob downloads and PWA offline assets; refreshed the PWA document revision for adoption of the new headers

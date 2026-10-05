@@ -72,6 +72,8 @@
 
 The easiest way to get started is to use compose file:
 
+Full descriptions of environment variables and optional settings are in [Configuration](docs/CONFIGURATION.md).
+
 Notes:
 - `ghcr.io/pbuzdygan/mopay:latest` tracks releases from `main`.
 - `ghcr.io/pbuzdygan/mopay:dev_latest` tracks releases from `dev`.
@@ -100,26 +102,8 @@ services:
       - APP_PIN=123456 #PIN 4-8 digits
       - APP_ENC_KEY=REPLACE_WITH_YOUR_KEY
       - NODE_ENV=production
-      # Optional security hardening (v1.5.3+):
-      # - APP_SESSION_TTL_SECONDS=43200
-      # - APP_SESSION_MAX_ACTIVE=5000
-      # - APP_PIN_RATE_LIMIT_PER_MIN=12
-      # - APP_PIN_RATE_LIMIT_BURST=4
-      # - APP_PIN_RATE_LIMIT_BURST_WINDOW_MS=10000
-      # - APP_PIN_LOCK_THRESHOLD=6
-      # - APP_PIN_LOCK_BASE_MS=120000
-      # - APP_PIN_LOCK_MAX_MS=1800000
-      # - APP_PIN_MIN_RESPONSE_MS=250
-      # - APP_PIN_MAX_CONCURRENT=2
-      # - APP_PIN_MAX_TRACKED_IPS=10000
-      # Use only behind one trusted reverse-proxy hop (for example Nginx Proxy Manager):
-      # - APP_TRUST_PROXY=1
-      # - CORS_ALLOWED_ORIGINS=https://mopay.example.com
-      # - SECURITY_WEBHOOK_URL=https://example.com/webhook
-      # - SECURITY_ALERT_PIN_FAIL_THRESHOLD=20
-      # - SECURITY_ALERT_PIN_FAIL_WINDOW_MS=600000
-      # - SECURITY_ALERT_COOLDOWN_MS=900000
-      # - SQLITE_BUSY_TIMEOUT_MS=5000
+      # Optional security settings: see docs/CONFIGURATION.md
+
 
 # Health check (optional but recommended)
 #    healthcheck:
@@ -144,114 +128,35 @@ Accepted formats:
 
 ## Import notes
 
-- Use the template downloaded from Mopay. The backend expects the uploaded file name to stay `mopay_import_template.xlsx`.
-- Import supports new years and overwriting existing years after explicit confirmation.
-- Imported workbook data includes entries, groups, month tags, savings goals, and savings items.
+Download the Mopay template and keep its name `mopay_import_template.xlsx`. See [Import and export](docs/IMPORT_EXPORT.md) for the supported data, overwrite behavior and limits.
 
 ## Release check
 
-- The frontend can display release/update information in Settings.
-- Release status is resolved from backend metadata and GitHub Releases for the configured repository/channel.
-- In restricted environments, outbound browser access to `api.github.com` may be required for update detection.
+Settings shows release/update information. See [release checks and metadata configuration](docs/CONFIGURATION.md#release-check), including the browser network requirement.
 
-## Security environment variables (v1.5.3+)
+<a id="security-environment-variables-v153"></a>
 
-Mopay now protects backend API endpoints with a PIN session token (`X-Mopay-Session`).
-Below variables let you tune security behavior.
+## Environment variables
 
-- `APP_SESSION_TTL_SECONDS` (default: `43200`)
-  - PIN session idle timeout (sliding expiration in seconds).
-- `APP_SESSION_MAX_ACTIVE` (default: `5000`)
-  - Max number of in-memory active sessions before oldest entries are evicted.
-
-- `APP_PIN_RATE_LIMIT_PER_MIN` (default: `12`)
-  - Max PIN verify attempts per IP per minute.
-- `APP_PIN_RATE_LIMIT_BURST` (default: `4`)
-  - Max burst attempts per IP in short window.
-- `APP_PIN_RATE_LIMIT_BURST_WINDOW_MS` (default: `10000`)
-  - Burst window size in milliseconds.
-
-- `APP_PIN_LOCK_THRESHOLD` (default: `6`)
-  - Failed PIN attempts required to trigger lockout.
-- `APP_PIN_LOCK_BASE_MS` (default: `120000`)
-  - Initial lockout duration in milliseconds.
-- `APP_PIN_LOCK_MAX_MS` (default: `1800000`)
-  - Max lockout duration in milliseconds.
-- `APP_PIN_MIN_RESPONSE_MS` (default: `250`)
-  - Minimum response duration for `/api/pin/verify` to reduce timing signal.
-- `APP_PIN_MAX_CONCURRENT` (default: `2`)
-  - Max number of concurrent PIN hash checks. Additional requests receive `429` and can retry.
-- `APP_PIN_MAX_TRACKED_IPS` (default: `10000`)
-  - Max number of IP entries retained by the PIN rate limiter and alert tracker.
-- `APP_TRUST_PROXY` (default: empty)
-  - Number of trusted reverse-proxy hops. Set `1` when Mopay is reached through one Nginx Proxy Manager hop.
-  - Leave empty when Mopay is accessed directly. Mopay does not add or configure a proxy container.
-
-- `CORS_ALLOWED_ORIGINS` (default: empty)
-  - Optional comma-separated allowlist for cross-origin API calls.
-  - Example: `https://mopay.example.com,https://admin.example.com`
-  - If empty, Mopay does not enable cross-origin API access.
-
-- `SECURITY_WEBHOOK_URL` (default: empty)
-  - Optional webhook endpoint for security alerts.
-- `SECURITY_ALERT_PIN_FAIL_THRESHOLD` (default: `20`)
-  - Failed PIN events required to trigger alert.
-- `SECURITY_ALERT_PIN_FAIL_WINDOW_MS` (default: `600000`)
-  - Time window for counting failed PIN events.
-- `SECURITY_ALERT_COOLDOWN_MS` (default: `900000`)
-  - Minimum interval between repeated alerts for the same source.
-
-- `SQLITE_BUSY_TIMEOUT_MS` (default: `5000`)
-  - SQLite busy timeout in milliseconds.
-  - Useful when storage is slow or the DB file is temporarily locked.
+The **full environment-variable reference**, including defaults, security options and release metadata, is in [Configuration](docs/CONFIGURATION.md). See [basic variables](docs/CONFIGURATION.md#basic-environment-variables) and [security environment variables (v1.5.3+)](docs/CONFIGURATION.md#security-environment-variables-v153).
 
 ## Backend regression tests
 
-With Node.js 24 and backend dependencies installed, run from the repository root:
-
-```sh
-node --test backend/tests/*.test.mjs
-```
-
-Tests cover authenticated XLSX downloads, bounded import parsing and failure paths, atomic entry patches, and finite savings amounts. API tests create a temporary source copy and SQLite database, generate disposable credentials, bind only to `127.0.0.1`, and do not inherit local secrets or webhook settings. Faults are injected only in the temporary copy or test workers; the test server is stopped and fixture files are removed after the run. Test sources are versioned and excluded from Docker build contexts.
-
-Export requests accept 1–100 numeric four-digit integer years (`1000`–`9999`); duplicate years produce one sheet. Invalid requests return `400`, and unexpected download failures before streaming return a generic `500`. A download failure after streaming starts closes the connection; retry the download. Entry patches validate all supplied fields before writing and roll back grouping, ordering, and field changes together on database failure. Savings item creation and updates reject non-finite amounts; existing stored values are not rewritten by this release.
+Commands, fixture isolation, coverage and failure behavior are documented in [Testing](docs/TESTING.md#backend-regression-tests).
 
 ## XLSX import limits
 
-Validation and import share one parser slot. The authenticated JSON body limit remains 10 MB; XLSX data must use canonical base64 and stay within these fixed budgets:
-
-| Resource | Limit |
-| --- | --- |
-| Compressed XLSX | 6 MiB |
-| Actual expanded archive content | 24 MiB total, 4 MiB per member |
-| Archive members / worksheets | 128 / 20 |
-| Rows / columns | 5000 / 64 per worksheet, including declared dimensions; 10000 rows total |
-| Explicit cells / merged cell area | 100000 each, across the workbook |
-| XML nesting depth | 32 |
-| Parsing deadline / worker old-space | 30 seconds / 192 MiB |
-
-Members are streamed and counted before ExcelJS parsing, then rebuilt with checked names/content to avoid differing ZIP filename interpretations. No archive is extracted. DTDs, encrypted/unsupported archives, duplicate/traversal paths and excessively long/deep member names are rejected. Sparse rows and ranges count toward dimension limits. An additional sheet-ID bound prevents pathological sparse allocation; returned model IDs are normalized internally. Parsing runs in a worker without inherited environment credentials; its heap bound complements byte budgets and is not an operating-system memory limit.
-
-Excessive files return `413 IMPORT_LIMIT_EXCEEDED`; concurrent parsing returns `429 IMPORT_BUSY` with `Retry-After: 1`; the deadline returns `408 IMPORT_TIMEOUT`. Existing `423 IMPORT_IN_PROGRESS` protects a running import. Both endpoints apply the same limits before database writes. Split oversized workbooks by year or remove unused content before retrying.
+Workbook size/structure limits, parsing budgets and error responses are listed in [Import and export](docs/IMPORT_EXPORT.md#xlsx-import-limits).
 
 ## Automated security checks
 
-[Security checks](.github/workflows/security-checks.yml) run on pull requests/pushes to `main` and `dev`, and are required by the release image workflow before publication. Security checks and image publishing both pin the host runner to `ubuntu-24.04`, keeping host OS upgrades deliberate; the application's container continues to use Debian-based Node.js 24. They use SHA-pinned Node 24 actions, run backend regressions, gate on moderate-or-higher backend production and full frontend dependency advisories, and build the frontend.
-
-After the Tailwind 4 migration, the lockfiles have zero backend production and full frontend npm audit findings (verified 2026-10-05). The vulnerable Tailwind 3/braces build chain has been removed. Full frontend audits, including build tools, now also block CI on moderate-or-higher advisories. These CI checks do not scan container OS packages or verify production proxy/TLS configuration. The separate local [container assessment](docs/CONTAINER_SECURITY.md) records OS scanning, remediation, vendor backport discrepancies and remaining findings.
-
-The frontend uses Tailwind CSS 4 and the official `@tailwindcss/vite` plugin. Theme tokens and explicit source discovery live in `frontend/src/styles/global.css`; obsolete Tailwind/PostCSS configuration files were removed. Utilities remain unlayered beside existing component CSS to preserve the previous cascade; reset/theme layers stay below them. Browser support follows [Tailwind 4 requirements](https://tailwindcss.com/docs/upgrade-guide#browser-requirements): Safari 16.4+, Chrome 111+ and Firefox 128+. Chromium desktop/mobile light/dark workflows were compared against the Tailwind 3 build; Safari and Firefox were not exercised locally.
+CI gates and their scope are documented in [Security](docs/SECURITY.md#automated-security-checks). The separate [container assessment](docs/CONTAINER_SECURITY.md) covers OS findings and remediation.
 
 ## Deployment notes
 
 ### Browser security headers
 
-Express sends enforced `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer` on UI, assets and API responses, including denied requests. CSP blocks framing (even by the same origin), inline JavaScript, `eval`, plugins, embedded frames and external scripts/styles. Assets, manifests, workers and API calls are same-origin; `https://api.github.com` is explicitly allowed for release checks. Style attributes remain allowed for React/Motion positioning, animations and charts; inline style elements are blocked. Blob downloads remain supported.
-
-Serve the built UI and `/api` through the same browser origin, including when using a reverse proxy. A cross-origin `VITE_API_BASE` is outside this policy and will be blocked even if CORS permits it. Preserve these headers at the proxy; additional CSP headers intersect with this policy rather than replacing it. Framing the app in another dashboard is intentionally disabled. HSTS/HTTPS redirects remain the responsibility of a deployment with configured TLS; local HTTP is still supported.
-
-Existing PWA installations need an online service-worker update and reload to receive the new policy; previously cached documents cannot gain headers while offline. This release changes the document revision so the new worker refreshes its precached HTML with the headers. Browser enforcement, PIN/modal/table flows, service-worker registration, controlled reload, offline assets and blob downloads were checked in Chromium on synthetic fixtures; Safari/Firefox and production proxy configuration were not checked. See [browser security tests](frontend/tests/README.md). Rolling back the header middleware requires no database migration; cached clients also need an online update/reload.
+Serve the UI and API through the same browser origin. See [browser security headers](docs/SECURITY.md#browser-security-headers) for CSP, framing protection, proxy requirements and PWA updates.
 
 - API JSON is parsed only after session authentication, except for the PIN endpoint, which has a `2 KB` limit. Normal authenticated API requests have a `64 KB` limit; authenticated import requests retain the `10 MB` limit. Export response size is unaffected.
 - Mopay runtime process runs as a non-root user (`node`) by default.
@@ -263,6 +168,15 @@ Existing PWA installations need an online service-worker update and reload to re
 - Avoid NAS/sync folders for the live database when possible, because SQLite lock contention will degrade reliability.
 - If logs show `SQLITE_READONLY`, repair host permissions once and restart:
   - `sudo chown -R 1000:1000 ./data && sudo chmod -R u+rwX ./data`
+
+## Documentation
+
+- [Configuration](docs/CONFIGURATION.md) — full environment-variable reference, security settings and release checks.
+- [Import and export](docs/IMPORT_EXPORT.md) — supported workbook data, validation limits and error responses.
+- [Testing](docs/TESTING.md) — backend regressions and links to UI/container checks.
+- [Security](docs/SECURITY.md) — automated checks, browser headers and deployment requirements.
+- [Container assessment](docs/CONTAINER_SECURITY.md) — image scan results, remediation and remaining findings.
+- [Architecture](docs/ARCHITECTURE.md) — application structure and design.
 
 ## Buy Me a Coffee
 If You like results of my efforts, feel free to show that by supporting me.
