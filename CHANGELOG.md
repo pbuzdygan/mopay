@@ -3,6 +3,7 @@
 ## v1.6.2
 
 ### Bug fix
+- fixed the PIN login overlay briefly flashing back after a successful unlock and preserved mobile card alignment during its exit animation
 - bounded XLSX import/validation archive expansion and worksheet structure, isolated parsing with a time/heap budget, and prevented concurrent parsing from exhausting the backend
 - fixed malformed export requests and asynchronous XLSX download failures that could terminate the backend; export years are validated, limited to 100 per request, and deduplicated
 - made entry patches atomic: rejected fields or database failures no longer leave changed groups, neighbouring row order, or partially saved values
@@ -13,8 +14,10 @@
 - simplified entry/group details transitions and replaced animated full-screen backdrop blur with stable dimming for shared dialogs and details panels
 
 ### Improvements
+- migrated to Tailwind CSS 4 with its official Vite plugin, preserving existing theme/layout behavior and removing the vulnerable Tailwind 3/braces build chain; full frontend dependency audits now gate CI
+- pinned security and image-publishing runners to Ubuntu 24.04 to avoid automatic host OS changes during the ubuntu-latest migration
 - patched compatible backend and frontend build dependencies; upgraded and SHA-pinned GitHub Actions to Node 24
-- added recurring backend security regressions, runtime dependency audit gates and frontend build checks before image publication, with a visible report for remaining build-tool advisories
+- added recurring backend security regressions, dependency audit gates and frontend build checks before image publication
 - expanded Git and Docker ignore rules for dependencies, generated builds/test reports, local environment and credential files, SQLite data, logs and temporary/editor artifacts; Docker builds also exclude test sources and local agent context
 
 ## v1.6.1

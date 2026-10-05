@@ -47,7 +47,7 @@ Apply the instruction priority in AGENTS.md. No new product specification or for
 - Runtime: Node.js `>=24 <25`; Docker uses `node:24-bookworm-slim`. The minor/patch version and image digest are not pinned.
 - Dependencies: npm with separate tracked `package-lock.json` files under `backend/` and `frontend/`.
 - Backend: JavaScript ES modules, Express, better-sqlite3, ExcelJS.
-- Frontend: TypeScript/TSX, React 18, Vite 7, Tailwind 3, React Query, Zustand, PWA plugin.
+- Frontend: TypeScript/TSX, React 18, Vite 7, Tailwind 4 with the official Vite plugin (T-009), React Query, Zustand, PWA plugin.
 - Deployment shape: one Express process serves `/api` and built frontend assets from `public/`; default backend/container port `8010`.
 - Persistence: SQLite, WAL, foreign keys; configured via `DB_FILE`. Without it, the path is `./mopay.sqlite` relative to process working directory.
 
@@ -78,8 +78,8 @@ Use symbol searches before reading central files in full. This table is a naviga
 | Backend security regressions | `node --test backend/tests/*.test.mjs` | Added in T-006/T-007; disposable DB/source fixtures, loopback-only API and bounded worker tests; not a comprehensive application suite |
 | Frontend build | `npm --prefix frontend run build` | Writes `frontend/dist`; requires dependencies; no backend/security coverage |
 | Full image build | `docker build -t mopay-local-review .` | Local image only; uses network, disk and native dependencies; do not publish |
-| Security dependencies | Candidate: `npm --prefix backend audit` / `npm --prefix frontend audit` | Not an established project gate; communicates dependency information to the configured registry; not run |
-| Integration / UI | No automated command found | Run changed workflows manually using isolated fixtures; record exact steps/results and untested cases |
+| Security dependencies | `npm --prefix backend audit --omit=dev --audit-level=moderate`; `npm --prefix frontend audit --package-lock-only --audit-level=moderate` | CI gates backend production and all frontend dependencies; communicates dependency information to the configured registry |
+| Integration / UI | `node --test frontend/tests/ui-transitions.mjs` | Isolated intercepted Chromium fixtures; browser prerequisites and optional comparison outputs documented in frontend/tests/README.md |
 | Documentation | `git diff --check` plus link/placeholder inspection | Untracked documents need separate checks; build is unnecessary for documentation-only changes |
 
 **Confirmed restrictions**:
@@ -98,7 +98,7 @@ Use symbol searches before reading central files in full. This table is a naviga
 
 - Current local branch: `dev`; local `origin/HEAD` points to `origin/main`. This is cached local Git metadata, not live verification of hosting settings.
 - Recent history includes releases merged from `dev`; existing commit subjects do not establish a mandatory naming convention.
-- [Workflow](../.github/workflows/docker-publish.yml) runs on published GitHub releases targeting `main` or `dev`, builds an image and pushes to GHCR. T-007 added reusable [security checks](../.github/workflows/security-checks.yml): backend regressions, backend/frontend production dependency audit gates, a full build-tool advisory report and frontend build. No lint/typecheck or container OS CVE scan is established.
+- [Workflow](../.github/workflows/docker-publish.yml) runs on published GitHub releases targeting `main` or `dev`, builds an image and pushes to GHCR. Reusable [security checks](../.github/workflows/security-checks.yml) run backend regressions, backend production and full frontend dependency audit gates, and a frontend build (T-007/T-009). No lint/typecheck or container OS CVE scan is established.
 - Channels/tags: `main` → `latest` and version tag; `dev` → `dev_latest` and `dev_` version tag.
 - [Changelog](../CHANGELOG.md) groups release changes into fixes/features/improvements.
 - Existing [AGENTS.md](../AGENTS.md) requires explicit user requests for commits, merges, pushes, PRs, releases, deployment and external mutations.

@@ -13,7 +13,8 @@ jobs:
   build-and-push:
     needs: security-checks
     if: github.event.release.target_commitish == 'main' || github.event.release.target_commitish == 'dev'
-    runs-on: ubuntu-latest
+    # Match the verified security-checks host OS.
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: read

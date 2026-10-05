@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Keep the host OS stable across ubuntu-latest migrations.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -38,26 +39,8 @@ jobs:
       - name: Audit frontend production dependencies
         run: npm --prefix frontend audit --package-lock-only --omit=dev --audit-level=moderate
 
-      # Full build-tool audit remains visible. The unpatched braces advisory
-      # requires a separately tested Tailwind migration; runtime audits gate release.
-      - name: Report frontend build dependency advisories
-        shell: bash
-        run: |
-          set +e
-          npm --prefix frontend audit --package-lock-only --json > frontend-audit.json
-          audit_status=$?
-          set -e
-          node --input-type=module - "$audit_status" <<'JS'
-          import fs from 'node:fs';
-          const report = JSON.parse(fs.readFileSync('frontend-audit.json', 'utf8'));
-          if (report.error || !report.metadata || Number(process.argv[2]) > 1) {
-            throw new Error('Frontend dependency audit could not complete');
-          }
-          console.log(JSON.stringify(report, null, 2));
-          if (report.metadata.vulnerabilities.total) {
-            console.log('::warning::Frontend build dependencies have advisories; review the full report.');
-          }
-          JS
+      - name: Audit all frontend dependencies
+        run: npm --prefix frontend audit --package-lock-only --audit-level=moderate
 
       - name: Install and build frontend
         run: |

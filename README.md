@@ -237,9 +237,11 @@ Excessive files return `413 IMPORT_LIMIT_EXCEEDED`; concurrent parsing returns `
 
 ## Automated security checks
 
-[Security checks](.github/workflows/security-checks.yml) run on pull requests/pushes to `main` and `dev`, and are required by the release image workflow before publication. They use SHA-pinned Node 24 actions, run backend regressions, gate on moderate-or-higher backend/frontend production dependency advisories, and build the frontend. The full frontend build-tool audit is reported visibly but is informational.
+[Security checks](.github/workflows/security-checks.yml) run on pull requests/pushes to `main` and `dev`, and are required by the release image workflow before publication. Security checks and image publishing both pin the host runner to `ubuntu-24.04`, keeping host OS upgrades deliberate; the application's container continues to use Debian-based Node.js 24. They use SHA-pinned Node 24 actions, run backend regressions, gate on moderate-or-higher backend production and full frontend dependency advisories, and build the frontend.
 
-As of 2026-10-05, the patched lockfiles have zero backend and frontend production npm audit findings. The full frontend audit still reports `braces` and four propagated package records through Tailwind 3 ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)); no patched `braces` release is available. A separately tested Tailwind migration remains necessary. These checks do not scan container OS packages or verify production proxy/TLS configuration.
+After the Tailwind 4 migration, the lockfiles have zero backend production and full frontend npm audit findings (verified 2026-10-05). The vulnerable Tailwind 3/braces build chain has been removed. Full frontend audits, including build tools, now also block CI on moderate-or-higher advisories. These checks do not scan container OS packages or verify production proxy/TLS configuration.
+
+The frontend uses Tailwind CSS 4 and the official `@tailwindcss/vite` plugin. Theme tokens and explicit source discovery live in `frontend/src/styles/global.css`; obsolete Tailwind/PostCSS configuration files were removed. Utilities remain unlayered beside existing component CSS to preserve the previous cascade; reset/theme layers stay below them. Browser support follows [Tailwind 4 requirements](https://tailwindcss.com/docs/upgrade-guide#browser-requirements): Safari 16.4+, Chrome 111+ and Firefox 128+. Chromium desktop/mobile light/dark workflows were compared against the Tailwind 3 build; Safari and Firefox were not exercised locally.
 
 ## Deployment notes
 
