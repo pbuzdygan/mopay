@@ -99,6 +99,9 @@ services:
     environment:
 #      - PORT=8010 #in network_mode host You can set different than default port
       - DB_FILE=/data/mopay.sqlite
+      # Optional storage owner (defaults to 1000:1000):
+      # - PUID=1000
+      # - PGID=1000
       - APP_PIN=123456 #PIN 4-8 digits
       - APP_ENC_KEY=REPLACE_WITH_YOUR_KEY
       - NODE_ENV=production
@@ -159,15 +162,15 @@ CI gates and their scope are documented in [Security](docs/SECURITY.md#automated
 Serve the UI and API through the same browser origin. See [browser security headers](docs/SECURITY.md#browser-security-headers) for CSP, framing protection, proxy requirements and PWA updates.
 
 - API JSON is parsed only after session authentication, except for the PIN endpoint, which has a `2 KB` limit. Normal authenticated API requests have a `64 KB` limit; authenticated import requests retain the `10 MB` limit. Export response size is unaffected.
-- Mopay runtime process runs as a non-root user (`node`) by default.
-- Startup entrypoint performs compatibility `chown` for `/data` and then drops privileges to `node`.
+- Mopay runs without root privileges, using UID/GID `1000:1000` by default. Set `PUID` and `PGID` in Compose to select another storage owner; see [storage ownership configuration](docs/CONFIGURATION.md#storage-ownership-uidgid).
+- Startup entrypoint repairs `/data` ownership, drops privileges to the selected UID/GID and checks database write access.
 - The runtime image uses existing Debian `setpriv` for privilege dropping and omits npm/Yarn and unused system SQLite. Dependencies are installed during build; run the service with `node server.js`. The reviewed Node 24.21.0 base is digest-pinned; available same-release Debian updates are applied during runtime build. See the [container assessment](docs/CONTAINER_SECURITY.md) for rebuild/scan commands and remaining vendor advisories.
 - For production, keep persistent storage mounted only for `/data`.
-- If using bind mounts, keep `./data` writable by container user UID `1000` (or adjust host permissions accordingly).
+- Bind-mounted `./data` must be writable by the configured UID/GID.
 - Avoid sharing one SQLite file between multiple Mopay instances.
 - Avoid NAS/sync folders for the live database when possible, because SQLite lock contention will degrade reliability.
 - If logs show `SQLITE_READONLY`, repair host permissions once and restart:
-  - `sudo chown -R 1000:1000 ./data && sudo chmod -R u+rwX ./data`
+  - `sudo chown -R 1000:1000 ./data && sudo chmod -R u+rwX ./data` (replace both IDs with your configured `PUID:PGID`).
 
 ## Documentation
 

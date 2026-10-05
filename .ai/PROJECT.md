@@ -49,7 +49,7 @@ Apply the instruction priority in AGENTS.md. No new product specification or for
 - Backend: JavaScript ES modules, Express, better-sqlite3, ExcelJS.
 - Frontend: TypeScript/TSX, React 18, Vite 7, Tailwind 4 with the official Vite plugin (T-009), React Query, Zustand, PWA plugin.
 - Deployment shape: one Express process serves `/api` and built frontend assets from `public/`; default backend/container port `8010`.
-- Persistence: SQLite, WAL, foreign keys; configured via `DB_FILE`. Without it, the path is `./mopay.sqlite` relative to process working directory.
+- Persistence: SQLite, WAL, foreign keys; configured via `DB_FILE`. The Docker entrypoint defaults to `/data/mopay.sqlite`; outside Docker, the backend default is `./mopay.sqlite` relative to process working directory. Container runtime/data UID and GID are configured with `PUID`/`PGID`, independently defaulting to `1000`; see [configuration](../docs/CONFIGURATION.md#storage-ownership-uidgid).
 
 | Path | Responsibility | Boundary to inspect when changing it |
 | --- | --- | --- |

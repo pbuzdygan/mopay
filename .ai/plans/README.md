@@ -6,7 +6,7 @@ Name a plan `T-NNN-short-slug.md` and link it from `.ai/STATE.md`. The plan must
 
 ## Closure registry (2026-10-05)
 
-All listed tasks are **done**; handoff is **ready**. This records verified scope completion, not Git commit, release or deployment. T-010 through T-012 were committed externally as 76700dd and T-013 as e1ab0b4; completed T-014 documentation changes remain in the worktree for user review. Preserve them. Current snapshot is the ignored `.ai/STATE.md`. Residual vendor vulnerabilities and production/browser verification limits are explicit in [container assessment](../../docs/CONTAINER_SECURITY.md) and individual plans; they are not silently marked fixed.
+All listed tasks are **done**; handoff is **ready**. This records verified scope completion, not Git commit, release or deployment. T-010 through T-012 were committed externally as 76700dd and T-013 as e1ab0b4; T-014 was committed externally as 5eed656. Completed T-015 storage-identity changes remain in the worktree for user review. Preserve them. Current snapshot is the ignored `.ai/STATE.md`. Residual vendor vulnerabilities and production/browser verification limits are explicit in [container assessment](../../docs/CONTAINER_SECURITY.md) and individual plans; they are not silently marked fixed.
 
 | Task | Completed scope / evidence |
 | --- | --- |
@@ -24,6 +24,8 @@ All listed tasks are **done**; handoff is **ready**. This records verified scope
 | [T-012](T-012-container-remediation.md) | Assessed container fixes; full rescan,5entrypoint regressions/image smoke and residual vendor review |
 | [T-013](T-013-mobile-search.md) | Mobile editable text sizing/search toolbar and shortcuts; final8UI scenarios and build passed |
 | [T-014](T-014-readme-documentation.md) | Detailed README sections relocated to four linked guides; content preservation and98relative links verified |
+
+| [T-015](T-015-storage-identity.md) | Configurable PUID/PGID; image build,17entrypoint tests, custom-identity application smoke, Compose and101documentation links passed |
 
 Copy the template below and remove guidance that does not apply.
 
