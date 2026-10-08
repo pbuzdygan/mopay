@@ -7,6 +7,9 @@
 - updated proxy-addr to 2.0.8 to fix IPv4-mapped IPv6 trust-subnet IP spoofing (GHSA-jqcg-44mw-7w3h)
 - updated source-map-js to 1.2.2 to fix indexed source-map offset denial of service in frontend tooling (GHSA-68fv-2mgg-jv7q)
 
+### Improvements
+- added APP_DEMO opt-in read-only demonstration mode with a separate clearly named database, public demo PIN, two sample years and recoverable one-time generation; normal startup rearms the next demo activation without mixing sample and existing data
+
 ## v1.6.2
 
 ### Bug fix

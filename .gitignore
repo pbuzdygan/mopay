@@ -41,6 +41,7 @@ playwright/.cache/
 *.sqlite-*
 *.sqlite3
 *.sqlite3-*
+*.demo.state.json
 
 # Logs, process files and temporary/backup files
 *.log

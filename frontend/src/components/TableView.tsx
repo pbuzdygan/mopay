@@ -118,7 +118,8 @@ const Row = memo(function Row({
     transition: isDragging || editMode === 'order' ? 'none' : 'transform 120ms ease-out',
   };
   const isTagMode = editMode === 'tag';
-  const canEditValues = !editMode;
+  const demo = useAppStore((s) => s.demo);
+  const canEditValues = demo === false && !editMode;
 
   const initialNumbers = useMemo(() => {
     const map: Record<string, number | null> = {};
@@ -305,7 +306,7 @@ export function TableView() {
   // Restore the current table's groups before paint, including cached tab/year switches.
   useLayoutEffect(() => {
     if (!year) return;
-    const key = `group-collapsed:${type}:${year}`;
+    const key = `${useAppStore.getState().demo ? 'demo-' : ''}group-collapsed:${type}:${year}`;
     try {
       const raw = localStorage.getItem(key);
       setCollapsedGroups(raw ? (JSON.parse(raw) as Record<string, boolean>) : {});
@@ -328,7 +329,7 @@ export function TableView() {
     setCollapsedGroups((prev) => {
       const next = { ...prev, [groupKey]: collapsed };
       try {
-        localStorage.setItem(`group-collapsed:${type}:${year}`, JSON.stringify(next));
+        localStorage.setItem(`${useAppStore.getState().demo ? 'demo-' : ''}group-collapsed:${type}:${year}`, JSON.stringify(next));
       } catch {}
       return next;
     });

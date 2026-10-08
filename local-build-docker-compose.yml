@@ -8,6 +8,8 @@ services:
     environment:
 #      - PORT=8010
       - DB_FILE=/data/mopay.sqlite
+      # Optional read-only sample data in /data/mopay.demo.sqlite:
+      # - APP_DEMO=true
       # Optional storage owner (defaults to 1000:1000):
       # - PUID=1000
       # - PGID=1000

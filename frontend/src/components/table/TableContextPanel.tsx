@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useAppStore } from '../../store';
 import { SoftButton } from '../SoftButton';
 import type { EntryGroup, EntryRowData } from './types';
 
@@ -41,6 +42,7 @@ export function TableContextPanel({
   onAddEntry,
   onArrangeGroup,
 }: Props) {
+  const demo = useAppStore((s) => s.demo);
   const [name, setName] = useState('');
   const [groupId, setGroupId] = useState<number | null>(null);
   const [comment, setComment] = useState('');
@@ -76,7 +78,7 @@ export function TableContextPanel({
   }, [onClose, saving, target]);
 
   const save = async () => {
-    if (!target || !name.trim() || saving) return;
+    if (demo || !target || !name.trim() || saving) return;
     setSaving(true);
     setError('');
     try {
@@ -98,7 +100,7 @@ export function TableContextPanel({
   };
 
   const remove = async () => {
-    if (!target || saving) return;
+    if (demo || !target || saving) return;
     setSaving(true);
     setError('');
     try {
@@ -147,7 +149,7 @@ export function TableContextPanel({
                 </h2>
                 <p className="type-body-sm text-textSec">
                   {target.kind === 'entry'
-                    ? 'Edit structure and context without changing table mode.'
+                    ? (demo ? 'View entry details and comments.' : 'Edit structure and context without changing table mode.')
                     : `${target.entryCount} ${target.entryCount === 1 ? 'entry' : 'entries'} in this group.`}
                 </p>
               </div>
@@ -160,6 +162,7 @@ export function TableContextPanel({
               <label className="field-stack">
                 <span className="field-label">Name</span>
                 <input
+                  readOnly={Boolean(demo)}
                   ref={nameRef}
                   className="input"
                   maxLength={40}
@@ -179,6 +182,7 @@ export function TableContextPanel({
                   <label className="field-stack">
                     <span className="field-label">Group</span>
                     <select
+                      disabled={Boolean(demo)}
                       className="input app-select"
                       value={groupId ?? ''}
                       onChange={(event) => setGroupId(event.target.value ? Number(event.target.value) : null)}
@@ -192,6 +196,7 @@ export function TableContextPanel({
                   <label className="field-stack">
                     <span className="field-label">Comment</span>
                     <textarea
+                      readOnly={Boolean(demo)}
                       className="input table-context-comment"
                       maxLength={240}
                       value={comment}
@@ -201,7 +206,7 @@ export function TableContextPanel({
                   </label>
                 </>
               ) : (
-                <div className="table-context-shortcuts">
+                <div className="table-context-shortcuts" hidden={Boolean(demo)}>
                   <span className="field-label">Group actions</span>
                   <div className="flex flex-wrap gap-2">
                     <SoftButton type="button" onClick={() => onAddEntry(target.group.id)} disabled={saving}>
@@ -216,7 +221,7 @@ export function TableContextPanel({
 
               {error && <p className="table-context-error" role="alert">{error}</p>}
 
-              <div className="table-context-actions">
+              <div className="table-context-actions" hidden={Boolean(demo)}>
                 {!confirmRemove ? (
                   <SoftButton
                     type="button"

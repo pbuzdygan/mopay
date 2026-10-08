@@ -12,10 +12,37 @@ This is the environment-variable reference for basic setup, release metadata and
 | `DB_FILE` | `/data/mopay.sqlite` in Docker; `./mopay.sqlite` outside Docker | SQLite path; use `/data` with persistent Docker storage. |
 | `PUID` | `1000` | Docker runtime user ID and `/data` owner; see [storage ownership](#storage-ownership-uidgid). |
 | `PGID` | `1000` | Docker runtime primary group ID and `/data` group owner. |
-| `APP_PIN` | Required, 4–8 digits | PIN used to unlock the application and obtain an API session. |
+| `APP_DEMO` | `false` (also when omitted/empty) | Set `true` for a separate read-only demo; see [demo mode](#demo-mode). |
+| `APP_PIN` | Required in normal mode, 4–8 digits | PIN used to unlock the application and obtain an API session. |
 | `APP_ENC_KEY` | Required | Base64-encoded 32-byte encryption key, optionally prefixed with `base64:`. Keep the key securely for the existing database; see [key generation](../README.md#generate-your-app_enc_key). |
 | `NODE_ENV` | `production` in the runtime image | Node.js execution environment. |
 | `VITE_API_BASE` | Empty, frontend build | Uses the same browser origin by default. A cross-origin value is blocked by the served UI's CSP; use a same-origin reverse proxy as described in [browser security headers](SECURITY.md#browser-security-headers). |
+
+## Demo mode
+
+Set `APP_DEMO=true` in the container environment and recreate the container. In a Compose service this can be a single additional entry:
+
+```yaml
+    environment:
+      - APP_DEMO=true
+      # Retain your existing DB_FILE and APP_ENC_KEY settings.
+```
+
+A Compose `.env` file alone does not pass variables into the container: use an explicit `environment` entry (for example `APP_DEMO=${APP_DEMO:-false}`) or `env_file`. Changing configuration requires recreating the container; restarting the old container does not update its environment.
+
+Demo uses `/data/mopay.demo.sqlite`, separate from the normal `/data/mopay.sqlite`. Custom `DB_FILE=/data/finanse.sqlite` produces `/data/finanse.demo.sqlite`; `.db` is preserved similarly, and other filenames receive `.demo.sqlite`. `DB_FILE` always names the normal database, even while demo is enabled. Keep the enclosing directory in persistent storage. A small companion `mopay.demo.state.json` tracks activation; SQLite can also create demo `-wal`/`-shm` files. Do not point `DB_FILE` at the demo database.
+
+On the first demo startup, Mopay generates Expenses, Incomes and Savings for the current and previous year, with groups, monthly values, comments, tags and savings contributions. These years stay fixed across subsequent demo restarts, including New Year. No real records are copied. Repeated starts with `true` reuse the same generation without duplicating examples.
+
+The public **demo PIN is `1234`**, shown on the login screen and in a demo startup message. It is only a public access code for sample data. `APP_PIN` is ignored in demo and remains required in normal mode. `APP_ENC_KEY` is required in both modes: keep your existing key when switching modes; a demo key mismatch stops startup instead of clearing data.
+
+The UI displays **Demo mode — Sample data — read only**. Navigation, both years, filtering, group collapse, reports, details, local appearance settings and XLSX export remain available. Financial creation/editing/deletion, reordering, tags, imports and encryption reset are blocked in the backend and unavailable in the UI. PIN protection/rate limits and security logging remain active; configured security webhooks are disabled in demo.
+
+To return to your normal data, set `APP_DEMO=false` or remove it, then recreate the container. The normal database and its PIN were not changed by demo. Demo files remain on disk. Application assets can load offline, but mode confirmation requires a connection; use Retry after reconnecting. After a successful normal startup, enabling `true` again refreshes only the owned demo records in one transaction. An actual successful normal startup must occur between activations: edits to configuration that are never applied cannot be observed.
+
+Mopay rejects malformed values (use lowercase `true`/`false`), unsafe/aliased paths, unowned existing demo databases and corrupt activation metadata. Never replace an existing non-demo file to resolve a collision; use a separate database directory/name. Keep database and companion state together in backups. Interrupted generation can retry safely; missing active demo files or inconsistent state fail visibly rather than silently resetting. Run one Mopay process per storage set.
+
+To remove demo storage, stop Mopay first and remove only the identified demo database, its `-wal`/`-shm` files if present and companion state file. Preserve the normal database and encryption key. With `APP_DEMO` disabled this cleanup is optional. Normal container startup retains its existing `/data` ownership/permission repair policy; demo isolation concerns application database contents, not that existing filesystem policy.
 
 ## Storage ownership (UID/GID)
 

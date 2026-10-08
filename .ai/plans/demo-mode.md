@@ -2,7 +2,7 @@
 
 ## Intended outcome
 
-Setting `APP_DEMO=true` and recreating the container opens a dedicated, populated demonstration database. Missing, empty or `false` means normal mode. Demo never opens the normal database for application writes, changes its PIN, or inserts sample records into it. This document plans implementation; no application changes or deployment are included yet.
+Setting `APP_DEMO=true` and recreating the container opens a dedicated, populated demonstration database. Missing, empty or `false` means normal mode. Demo never opens the normal database for application writes, changes its PIN, or inserts sample records into it. Implemented and verified locally on `dev` on 2026-10-08. No commit, push, release or deployment was performed.
 
 Demo is read only for financial data. Users can log in, browse Expenses/Incomes/Savings/Reports, select either sample year, search, collapse groups and change local presentation settings. Creating, editing, reordering and deleting records or years, importing data and resetting encryption are unavailable and denied by the backend.
 
@@ -94,3 +94,15 @@ Use only disposable directories, synthetic databases, test PIN/key values and is
 - [Container entrypoint](../../docker/entrypoint.sh), [entrypoint tests](../../docker/tests/entrypoint.test.mjs).
 - [Frontend API](../../frontend/src/api.ts), [store](../../frontend/src/store.ts), [application](../../frontend/src/App.tsx), [metadata provider](../../frontend/src/components/ReleaseStatusProvider.tsx), [PIN screen](../../frontend/src/components/PinGuard.tsx).
 - [Configuration guide](../../docs/CONFIGURATION.md), [browser test guide](../../frontend/tests/README.md).
+
+## Completed implementation and evidence (2026-10-08)
+
+- Database selection happens before startup writes. An owned initial demo database is published atomically; pending generation IDs survive seed failures and retries. Demo state and financial data remain separate from the normal database. No dependencies or lockfiles were changed for this feature.
+- Demo has 25 expense entries, 7 income entries (including ungrouped examples), 10 groups and 4 savings goals per year. Public PIN and read-only API/UI behavior are implemented; export works through the real browser and backend.
+- Runtime metadata must be valid before UI initialization. Cached sessions are verified before financial content appears. Table mounting waits for the PIN exit animation to finish. Headless opacity sampling was extended from 350 to 650ms to include stable endings under throttled rendering, preserving the minimum frame count and all opacity/reversal assertions.
+- `node --test backend/tests/*.test.mjs`: **29/29 passed**. Includes generation rollback/retry, year-boundary freeze, normal-data/PIN preservation, complete current write-route inventory, session denial, ownership/path/state/key failures and suppressed demo webhooks.
+- `npm --prefix frontend run build`: **passed**, including PWA. `node --test frontend/tests/ui-transitions.mjs frontend/tests/browser-security.mjs frontend/tests/demo-runtime.mjs` with Playwright: **15/15 passed**. Includes actual generated demo data, desktop/mobile reports and browser XLSX download. Rendered screenshots were inspected; artifacts remain in `/tmp`.
+- `docker build -t mopay-local-review:demo .`: **passed** (existing bundle-size warning). `MOPAY_TEST_IMAGE=mopay-local-review:demo node --test docker/tests/*.test.mjs`: **18/18 passed**, including demo startup with the normal database unwritable and normal/demo/normal/demo cycles on disposable tmpfs with networking disabled.
+- Both CI npm audit commands: **0 vulnerabilities**. JavaScript/shell syntax, documentation links and `git diff --check`: **passed**.
+- Final OS-only Trivy scan with refreshed database completed: 1 Critical, 48 High, 95 Medium, 77 Low and 1 Unknown package/advisory matches; no High/Critical matches had a reported fixed version. These are residual Debian findings, not an application npm audit failure or proof of reachability. Different scanner/feed counts are not directly comparable to the existing [container assessment](../../docs/CONTAINER_SECURITY.md). Raw report remains in `/tmp/mopay-demo-os-scan-final.json`; no ignore rules were added.
+- Verification is local Linux/amd64 and Chromium. Production validation, other architectures/browsers and publishing remain the user's release checkpoint. Use one process per storage set and retain the existing encryption key.

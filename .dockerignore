@@ -51,6 +51,7 @@ data
 **/*.sqlite-*
 **/*.sqlite3
 **/*.sqlite3-*
+**/*.demo.state.json
 
 # Logs, temporary files and backups
 **/*.log

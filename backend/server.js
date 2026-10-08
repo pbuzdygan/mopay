@@ -4,7 +4,9 @@ import morgan from 'morgan';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import db from './db.js';
+import db, { demoState } from './db.js';
+import { config } from './runtimeConfig.js';
+import { completeStartup } from './demoState.js';
 import ExcelJS from 'exceljs';
 import { loadImportWorkbook } from './importParser.js';
 import { exportYearsToWorkbook, exportImportTemplateWorkbook } from './export.js';
@@ -21,7 +23,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = Number(process.env.PORT || 8010);
-const APP_PIN = process.env.APP_PIN || '';
+const APP_PIN = config.demo ? '1234' : process.env.APP_PIN || '';
 const APP_VERSION = process.env.APP_VERSION || 'dev';
 const APP_REPO = process.env.APP_REPO || 'pbuzdygan/mopay';
 const APP_CHANNEL = process.env.APP_CHANNEL || 'main';
@@ -48,7 +50,7 @@ let importInProgress = false;
 let activePinVerifications = 0;
 const auth = createSessionAuth();
 const pinAttemptGuard = createPinAttemptGuard();
-const securityAudit = createSecurityAudit();
+const securityAudit = createSecurityAudit({ webhooks: !config.demo });
 
 const isSqliteBusyError = (err) => {
   if (!err) return false;
@@ -564,6 +566,10 @@ app.use('/api', (req, res, next) => {
     return res.status(401).json({ ok: false, error: authResult.error });
   }
   req.authSession = { token: authResult.token, ...authResult.session };
+  if (config.demo && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)
+      && !(req.method === 'POST' && req.path === '/export')) {
+    return res.status(403).json({ error: 'DEMO_READ_ONLY', message: 'Demo mode is read only.' });
+  }
   const parser = LARGE_JSON_API_PATHS.has(req.path) ? importJsonParser : standardJsonParser;
   return parser(req, res, next);
 });
@@ -572,7 +578,7 @@ app.use('/api', (req, res, next) => {
 app.get('/health', (_req,res)=> res.json({ status: 'ok' }));
 
 app.get('/api/meta', (_req, res) => {
-  res.json({ version: APP_VERSION, repo: APP_REPO, channel: APP_CHANNEL });
+  res.json({ version: APP_VERSION, repo: APP_REPO, channel: APP_CHANNEL, demo: config.demo, ...(config.demo ? { demoPin: '1234' } : {}) });
 });
 
 // Pin verification
@@ -1522,4 +1528,13 @@ app.use('/api', (err, _req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (_req,res)=> res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, ()=> console.log('Mopay app listening on :' + PORT));
+app.listen(PORT, ()=> {
+  try {
+    completeStartup(config, demoState);
+    if (config.demo) console.log('Demo mode — sample data, read only. Public demo PIN: 1234');
+    console.log('Mopay app listening on :' + PORT);
+  } catch (error) {
+    console.error('Startup state could not be saved:', error.message);
+    process.exit(1);
+  }
+});

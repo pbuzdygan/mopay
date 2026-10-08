@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from "./store";
 import { Api } from "./api";
 
@@ -29,6 +30,29 @@ export default function App() {
   const theme = useAppStore((s) => s.theme);
   const viewMode = useAppStore((s) => s.viewMode);
   const tab = useAppStore((s) => s.tab);
+  const demo = useAppStore((s) => s.demo);
+  const pinSession = useAppStore((s) => s.pinSession);
+  const financialReady = useAppStore((s) => s.financialReady);
+  const qc = useQueryClient();
+  const [runtimeError, setRuntimeError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRuntimeError(false);
+    qc.clear();
+    Api.meta().then(meta => {
+      if (cancelled) return;
+      if (typeof meta.demo !== 'boolean' || (meta.demo && meta.demoPin !== '1234')) {
+        throw new Error('Invalid application mode metadata');
+      }
+      const store = useAppStore.getState();
+      store.setAppVersion(meta.version ?? null);
+      store.setReleaseChannel(meta.channel ?? 'main');
+      store.setRuntimeMode(meta.demo, meta.demo ? meta.demoPin : null);
+    }).catch(() => { if (!cancelled) setRuntimeError(true); });
+    return () => { cancelled = true; };
+  }, [attempt, qc]);
   const setMigrationNotice = useAppStore((s) => s.setMigrationNotice);
   const setKeyMismatch = useAppStore((s) => s.setKeyMismatch);
 
@@ -73,14 +97,18 @@ export default function App() {
           setMigrationNotice(false);
           return;
         }
-        if (status?.encryptionEnabled && status?.showNotice) {
+        if (demo === false && status?.encryptionEnabled && status?.showNotice) {
           setMigrationNotice(true);
         }
       } catch {
         // ignore errors – app can still function
       }
     })();
-  }, [setMigrationNotice, setKeyMismatch]);
+  }, [demo, setMigrationNotice, setKeyMismatch]);
+
+  if (demo === null) return <div className="app-container py-6" role="status">
+    {runtimeError ? <>Could not load application mode. <button className="btn" onClick={() => setAttempt(value => value + 1)}>Retry</button></> : 'Loading Mopay…'}
+  </div>;
 
   return (
     <div className="min-h-screen">
@@ -89,30 +117,26 @@ export default function App() {
 
       <header className="sticky-glass">
         <div className="app-container">
+          {demo && <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Sample data — read only</span></div>}
           <MainBar />
         </div>
       </header>
 
       <main className="app-main py-4 lg:py-6">
         <div className="app-container">
-          {tab === 'reports'
+          {pinSession && financialReady && (tab === 'reports'
             ? <ReportsView />
             : tab === 'savings'
             ? <SavingsView />
-            : <TableView />}
+            : <TableView />)}
         </div>
       </main>
 
-      <InitiateYearModal />
-      <AddEntryModal />
-      <AddGroupModal />
-      <CommentModal />
-      <YearOperationsModal />
+      {!demo && <><InitiateYearModal /><AddEntryModal /><AddGroupModal /><CommentModal /><YearOperationsModal /></>}
       <ExportModal />
-      <ImportModal />
+      {!demo && <ImportModal />}
       <SettingsModal />
-      <SavingsGoalModal />
-      <EncryptionMigrationModal />
+      {!demo && <><SavingsGoalModal /><EncryptionMigrationModal /></>}
       <EncryptionKeyMismatchModal />
       <AddToHomeScreen />
     </div>

@@ -7,6 +7,7 @@ import { SoftButton } from "./SoftButton";
 
 export function PinGuard() {
   const pinOk = useAppStore((s) => s.pinSession);
+  const demoPin = useAppStore((s) => s.demoPin);
   const setPinOk = useAppStore((s) => s.setPinSession);
   const queryClient = useQueryClient();
 
@@ -21,8 +22,19 @@ export function PinGuard() {
   // restore session
   useEffect(() => {
     const cached = sessionStorage.getItem("pin-ok") === "1" && Boolean(sessionStorage.getItem("pin-token"));
-    if (cached) setPinOk(true);
-  }, [setPinOk]);
+    let cancelled = false;
+    if (cached) {
+      Api.years.list().then(() => { if (!cancelled) setPinOk(true); }).catch(() => {
+        if (!cancelled) {
+          sessionStorage.removeItem('pin-ok');
+          sessionStorage.removeItem('pin-token');
+          queryClient.clear();
+          setPinOk(false);
+        }
+      });
+    }
+    return () => { cancelled = true; };
+  }, [queryClient, setPinOk]);
 
   useEffect(() => {
     if (!pinOk) {
@@ -121,7 +133,10 @@ export function PinGuard() {
   }
 
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={() => {
+      // Mount financial tables after the PIN exit to keep its animation responsive.
+      if (useAppStore.getState().pinSession) useAppStore.getState().setFinancialReady();
+    }}>
       {!pinOk && (
         <motion.div
           ref={overlayRef}
@@ -150,6 +165,7 @@ export function PinGuard() {
               </div>
               <div className="stack-sm">
                 <h2 className="type-title-xl">Enter PIN</h2>
+                {demoPin && <p className="demo-pin">Demo PIN: <strong>{demoPin}</strong></p>}
                 <p className="type-body-sm text-textSec">
                   Unlock your data with a 4–8 digit PIN.
                 </p>

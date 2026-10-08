@@ -30,7 +30,7 @@ async function serverFixture() {
     }
     if (pathname.startsWith('/api/')) {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      return res.end(JSON.stringify(pathname === '/api/meta' ? { version: '1.6.2', channel: 'main' } : { encryptionEnabled: false, keyMismatch: false }));
+      return res.end(JSON.stringify(pathname === '/api/meta' ? { version: '1.6.3', channel: 'main', demo: false } : { encryptionEnabled: false, keyMismatch: false }));
     }
     const file = resolve(dist, '.' + (pathname === '/' ? '/index.html' : pathname));
     if (!file.startsWith(dist + sep)) { res.writeHead(403); return res.end(); }
@@ -110,11 +110,15 @@ test('CSP permits production PWA registration, controlled reload and offline doc
     const response = await page.reload();
     assert.equal(response.fromServiceWorker(), true);
     assert.equal(response.headers()['content-security-policy'], browserSecurityHeaders['Content-Security-Policy']);
-    await page.locator('#pin-guard-input').waitFor();
+    // Assets work offline, but runtime mode is NetworkOnly and must be confirmed online.
+    await page.getByText('Could not load application mode.', { exact: false }).waitFor();
+    assert.equal(await page.locator('#pin-guard-input').count(), 0);
     assert.deepEqual(await page.evaluate(() => window.violations), []);
     assert.deepEqual(errors, []);
     // Download blob navigation is intentionally allowed without enabling blob scripts/workers.
     await context.setOffline(false);
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await page.locator('#pin-guard-input').waitFor();
     const download = page.waitForEvent('download');
     await page.evaluate(() => {
       const anchor = document.createElement('a');
