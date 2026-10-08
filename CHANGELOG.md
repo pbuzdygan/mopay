@@ -5,6 +5,7 @@
 ### Bug fix
 - restored saved group collapse state before painting Expenses/Incomes tables, preventing expanded rows from briefly flashing when switching menus or years
 - updated proxy-addr to 2.0.8 to fix IPv4-mapped IPv6 trust-subnet IP spoofing (GHSA-jqcg-44mw-7w3h)
+- updated source-map-js to 1.2.2 to fix indexed source-map offset denial of service in frontend tooling (GHSA-68fv-2mgg-jv7q)
 
 ## v1.6.2
 
