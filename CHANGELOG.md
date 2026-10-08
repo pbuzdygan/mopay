@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.6.3
+
+### Bug fix
+- restored saved group collapse state before painting Expenses/Incomes tables, preventing expanded rows from briefly flashing when switching menus or years
+
 ## v1.6.2
 
 ### Bug fix

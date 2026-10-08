@@ -13,6 +13,8 @@ The check serves the production frontend build through browser request intercept
 
 Four desktop/mobile scenarios cover light/Normal and dark/Compact presentation, initial and cached table switches, rapid switching, New Entry opening/closing/reopening, and entry/group details. Computed opacity is sampled on animation frames to detect table dimming and fade reversals, including the native animation completion flash. Uncaught browser errors also fail the check.
 
+These scenarios also sample saved collapsed groups during Expenses/Incomes switches, return from Savings and year changes, checking that expanded groups never appear in a painted frame and that manual expansion still works.
+
 Four additional desktop/mobile light/dark scenarios exercise rejected PINs and successful unlocks with disposable mock credentials. The PIN overlay must fade monotonically and stay removed after login; no real authentication backend is used.
 
 Set `MOPAY_SCREENSHOTS` to an existing temporary directory to capture rendered dialogs and details panels. This is a Chromium presentation regression check; it does not verify API writes or reproduce GPU behavior on every browser/device.

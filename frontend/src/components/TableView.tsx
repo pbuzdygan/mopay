@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
@@ -302,7 +302,8 @@ export function TableView() {
     );
   }, [matchingGroupIds, normalizedSearch, rows]);
 
-  useEffect(() => {
+  // Restore the current table's groups before paint, including cached tab/year switches.
+  useLayoutEffect(() => {
     if (!year) return;
     const key = `group-collapsed:${type}:${year}`;
     try {

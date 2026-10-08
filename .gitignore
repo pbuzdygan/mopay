@@ -70,3 +70,5 @@ Desktop.ini
 
 # Required database source (some global Git ignore files exclude all SQL files)
 !/backend/schema.sql
+
+compose_local_dev.yml

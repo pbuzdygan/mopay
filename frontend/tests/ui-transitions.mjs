@@ -217,6 +217,36 @@ for (const mobile of [false, true]) {
         }), true);
         assert.ok(rapidFrames.every(value => value === 1), 'Rapid switches must not dim the table');
 
+        // Persist both tables as collapsed, then sample what the browser actually paints.
+        for (const tab of ['Incomes', 'Expenses']) {
+          await page.getByRole('tab', { name: tab, exact: true }).click();
+          await page.getByRole('button', { name: 'Collapse group', exact: true }).click();
+        }
+        const expandedGroup = '.group-collapse-button[aria-expanded="true"]';
+        for (const tab of ['Incomes', 'Expenses', 'Savings', 'Expenses']) {
+          const frames = await sample(page, expandedGroup, () =>
+            page.getByRole('tab', { name: tab, exact: true }).click());
+          assert.ok(frames.length > 5 && frames.every(value => value === 0),
+            'Saved collapsed groups must never paint expanded during menu switches');
+        }
+        await page.evaluate(() => {
+          // An empty uncached table also renders the Ungrouped placeholder.
+          localStorage.setItem('group-collapsed:expense:2025', JSON.stringify({ 'g:10': true, ungrouped: true }));
+        });
+        for (const year of ['2025', '2026']) {
+          await page.locator('.year-trigger:visible').click();
+          const frames = await sample(page, expandedGroup, () =>
+            page.getByRole('option', { name: year, exact: true }).click());
+          assert.ok(frames.length > 5 && frames.every(value => value === 0),
+            'Saved collapsed groups must never paint expanded during year switches');
+          await page.getByRole('button', { name: 'Expand group', exact: true }).waitFor();
+        }
+        for (const tab of ['Incomes', 'Expenses']) {
+          await page.getByRole('tab', { name: tab, exact: true }).click();
+          await page.getByRole('button', { name: 'Expand group', exact: true }).click();
+          await page.getByText(tab === 'Incomes' ? 'Test salary' : 'Test groceries', { exact: true }).waitFor();
+        }
+
         for (const [section, item] of [['Expenses', 'Test groceries'], ['Incomes', 'Test salary'], ['Savings', 'Synthetic savings']]) {
           await page.getByRole('tab', { name: section, exact: true }).click();
           await page.getByText(item, { exact: true }).waitFor();
