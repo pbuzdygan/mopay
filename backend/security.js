@@ -113,8 +113,8 @@ export function createPinAttemptGuard() {
   return { beforeVerify, onFailure, onSuccess };
 }
 
-export function createSecurityAudit() {
-  const webhookUrl = process.env.SECURITY_WEBHOOK_URL || '';
+export function createSecurityAudit({ webhooks = true } = {}) {
+  const webhookUrl = webhooks ? process.env.SECURITY_WEBHOOK_URL || '' : '';
   const alertThreshold = readPositiveNumberEnv('SECURITY_ALERT_PIN_FAIL_THRESHOLD', 20);
   const alertWindowMs = readPositiveNumberEnv('SECURITY_ALERT_PIN_FAIL_WINDOW_MS', 10 * 60 * 1000);
   const alertCooldownMs = readPositiveNumberEnv('SECURITY_ALERT_COOLDOWN_MS', 15 * 60 * 1000);

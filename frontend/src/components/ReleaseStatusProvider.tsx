@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { Api } from "../api";
 import { useAppStore } from "../store";
 import { REPO_SLUG, selectReleaseForChannel, type GitHubRelease } from "../utils/release";
 
@@ -7,29 +6,8 @@ const POLL_INTERVAL_MS = 1000 * 60 * 60 * 6; // 6 hours
 
 export function ReleaseStatusProvider() {
   const releaseChannel = useAppStore((s) => s.releaseChannel);
-  const setAppVersion = useAppStore((s) => s.setAppVersion);
   const setLatestVersion = useAppStore((s) => s.setLatestVersion);
   const setLatestReleaseUrl = useAppStore((s) => s.setLatestReleaseUrl);
-  const setReleaseChannel = useAppStore((s) => s.setReleaseChannel);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadMeta = async () => {
-      try {
-        const meta = await Api.meta();
-        if (!cancelled) {
-          setAppVersion(meta?.version ?? null);
-          setReleaseChannel(meta?.channel ?? "main");
-        }
-      } catch {
-        // ignore – keep previous value
-      }
-    };
-    loadMeta();
-    return () => {
-      cancelled = true;
-    };
-  }, [setAppVersion, setReleaseChannel]);
 
   useEffect(() => {
     if (!REPO_SLUG || !releaseChannel) return;

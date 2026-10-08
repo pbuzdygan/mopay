@@ -22,7 +22,7 @@ async function fixture(route) {
     const income = url.searchParams.get('type') === 'income';
     const responses = {
       '/api/years': { years: [2025, 2026] },
-      '/api/meta': { version: '1.6.2', channel: 'main' },
+      '/api/meta': { version: '1.6.3', channel: 'main', demo: false },
       '/api/encryption/status': { encryptionEnabled: false, keyMismatch: false },
       '/api/entries': { entries: [{ id: income ? 2 : 1, name: income ? 'Test salary' : 'Test groceries', groupId: 10, sort_index: 0, Jan: 100, comment: 'Synthetic fixture' }] },
       '/api/entry-groups': { groups: [{ id: 10, name: 'Test group', sortIndex: 0 }] },
@@ -63,7 +63,9 @@ async function sample(page, selector, action, ancestorOpacity = false) {
     requestAnimationFrame(frame);
   }, { selector, ancestorOpacity });
   await action();
-  await page.waitForTimeout(350);
+  // Include a stable ending even on throttled headless rendering; retain the
+  // minimum frame count and every opacity/reversal assertion.
+  await page.waitForTimeout(650);
   return page.evaluate(() => {
     window.opacitySampleId++;
     return window.opacityFrames;
@@ -71,7 +73,7 @@ async function sample(page, selector, action, ancestorOpacity = false) {
 }
 
 function monotonic(frames, direction) {
-  assert.ok(frames.length > 5, 'Enough animation frames were sampled');
+  assert.ok(frames.length > 5, `Enough animation frames were sampled (received ${frames.length})`);
   for (let i = 1; i < frames.length; i++) {
     assert.ok(direction * (frames[i] - frames[i - 1]) >= -0.04,
       `Opacity reversed direction: ${frames[i - 1]} -> ${frames[i]}`);
@@ -217,6 +219,36 @@ for (const mobile of [false, true]) {
         }), true);
         assert.ok(rapidFrames.every(value => value === 1), 'Rapid switches must not dim the table');
 
+        // Persist both tables as collapsed, then sample what the browser actually paints.
+        for (const tab of ['Incomes', 'Expenses']) {
+          await page.getByRole('tab', { name: tab, exact: true }).click();
+          await page.getByRole('button', { name: 'Collapse group', exact: true }).click();
+        }
+        const expandedGroup = '.group-collapse-button[aria-expanded="true"]';
+        for (const tab of ['Incomes', 'Expenses', 'Savings', 'Expenses']) {
+          const frames = await sample(page, expandedGroup, () =>
+            page.getByRole('tab', { name: tab, exact: true }).click());
+          assert.ok(frames.length > 5 && frames.every(value => value === 0),
+            'Saved collapsed groups must never paint expanded during menu switches');
+        }
+        await page.evaluate(() => {
+          // An empty uncached table also renders the Ungrouped placeholder.
+          localStorage.setItem('group-collapsed:expense:2025', JSON.stringify({ 'g:10': true, ungrouped: true }));
+        });
+        for (const year of ['2025', '2026']) {
+          await page.locator('.year-trigger:visible').click();
+          const frames = await sample(page, expandedGroup, () =>
+            page.getByRole('option', { name: year, exact: true }).click());
+          assert.ok(frames.length > 5 && frames.every(value => value === 0),
+            'Saved collapsed groups must never paint expanded during year switches');
+          await page.getByRole('button', { name: 'Expand group', exact: true }).waitFor();
+        }
+        for (const tab of ['Incomes', 'Expenses']) {
+          await page.getByRole('tab', { name: tab, exact: true }).click();
+          await page.getByRole('button', { name: 'Expand group', exact: true }).click();
+          await page.getByText(tab === 'Incomes' ? 'Test salary' : 'Test groceries', { exact: true }).waitFor();
+        }
+
         for (const [section, item] of [['Expenses', 'Test groceries'], ['Incomes', 'Test salary'], ['Savings', 'Synthetic savings']]) {
           await page.getByRole('tab', { name: section, exact: true }).click();
           await page.getByText(item, { exact: true }).waitFor();
@@ -318,6 +350,104 @@ for (const mobile of [false, true]) {
       } finally {
         await browser.close();
       }
+    });
+  }
+}
+
+for (const mobile of [false, true]) {
+  for (const theme of ['light', 'dark']) {
+    test(`${mobile ? 'mobile' : 'desktop'} ${theme}: demo read-only UI and mode changes`, async () => {
+      const browser = await chromium.launch();
+      try {
+        const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, isMobile: mobile, hasTouch: mobile, serviceWorkers: 'block' });
+        let demo = true;
+        let metadataFails = true;
+        let validToken = '';
+        const writes = [];
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.addInitScript(({ theme }) => {
+          localStorage.setItem('theme', JSON.stringify(theme));
+          if (!localStorage.getItem('demo-fixture-initialized')) {
+            localStorage.setItem('year', '2025');
+            localStorage.setItem('tab', JSON.stringify('expenses'));
+            localStorage.setItem('demo-fixture-initialized', 'true');
+            sessionStorage.setItem('pin-token', 'expired-normal-token');
+            sessionStorage.setItem('pin-ok', '1');
+          }
+        }, { theme });
+        await page.route('**/*', async route => {
+          const url = new URL(route.request().url());
+          if (url.hostname !== 'mopay.test' || !url.pathname.startsWith('/api/')) return fixture(route);
+          if (url.pathname === '/api/meta') {
+            if (metadataFails) return route.fulfill({ status: 503, json: {} });
+            return route.fulfill({ json: { version: '1.6.3', channel: 'main', demo, ...(demo ? { demoPin: '1234' } : {}) } });
+          }
+          if (url.pathname === '/api/pin/verify') {
+            const ok = route.request().postDataJSON().pin === (demo ? '1234' : '87654321');
+            if (ok) validToken = demo ? 'demo-fixture-token' : 'normal-fixture-token';
+            return route.fulfill({ status: ok ? 200 : 401, json: ok ? { ok: true, sessionToken: validToken } : { ok: false } });
+          }
+          if (url.pathname !== '/api/encryption/status' && route.request().headers()['x-mopay-session'] !== validToken) return route.fulfill({ status: 401, json: { error: 'INVALID_SESSION' } });
+          if (route.request().method() !== 'GET') writes.push(url.pathname);
+          if (url.pathname === '/api/entries') return route.fulfill({ json: { entries: [{ id: 1, name: demo ? 'Demo groceries' : 'Private groceries', groupId: 10, sort_index: 0, Jan: 100, comment: 'Synthetic fixture' }] } });
+          return fixture(route);
+        });
+        await page.goto('http://mopay.test/');
+        await page.getByText('Could not load application mode.', { exact: false }).waitFor();
+        assert.equal(await page.locator('.context-new-button').count(), 0);
+        assert.equal(await page.getByText('Demo PIN:', { exact: false }).count(), 0);
+        metadataFails = false;
+        await page.getByRole('button', { name: 'Retry', exact: true }).click();
+        await page.getByText('Demo PIN: 1234', { exact: false }).waitFor();
+        assert.equal(await page.getByText('Private groceries', { exact: true }).count(), 0);
+        await page.locator('#pin-guard-input').fill('1234');
+        await page.getByRole('button', { name: 'Enter', exact: true }).click();
+        await page.locator('.pin-guard-overlay').waitFor({ state: 'detached' });
+        await page.getByText('Demo groceries', { exact: true }).waitFor();
+        assert.equal(await page.locator('.demo-banner').count(), 1);
+        assert.equal(await page.locator('.context-new-button, .context-actions-button').count(), 0);
+        await page.locator('.table-value').first().click();
+        assert.equal(await page.locator('.table-input').count(), 0);
+        await page.getByText('Demo groceries', { exact: true }).click();
+        await page.locator('.table-context-panel').waitFor();
+        assert.equal(await page.locator('.table-context-panel input').evaluate(node => node.readOnly), true);
+        assert.equal(await page.getByRole('button', { name: 'Save changes', exact: true }).count(), 0);
+        await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-demo-details`);
+        await page.locator('.table-context-close').click();
+        await page.locator('.table-context-panel').waitFor({ state: 'detached' });
+        for (const name of ['Incomes', 'Savings', 'Reports', 'Expenses']) {
+          await page.getByRole('tab', { name, exact: true }).click();
+          if (name === 'Savings') {
+            await page.getByText('Synthetic savings', { exact: true }).click();
+            await page.getByText('Synthetic contribution', { exact: true }).waitFor();
+            assert.equal(await page.getByRole('button', { name: /^Edit |^Remove / }).count(), 0);
+            assert.equal(await page.getByRole('button', { name: '+ Add item', exact: true }).isDisabled(), true);
+          }
+        }
+        await page.locator('.mainbar-search-input:visible').fill('Demo groceries');
+        await page.getByText('Demo groceries', { exact: true }).waitFor();
+        await page.locator('.mainbar-search-input:visible').press('Escape');
+        await page.getByRole('button', { name: 'Collapse group', exact: true }).click();
+        await page.getByText('Demo groceries', { exact: true }).waitFor({ state: 'hidden' });
+        await page.getByRole('button', { name: 'Expand group', exact: true }).click();
+        await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-demo-table`);
+        demo = false; validToken = '';
+        await page.reload();
+        await page.locator('#pin-guard-input').waitFor();
+        assert.equal(await page.locator('.demo-banner').count(), 0);
+        assert.equal(await page.getByText('Demo groceries', { exact: true }).count(), 0);
+        await page.locator('#pin-guard-input').fill('87654321');
+        await page.getByRole('button', { name: 'Enter', exact: true }).click();
+        await page.getByText('Private groceries', { exact: true }).waitFor();
+        assert.equal(await page.locator('.year-trigger:visible').innerText().then(text => text.includes('2025')), true);
+        demo = true; validToken = '';
+        await page.reload();
+        await page.getByText('Demo PIN: 1234', { exact: false }).waitFor();
+        assert.equal(await page.getByText('Private groceries', { exact: true }).count(), 0);
+        assert.deepEqual(writes, []);
+        assert.deepEqual(errors, []);
+      } finally { await browser.close(); }
     });
   }
 }

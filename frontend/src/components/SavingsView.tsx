@@ -45,6 +45,7 @@ const formatSignedCurrency = (value: number) =>
 export function SavingsView() {
   const year = useAppStore((s) => s.year);
   const searchQuery = useAppStore((s) => s.searchQuery);
+  const demo = useAppStore((s) => s.demo);
   const openGoalModal = useAppStore((s) => s.openGoalModal);
   const [expandedGoalId, setExpandedGoalId] = useState<number | null>(null);
 
@@ -100,7 +101,7 @@ export function SavingsView() {
             Set up your first goal to start tracking progress. Goals live next to your yearly
             budget, so you can update them anytime.
           </p>
-          <SoftButton type="button" onClick={() => openGoalModal()} disabled={!year}>
+          <SoftButton type="button" onClick={() => openGoalModal()} disabled={!year || Boolean(demo)}>
             Add goal
           </SoftButton>
         </div>
@@ -145,6 +146,7 @@ function GoalCard({
   onToggle: () => void;
 }) {
   const qc = useQueryClient();
+  const demo = useAppStore((s) => s.demo);
   const openGoalModal = useAppStore((s) => s.openGoalModal);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -221,7 +223,7 @@ function GoalCard({
           </span>
         </button>
 
-        <div className="goal-card-actions" ref={actionsRef}>
+        <div className="goal-card-actions" hidden={Boolean(demo)} ref={actionsRef}>
           <button
             type="button"
             className="goal-action-icon ui-tooltip"
@@ -279,9 +281,10 @@ function GoalItemsLedger({
   onRefresh: () => Promise<unknown>;
   onAddRow: () => Promise<number>;
 }) {
+  const demo = useAppStore((s) => s.demo);
   const [rows, setRows] = useState<DraftRow[]>(() => buildDrafts(items));
   const [editingRowId, setEditingRowId] = useState<number | null>(
-    () => items.find(isBlankItem)?.id ?? null
+    () => demo ? null : items.find(isBlankItem)?.id ?? null
   );
   const [savingRowId, setSavingRowId] = useState<number | null>(null);
   const [addingRow, setAddingRow] = useState(false);
@@ -472,7 +475,7 @@ function GoalItemsLedger({
                     <span className="goal-withdrawal-caption">Temporary withdrawal</span>
                   )}
                 </div>
-                <div className="goal-ledger-actions">
+                <div className="goal-ledger-actions" hidden={Boolean(demo)}>
                   <button
                     type="button"
                     className="goal-row-action is-save ui-tooltip"
@@ -505,7 +508,7 @@ function GoalItemsLedger({
                 {negative && <span className="goal-withdrawal-caption">Temporary withdrawal</span>}
               </div>
               <strong className="goal-ledger-amount">{formatSignedCurrency(value)}</strong>
-              <div className="goal-ledger-actions">
+              <div className="goal-ledger-actions" hidden={Boolean(demo)}>
                 <button
                   type="button"
                   className="goal-row-action ui-tooltip"
@@ -531,7 +534,7 @@ function GoalItemsLedger({
       </div>
 
       <div className="goal-ledger-footer">
-        <SoftButton type="button" variant="ghost" disabled={addingRow} onClick={() => void addRow()}>
+        <SoftButton type="button" variant="ghost" disabled={addingRow || Boolean(demo)} onClick={() => void addRow()}>
           {addingRow ? 'Adding…' : '+ Add item'}
         </SoftButton>
         <div className="goal-ledger-total">

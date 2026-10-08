@@ -74,6 +74,9 @@ type Tab = 'expenses' | 'incomes' | 'savings' | 'reports';
 type ViewMode = 'normal' | 'compact';
 
 type State = {
+  demo: boolean | null;
+  demoPin: string | null;
+  setRuntimeMode: (demo: boolean, pin: string | null) => void;
   tab: Tab;
   year: number | null;
   theme: 'light' | 'dark';
@@ -83,6 +86,8 @@ type State = {
   editMode: null | 'order' | 'remove' | 'tag';
   addEntryGroupId: number | null;
   pinSession: boolean;
+  financialReady: boolean;
+  setFinancialReady: () => void;
   removeSelection: Set<number>;
   groupRemoveSelection: Set<number>;
   bulkRemoveRequestId: number;
@@ -131,6 +136,9 @@ type State = {
 };
 
 export const useAppStore = create<State>((set, get) => ({
+  demo: null,
+  demoPin: null,
+  setRuntimeMode: (demo, demoPin) => set({ demo, demoPin, year: load<number | null>(demo ? 'demo-year' : 'year', null) }),
   tab: load<Tab>('tab', 'expenses'),
   year: load<number | null>('year', null),
   theme: load<'light' | 'dark'>('theme', 'light'),
@@ -140,6 +148,8 @@ export const useAppStore = create<State>((set, get) => ({
   editMode: null,
   addEntryGroupId: null,
   pinSession: false,
+  financialReady: false,
+  setFinancialReady: () => set({ financialReady: true }),
   removeSelection: new Set<number>(),
   groupRemoveSelection: new Set<number>(),
   bulkRemoveRequestId: 0,
@@ -168,7 +178,7 @@ export const useAppStore = create<State>((set, get) => ({
   },
 
   setYear: (year) => {
-    save('year', year);
+    save(get().demo ? 'demo-year' : 'year', year);
     set({ year });
   },
 
@@ -191,7 +201,7 @@ export const useAppStore = create<State>((set, get) => ({
 
   setEditMode: (editMode) => set({ editMode }),
 
-  setPinSession: (pinSession) => set({ pinSession }),
+  setPinSession: (pinSession) => set(pinSession ? { pinSession } : { pinSession, financialReady: false }),
 
   toggleRemoveId: (id) => {
     const s = new Set(get().removeSelection);

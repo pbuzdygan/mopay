@@ -40,6 +40,8 @@ export function MainBar() {
     openAddEntry,
   } = useAppStore();
 
+  const demo = useAppStore((s) => s.demo);
+  const pinSession = useAppStore((s) => s.pinSession);
   const desktopSearchRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
 
@@ -61,7 +63,7 @@ export function MainBar() {
     return () => document.removeEventListener('keydown', focusSearch);
   }, []);
 
-  const yearsQ = useQuery({ queryKey: ['years'], queryFn: Api.years.list });
+  const yearsQ = useQuery({ queryKey: ['years'], queryFn: Api.years.list, enabled: pinSession });
   const years = (yearsQ.data?.years ?? []) as number[];
 
   const openModal = useAppStore((s) => s.openModal);
@@ -193,15 +195,15 @@ export function MainBar() {
             >
               {({ close }) => (
                 <>
-                  <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
+                  {!demo && <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
                     {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
-                  </DropdownItem>
+                  </DropdownItem>}
                   <DropdownItem onSelect={() => { openModal('export'); close(); }}>
                     {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
                   </DropdownItem>
-                  <DropdownItem onSelect={() => { openModal('import'); close(); }}>
+                  {!demo && <DropdownItem onSelect={() => { openModal('import'); close(); }}>
                     {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
-                  </DropdownItem>
+                  </DropdownItem>}
                   <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
                     {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
                   </DropdownItem>
@@ -334,7 +336,7 @@ export function MainBar() {
   );
 
   const renderActions = () => {
-    if (tab === 'reports') return null;
+    if (demo || tab === 'reports') return null;
     if (tab === 'savings') return savingsActions;
     return primaryActions;
   };
@@ -458,15 +460,15 @@ export function MainBar() {
                 >
                   {({ close }) => (
                     <>
-                      <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
+                      {!demo && <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
                         {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
-                      </DropdownItem>
+                      </DropdownItem>}
                       <DropdownItem onSelect={() => { openModal('export'); close(); }}>
                         {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
                       </DropdownItem>
-                      <DropdownItem onSelect={() => { openModal('import'); close(); }}>
+                      {!demo && <DropdownItem onSelect={() => { openModal('import'); close(); }}>
                         {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
-                      </DropdownItem>
+                      </DropdownItem>}
                       <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
                         {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
                       </DropdownItem>
@@ -496,15 +498,15 @@ export function MainBar() {
               >
                 {({ close }) => (
                   <>
-                    <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
+                    {!demo && <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
                       {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
-                    </DropdownItem>
+                    </DropdownItem>}
                     <DropdownItem onSelect={() => { openModal('export'); close(); }}>
                       {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
                     </DropdownItem>
-                    <DropdownItem onSelect={() => { openModal('import'); close(); }}>
+                    {!demo && <DropdownItem onSelect={() => { openModal('import'); close(); }}>
                       {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
-                    </DropdownItem>
+                    </DropdownItem>}
                     <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
                       {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
                     </DropdownItem>

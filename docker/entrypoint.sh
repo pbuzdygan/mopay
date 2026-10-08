@@ -25,7 +25,7 @@ validate_id PGID "$PGID"
 
 # Keep the backend's actual default aligned with the storage permission check.
 export DB_FILE="${DB_FILE:-/data/mopay.sqlite}"
-DB_FILE_PATH="$DB_FILE"
+DB_FILE_PATH="$(node /app/runtimeConfig.js)"
 DB_DIR_PATH="$(dirname "$DB_FILE_PATH")"
 
 ensure_db_writable_or_exit() {

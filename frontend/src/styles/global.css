@@ -5064,3 +5064,8 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
     display: none;
   }
 }
+
+/* Keep demo status readable without changing the navigation row. */
+.demo-banner { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; padding: 0.5rem 0; color: var(--textPrim); font-size: 0.875rem; }
+.demo-pin { font-size: 1rem; }
+[hidden] { display: none !important; }
