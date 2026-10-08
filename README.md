@@ -65,7 +65,7 @@
 - :fire:**Import feature**  use new function for **faster data input** or financial data **migration collected in excel sheets**. Import flow with template download, validation, year overwrite confirmation, and progress/status feedback.
 - **Import scope** includes entries, groups, month tags, savings goals, and savings items
 - **Release info** in settings with update check against GitHub Releases
-- **Demo mode** - check how Mopay works with sample data
+- **Demo mode** - check how Mopay works with sample data [Demo data configuration](docs/CONFIGURATION.md#demo-mode)
 
 ---
 
