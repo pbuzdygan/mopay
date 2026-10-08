@@ -4,6 +4,7 @@
 
 ### Bug fix
 - restored saved group collapse state before painting Expenses/Incomes tables, preventing expanded rows from briefly flashing when switching menus or years
+- updated proxy-addr to 2.0.8 to fix IPv4-mapped IPv6 trust-subnet IP spoofing (GHSA-jqcg-44mw-7w3h)
 
 ## v1.6.2
 
