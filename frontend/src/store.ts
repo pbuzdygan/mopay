@@ -90,7 +90,6 @@ type State = {
   setFinancialReady: () => void;
   removeSelection: Set<number>;
   groupRemoveSelection: Set<number>;
-  bulkRemoveRequestId: number;
   modals: {
     add: boolean;
     comment: { open: boolean; id: number | null; text: string };
@@ -119,7 +118,6 @@ type State = {
   toggleRemoveId: (id: number) => void;
   toggleRemoveGroupId: (id: number) => void;
   clearRemove: () => void;
-  requestBulkRemove: () => void;
   openModal: (k: keyof State['modals']) => void;
   openAddEntry: (groupId?: number | null) => void;
   closeModal: (k: keyof State['modals']) => void;
@@ -153,7 +151,6 @@ export const useAppStore = create<State>((set, get) => ({
   setFinancialReady: () => set({ financialReady: true }),
   removeSelection: new Set<number>(),
   groupRemoveSelection: new Set<number>(),
-  bulkRemoveRequestId: 0,
   modals: {
     add: false,
     comment: { open: false, id: null, text: '' },
@@ -221,11 +218,6 @@ export const useAppStore = create<State>((set, get) => ({
   },
 
   clearRemove: () => set({ removeSelection: new Set<number>(), groupRemoveSelection: new Set<number>() }),
-
-  requestBulkRemove: () =>
-    set((state) => ({
-      bulkRemoveRequestId: state.bulkRemoveRequestId + 1,
-    })),
 
   openModal: (k) =>
     set({

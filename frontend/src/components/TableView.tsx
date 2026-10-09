@@ -1,264 +1,24 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
-import { getCurrentMonthForYear, MONTHS } from '../utils/months';
-import { formatCurrency, formatCurrencyPlain, parseCurrencyInputNullable } from '../utils/currency';
+import { getCurrentMonthForYear } from '../utils/months';
 import { includesSearch, normalizeSearchText } from '../utils/search';
-import { DndContext, closestCenter, PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
-import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Surface } from './Surface';
+import { PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { TagEditorPopover, type TagColor } from './TagEditorPopover';
 import { TableHeaderRow, TableTotalRow } from './table/TableGridRows';
+import { EntryRow, GroupRow, SortableGroupRow, SortableScope, makeGroupTotals } from './table/GridRows';
+import { GridSummary } from './table/GridSummary';
+import { BulkRemoveBar, ModeBanner } from './table/EditModeBars';
 import { useTableQueryState } from './table/useTableQueryState';
 import { TableContextPanel, type TableContextTarget } from './table/TableContextPanel';
-import type { EntryGroup, EntryPatch, EntryRowData, EntryTag } from './table/types';
+import type { EntryPatch, EntryRowData, EntryTag } from './table/types';
 
-const GRID_TEMPLATE =
-  'table-data-grid';
+// Name column + 12 months + Sum + Avg.
+const COLUMN_COUNT = 15;
 
 const normalizeEntryMonthKey = (month: string) => (month === 'Dec' ? 'Decm' : month);
-const makeGroupTotals = (list: EntryRowData[]) => {
-  const sums = new Array(12).fill(0);
-  for (const e of list) {
-    MONTHS.forEach((m, i) => {
-      sums[i] += Number(e[m as keyof EntryRowData] ?? (m === 'Dec' ? e.Decm : e[m as keyof EntryRowData]) ?? 0);
-    });
-  }
-  const totalSum = sums.reduce((a, b) => a + b, 0);
-  const totalAvg = sums.length ? totalSum / sums.length : 0;
-  return { sums, totalSum, totalAvg };
-};
-
-const GroupRowSortable = memo(function GroupRowSortable({
-  group,
-  groupEntries,
-  isCollapsed,
-  totals,
-  showGroupTotals,
-  onToggleCollapse,
-}: {
-  group: EntryGroup;
-  groupEntries: EntryRowData[];
-  isCollapsed: boolean;
-  totals: { sums: number[]; totalSum: number; totalAvg: number };
-  showGroupTotals: boolean;
-  onToggleCollapse: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id: group.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: 'none',
-    opacity: isDragging ? 0.9 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}
-    >
-      <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
-        <button
-          type="button"
-          className="order-handle group-order-handle mode-enter"
-          {...attributes}
-          {...listeners}
-          aria-label={`Reorder group ${group.name}`}
-        >
-          <span className="order-handle-icon" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="group-collapse-button"
-          onClick={onToggleCollapse}
-          aria-expanded={!isCollapsed}
-          aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
-        >
-          <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
-        </button>
-        <span className="table-name group-name min-w-0">
-          <span className="font-semibold truncate">{group.name}</span>
-          <span className="group-entry-count">{groupEntries.length}</span>
-        </span>
-      </div>
-      {MONTHS.map((m, idx) => (
-        <div key={m} className="text-right text-textSec">
-          {showGroupTotals ? formatCurrency(totals.sums[idx] ?? 0) : null}
-        </div>
-      ))}
-      <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalSum) : null}</div>
-      <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalAvg) : null}</div>
-    </div>
-  );
-});
-
-const Row = memo(function Row({
-  e,
-  removingIds,
-  onMonthUpdate,
-  tags,
-  onRequestTag,
-  onOpenDetails,
-}: {
-  e: EntryRowData;
-  removingIds: number[];
-  onMonthUpdate: (month: string, value: number | null) => void;
-  tags: Record<string, EntryTag | undefined>;
-  onRequestTag: (entryId: number, month: string, target: HTMLButtonElement, tag?: EntryTag) => void;
-  onOpenDetails: (entry: EntryRowData) => void;
-}) {
-  const editMode = useAppStore((s) => s.editMode);
-  const toggleRemoveId = useAppStore((s) => s.toggleRemoveId);
-  const isRemoveSelected = useAppStore((s) => s.removeSelection.has(e.id));
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: e.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: isDragging || editMode === 'order' ? 'none' : 'transform 120ms ease-out',
-  };
-  const isTagMode = editMode === 'tag';
-  const demo = useAppStore((s) => s.demo);
-  const canEditValues = demo === false && !editMode;
-
-  const initialNumbers = useMemo(() => {
-    const map: Record<string, number | null> = {};
-    MONTHS.forEach((m) => {
-      const raw = m === 'Dec' ? e.Decm : e[m];
-      map[m] = raw === null || raw === undefined ? null : Number(raw);
-    });
-    return map;
-  }, [e]);
-
-  const [monthNumbers, setMonthNumbers] = useState<Record<string, number | null>>(initialNumbers);
-  const [editingMonth, setEditingMonth] = useState<string | null>(null);
-  const [monthDraft, setMonthDraft] = useState('');
-
-  useEffect(() => {
-    setMonthNumbers(initialNumbers);
-  }, [initialNumbers]);
-
-  useEffect(() => {
-    if (editMode) {
-      setEditingMonth(null);
-    }
-  }, [editMode]);
-
-  const rowSum = useMemo(() => {
-    return MONTHS.reduce((sum, m) => sum + (monthNumbers[m] ?? 0), 0);
-  }, [monthNumbers]);
-
-  const rowAvg = useMemo(() => {
-    const count = MONTHS.reduce((acc, m) => acc + (monthNumbers[m] === null || monthNumbers[m] === undefined ? 0 : 1), 0);
-    return count ? rowSum / count : 0;
-  }, [rowSum, monthNumbers]);
-
-  async function saveMonth(month: string) {
-    const num = parseCurrencyInputNullable(monthDraft);
-    setMonthNumbers((prev) => ({ ...prev, [month]: num }));
-    onMonthUpdate(month, num);
-    setEditingMonth(null);
-    await Api.entries.patch(e.id, { [month]: num });
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      data-entry-id={e.id}
-      style={style}
-      className={`${GRID_TEMPLATE}
-                  table-row-premium gap-1 pl-0 pr-3 py-1.5 items-center text-[0.72rem]
-                  ${isDragging ? 'dragging' : ''}
-                  ${editMode === 'remove' && isRemoveSelected ? 'row-remove-selected' : ''}
-                  ${removingIds.includes(e.id) ? 'fade-out' : ''}`}
-    >
-
-      <div className="table-entry-leading flex items-center gap-2 min-w-0 text-textPrim" key={`lead-${editMode || 'view'}`}>
-        {editMode === 'order' ? (
-          <button
-            {...attributes}
-            {...listeners}
-            className="order-handle mode-enter"
-            style={{ background: 'var(--panel-subtle)' }}
-            aria-label={`Reorder ${e.name}`}
-          >
-            <span className="order-handle-icon" aria-hidden="true" />
-          </button>
-        ) : editMode === 'remove' ? (
-          <input
-            type="checkbox"
-            className="remove-checkbox mode-enter"
-            aria-label={`Select ${e.name}`}
-            checked={isRemoveSelected}
-            onChange={() => toggleRemoveId(e.id)}
-          />
-        ) : null}
-        <div className="flex items-center gap-2 w-full min-w-0">
-          <button
-            className={`table-name flex-1 min-w-0 truncate ${!editMode ? 'is-contextual' : ''}`}
-            onClick={() => !editMode && onOpenDetails(e)}
-          >
-            {e.name}
-          </button>
-        </div>
-      </div>
-      {MONTHS.map((m)=> {
-        const tag = tags?.[m];
-        const tagText = tag?.text?.trim();
-        const tagHasColor = Boolean(tag && tag.color !== 'none');
-        const valueText = monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0);
-        return (
-        <div key={m} className="table-month-cell text-right">
-          {(canEditValues && editingMonth === m) ? (
-            <input
-              className="table-input"
-              aria-label={`${e.name}, ${m}`}
-              value={monthDraft}
-              onChange={(ev)=> {
-                const value = ev.target.value.replace(/[^\d,.\s-]/g, '');
-                setMonthDraft(value);
-              }}
-              onBlur={()=> saveMonth(m)}
-              onKeyDown={(ev)=> {
-                if (ev.key === 'Enter') saveMonth(m);
-                if (ev.key === 'Escape') {
-                  setMonthDraft(monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0));
-                  setEditingMonth(null);
-                }
-              }}
-              autoFocus
-              inputMode="decimal"
-            />
-          ) : (
-            <div className={`table-value-wrapper ${tagHasColor ? 'has-tag' : ''}`}>
-              <button
-                className={`table-value ${tagHasColor ? `has-tag tag-color-${tag!.color}` : ''} ${tagText ? 'has-note' : ''} ${isTagMode ? 'is-tag-target' : ''}`}
-                // Name includes the visible value; tests locate cells by entry and month.
-                aria-label={`${e.name}, ${m}: ${valueText}`}
-                onClick={(ev)=> {
-                if (isTagMode) {
-                  onRequestTag(e.id, m, ev.currentTarget, tag);
-                  return;
-                }
-                if (!canEditValues) return;
-                setEditingMonth(m);
-                setMonthDraft(monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrencyPlain(monthNumbers[m] ?? 0));
-              }}
-            >
-                {valueText}
-              </button>
-              {tagText && (
-                <span className="tag-tooltip">{tagText}</span>
-              )}
-            </div>
-          )}
-        </div>
-      )})}
-      <div className="text-right text-textPrim">{formatCurrency(rowSum)}</div>
-      <div className="text-right text-textSec">{formatCurrency(rowAvg)}</div>
-    </div>
-  );
-});
 
 export function TableView() {
   const tab = useAppStore((s) => s.tab);
@@ -269,20 +29,21 @@ export function TableView() {
   const clearRemove = useAppStore((s) => s.clearRemove);
   const removeSelection = useAppStore((s) => s.removeSelection);
   const groupRemoveSelection = useAppStore((s) => s.groupRemoveSelection);
-  const toggleRemoveGroupId = useAppStore((s) => s.toggleRemoveGroupId);
-  const bulkRemoveRequestId = useAppStore((s) => s.bulkRemoveRequestId);
+  const demo = useAppStore((s) => s.demo);
   const tableTab = tab === 'incomes' ? 'incomes' : 'expenses';
   const type = tableTab === 'incomes' ? 'income' : 'expense';
   const currentMonth = getCurrentMonthForYear(year);
   const showGroupTotals = useAppStore((s) => s.showGroupTotals);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const qc = useQueryClient();
-  const { rows, groups, tagsByEntry, patchEntryLocal, setEntryOverrides } = useTableQueryState({
+  const { loaded, rows, groups, tagsByEntry, patchEntryLocal, setEntryOverrides } = useTableQueryState({
     type,
     year,
   });
   const [removingIds, setRemovingIds] = useState<number[]>([]);
   const [removingGroupIds, setRemovingGroupIds] = useState<number[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const [tagEditor, setTagEditor] = useState<null | { entryId: number; month: string; rect: DOMRect; color: TagColor; text: string }>(null);
   const [tagSaving, setTagSaving] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -347,38 +108,49 @@ export function TableView() {
 
   const queryKey = ['entries', type, year];
 
-  // Bulk remove (with shake animation), decoupled from window events.
   useEffect(() => {
-    const runBulkRemove = async () => {
-      const ids = Array.from(removeSelection);
-      const groupIds = Array.from(groupRemoveSelection);
-      if (!ids.length && !groupIds.length) return;
+    if (editMode !== 'remove') setBulkError(null);
+  }, [editMode]);
 
-      setRemovingIds(ids);
-      setRemovingGroupIds(groupIds);
+  // Bulk remove after confirmation in the bulk bar (fade-out, then groups before entries).
+  const removeSelected = async () => {
+    const ids = Array.from(removeSelection);
+    const groupIds = Array.from(groupRemoveSelection);
+    if (!ids.length && !groupIds.length) return;
 
-      await new Promise((r) => setTimeout(r, 600));
-      try {
-        if (groupIds.length) {
-          await Api.entryGroups.remove(groupIds);
-        }
-        if (ids.length) {
-          await Api.entries.remove(ids);
-        }
-        clearRemove();
-        useAppStore.getState().setEditMode(null);
-        qc.invalidateQueries({ queryKey });
-        qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
-        if (year) qc.invalidateQueries({ queryKey: ['tags', year] });
-      } finally {
-        setTimeout(() => {
-          setRemovingIds([]);
-          setRemovingGroupIds([]);
-        }, 400);
+    setBulkError(null);
+    setBulkBusy(true);
+    setRemovingIds(ids);
+    setRemovingGroupIds(groupIds);
+
+    await new Promise((r) => setTimeout(r, 600));
+    let removed = false;
+    try {
+      if (groupIds.length) {
+        await Api.entryGroups.remove(groupIds);
+        // Already removed: a retry after a failed entry removal must not resend them.
+        useAppStore.setState({ groupRemoveSelection: new Set<number>() });
       }
-    };
-    void runBulkRemove();
-  }, [bulkRemoveRequestId]);
+      if (ids.length) {
+        await Api.entries.remove(ids);
+      }
+      removed = true;
+      clearRemove();
+      useAppStore.getState().setEditMode(null);
+    } catch {
+      setBulkError('Could not remove the selection. Try again.');
+    } finally {
+      // Refresh on failure too: a removal may have partly succeeded.
+      qc.invalidateQueries({ queryKey });
+      qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
+      if (year) qc.invalidateQueries({ queryKey: ['tags', year] });
+      setBulkBusy(false);
+      setTimeout(() => {
+        setRemovingIds([]);
+        setRemovingGroupIds([]);
+      }, removed ? 400 : 0);
+    }
+  };
 
   // DnD
   const sensors = useSensors(useSensor(PointerSensor));
@@ -555,263 +327,132 @@ export function TableView() {
     }
   };
 
+  const ordering = editMode === 'order';
+  const renderEntries = (groupEntries: EntryRowData[]) => (
+    <SortableScope
+      enabled={ordering}
+      sensors={sensors}
+      items={groupEntries.map((e) => e.id)}
+      onDragEnd={(event) => handleDragEnd(groupEntries, event)}
+    >
+      {groupEntries.map((e) => (
+        <EntryRow
+          key={e.id}
+          e={e}
+          removing={removingIds.includes(e.id)}
+          currentMonth={currentMonth}
+          onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
+          tags={tagsByEntry.get(e.id) ?? {}}
+          onRequestTag={handleTagRequest}
+          onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
+        />
+      ))}
+    </SortableScope>
+  );
+
+  const ungroupedEntries = entriesByGroup.get(null) ?? [];
+  const ungroupedCollapsed = normalizedSearch ? false : Boolean(collapsedGroups.ungrouped);
+  const isEmpty = loaded && !normalizedSearch && rows.length === 0 && groups.length === 0;
+  const noMatches = Boolean(normalizedSearch) && visibleRows.length === 0 && visibleGroups.length === 0;
+
+  // Remove mode: names for the confirmation; entries of a removed group stay unless selected.
+  const selectedEntryNames = rows.filter((e) => removeSelection.has(e.id)).map((e) => e.name);
+  const selectedGroups = sortedGroups
+    .filter((g) => groupRemoveSelection.has(g.id))
+    .map((g) => ({ name: g.name, entryCount: rows.filter((e) => e.groupId === g.id && !removeSelection.has(e.id)).length }));
+
   return (
-    <div className="stack">
-      <Surface variant="table">
-        <div>
-          <div className="overflow-x-auto">
-            <div
-              className="table-content inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
-              data-testid="entry-table"
-              style={{ width: 'max-content' }}
-            >
-            <TableHeaderRow gridTemplate={GRID_TEMPLATE} tab={tableTab} currentMonth={currentMonth} />
+    <div className="ledger-view" data-edit-mode={editMode ?? undefined}>
+      {editMode ? <ModeBanner mode={editMode} /> : <GridSummary totals={totals} currentMonth={currentMonth} type={type} />}
+      <div className="ledger-wrap" data-testid="entry-table">
+        <table className="ledger">
+          <caption className="sr-only">{type === 'income' ? 'Incomes' : 'Expenses'} {year} by month</caption>
+          <TableHeaderRow currentMonth={currentMonth} />
+          <SortableScope
+            enabled={ordering}
+            sensors={sensors}
+            items={visibleGroups.map((g) => g.id)}
+            onDragEnd={handleGroupDragEnd}
+          >
+            {visibleGroups.map((g) => {
+              const groupKey = `g:${g.id}`;
+              const groupEntries = entriesByGroup.get(g.id) ?? [];
+              const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
+              const groupProps = {
+                entryCount: groupEntries.length,
+                isCollapsed,
+                totals: makeGroupTotals(groupEntries),
+                showGroupTotals,
+                currentMonth,
+                onToggleCollapse: () => setGroupCollapsed(groupKey, !isCollapsed),
+              };
+              return (
+                <tbody key={groupKey}>
+                  {ordering ? (
+                    <SortableGroupRow group={g} {...groupProps} />
+                  ) : (
+                    <GroupRow
+                      group={g}
+                      {...groupProps}
+                      removing={removingGroupIds.includes(g.id)}
+                      onOpenDetails={() => setContextTarget({ kind: 'group', group: g, entryCount: groupEntries.length })}
+                    />
+                  )}
+                  {!isCollapsed && renderEntries(groupEntries)}
+                </tbody>
+              );
+            })}
 
-            {editMode==='order' ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleGroupDragEnd}
-              >
-                <SortableContext items={visibleGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {visibleGroups.map((g) => {
-                      const groupKey = `g:${g.id}`;
-                      const groupEntries = entriesByGroup.get(g.id) ?? [];
-                      const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
-                      const totals = makeGroupTotals(groupEntries);
-                      return (
-                        <div key={groupKey} className="space-y-2">
-                          <GroupRowSortable
-                            group={g}
-                            groupEntries={groupEntries}
-                            isCollapsed={isCollapsed}
-                            totals={totals}
-                            showGroupTotals={showGroupTotals}
-                            onToggleCollapse={() => setGroupCollapsed(groupKey, !isCollapsed)}
-                          />
-
-                          {!isCollapsed && (
-                            <DndContext
-                              sensors={sensors}
-                              collisionDetection={closestCenter}
-                              onDragEnd={(event) => handleDragEnd(groupEntries, event)}
-                            >
-                              <SortableContext items={groupEntries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-2">
-                                  {groupEntries.map((e) => (
-                                    <Row
-                                      key={e.id}
-                                      e={e}
-                                      removingIds={removingIds}
-                                      onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                                      tags={tagsByEntry.get(e.id) ?? {}}
-                                      onRequestTag={handleTagRequest}
-                                      onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
-                                    />
-                                  ))}
-                                </div>
-                              </SortableContext>
-                            </DndContext>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {(() => {
-                      const groupKey = 'ungrouped';
-                      const groupEntries = entriesByGroup.get(null) ?? [];
-                      const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
-                      const totals = makeGroupTotals(groupEntries);
-                      const shouldRender = groupEntries.length > 0 || (!normalizedSearch && visibleGroups.length === 0);
-                      if (!shouldRender) return null;
-                      return (
-                        <div key={groupKey} className="space-y-2">
-                          <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}>
-                            <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
-                              <button
-                                type="button"
-                                className="group-collapse-button"
-                                onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
-                                aria-expanded={!isCollapsed}
-                                aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
-                              >
-                                <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
-                              </button>
-                              <span className="font-semibold group-name-label min-w-0">
-                                <span className="truncate">Ungrouped</span>
-                                <span className="group-entry-count">{groupEntries.length}</span>
-                              </span>
-                            </div>
-                            {MONTHS.map((m, idx) => (
-                              <div key={m} className="text-right text-textSec">
-                                {showGroupTotals ? formatCurrency(totals.sums[idx] ?? 0) : null}
-                              </div>
-                            ))}
-                            <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalSum) : null}</div>
-                            <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalAvg) : null}</div>
-                          </div>
-
-                          {!isCollapsed && (
-                            <DndContext
-                              sensors={sensors}
-                              collisionDetection={closestCenter}
-                              onDragEnd={(event) => handleDragEnd(groupEntries, event)}
-                            >
-                              <SortableContext items={groupEntries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-2">
-                                  {groupEntries.map((e) => (
-                                    <Row
-                                      key={e.id}
-                                      e={e}
-                                      removingIds={removingIds}
-                                      onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                                      tags={tagsByEntry.get(e.id) ?? {}}
-                                      onRequestTag={handleTagRequest}
-                                      onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
-                                    />
-                                  ))}
-                                </div>
-                              </SortableContext>
-                            </DndContext>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            ) : (
-              <div className="space-y-2">
-                {visibleGroups.map((g) => {
-                  const groupKey = `g:${g.id}`;
-                  const groupEntries = entriesByGroup.get(g.id) ?? [];
-                  const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
-                  const totals = makeGroupTotals(groupEntries);
-                  return (
-                    <div key={groupKey} className="space-y-2">
-                      <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem] ${removingGroupIds.includes(g.id) ? 'fade-out' : ''}`}>
-                        <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
-                          {editMode === 'remove' ? (
-                            <input
-                              type="checkbox"
-                              className="remove-checkbox remove-checkbox-group mode-enter"
-                              aria-label={`Select group ${g.name}`}
-                              checked={groupRemoveSelection.has(g.id)}
-                              onChange={() => toggleRemoveGroupId(g.id)}
-                            />
-                          ) : null}
-                          <button
-                            type="button"
-                            className="group-collapse-button"
-                            onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
-                            aria-expanded={!isCollapsed}
-                            aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
-                          >
-                            <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            className={`table-name group-name min-w-0 ${!editMode ? 'is-contextual' : ''}`}
-                            onClick={() => !editMode && setContextTarget({ kind: 'group', group: g, entryCount: groupEntries.length })}
-                          >
-                            <span className="font-semibold truncate">{g.name}</span>
-                            <span className="group-entry-count">{groupEntries.length}</span>
-                          </button>
-                        </div>
-                        {MONTHS.map((m, idx) => (
-                          <div key={m} className="text-right text-textSec">
-                            {showGroupTotals ? formatCurrency(totals.sums[idx] ?? 0) : null}
-                          </div>
-                        ))}
-                        <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalSum) : null}</div>
-                        <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalAvg) : null}</div>
-                      </div>
-
-                      {!isCollapsed && (
-                        <div className="space-y-2">
-                          {groupEntries.map((e) => (
-                            <Row
-                              key={e.id}
-                              e={e}
-                              removingIds={removingIds}
-                              onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                              tags={tagsByEntry.get(e.id) ?? {}}
-                              onRequestTag={handleTagRequest}
-                              onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {(() => {
-                  const groupKey = 'ungrouped';
-                  const groupEntries = entriesByGroup.get(null) ?? [];
-                  const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
-                  const totals = makeGroupTotals(groupEntries);
-                  const shouldRender = groupEntries.length > 0 || (!normalizedSearch && visibleGroups.length === 0);
-                  if (!shouldRender) return null;
-                  return (
-                    <div key={groupKey} className="space-y-2">
-                      <div className={`${GRID_TEMPLATE} table-group-row gap-1 pl-0 pr-3 py-1 items-center text-[0.72rem]`}>
-                        <div className="group-leading flex items-center gap-2 text-textPrim min-w-0">
-                          <button
-                            type="button"
-                            className="group-collapse-button"
-                            onClick={() => setGroupCollapsed(groupKey, !isCollapsed)}
-                            aria-expanded={!isCollapsed}
-                            aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
-                          >
-                            <span className={`group-collapse-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true" />
-                          </button>
-                          <span className="font-semibold group-name-label min-w-0">
-                            <span className="truncate">Ungrouped</span>
-                            <span className="group-entry-count">{groupEntries.length}</span>
-                          </span>
-                        </div>
-                        {MONTHS.map((m, idx) => (
-                          <div key={m} className="text-right text-textSec">
-                            {showGroupTotals ? formatCurrency(totals.sums[idx] ?? 0) : null}
-                          </div>
-                        ))}
-                        <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalSum) : null}</div>
-                        <div className="text-right text-textSec">{showGroupTotals ? formatCurrency(totals.totalAvg) : null}</div>
-                      </div>
-                      {!isCollapsed && (
-                        <div className="space-y-2">
-                          {groupEntries.map((e) => (
-                            <Row
-                              key={e.id}
-                              e={e}
-                              removingIds={removingIds}
-                              onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-                              tags={tagsByEntry.get(e.id) ?? {}}
-                              onRequestTag={handleTagRequest}
-                              onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
+            {ungroupedEntries.length > 0 && (
+              <tbody key="ungrouped">
+                <GroupRow
+                  group={null}
+                  entryCount={ungroupedEntries.length}
+                  isCollapsed={ungroupedCollapsed}
+                  totals={makeGroupTotals(ungroupedEntries)}
+                  showGroupTotals={showGroupTotals}
+                  currentMonth={currentMonth}
+                  onToggleCollapse={() => setGroupCollapsed('ungrouped', !ungroupedCollapsed)}
+                />
+                {!ungroupedCollapsed && renderEntries(ungroupedEntries)}
+              </tbody>
             )}
+          </SortableScope>
 
-            {normalizedSearch && visibleRows.length === 0 && visibleGroups.length === 0 && (
-              <div className="table-search-empty" role="status">
-                No entries match “{searchQuery.trim()}”.
-              </div>
-            )}
+          {(isEmpty || noMatches) && (
+            <tbody>
+              <tr>
+                <td colSpan={COLUMN_COUNT} className="ledger-empty">
+                  {noMatches ? (
+                    <div role="status">No entries match “{searchQuery.trim()}”.</div>
+                  ) : (
+                    <div>
+                      <strong>No {type === 'income' ? 'incomes' : 'expenses'} in {year} yet.</strong>
+                      {!demo && <span> Add the first one with New entry, or create a group to organise them.</span>}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          )}
 
-            <TableTotalRow gridTemplate={GRID_TEMPLATE} totals={totals} />
-            </div>
-          </div>
-        </div>
-      </Surface>
+          <TableTotalRow totals={totals} currentMonth={currentMonth} />
+        </table>
+      </div>
+
+      {editMode === 'remove' && (
+        <BulkRemoveBar
+          entryNames={selectedEntryNames}
+          groups={selectedGroups}
+          busy={bulkBusy}
+          error={bulkError}
+          onClear={() => {
+            clearRemove();
+            setBulkError(null);
+          }}
+          onConfirm={() => void removeSelected()}
+        />
+      )}
 
       {tagEditor && (
         <TagEditorPopover

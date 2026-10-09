@@ -1,0 +1,311 @@
+/* Expenses / Incomes grid (plan Phase 3, docs/mockup_UI/final-ledger.html).
+   Semantic table in its own scroll container: sticky header, name column and
+   total row. No opacity transitions on the table (T-003). */
+.ledger-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  font-family: var(--font);
+  color: var(--text-1);
+}
+
+/* Summary strip */
+.ledger-summary {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.ledger-summary > div { padding: var(--sp-12) var(--sp-24) var(--sp-12) 0; margin-right: var(--sp-24); border-right: 1px solid var(--border); }
+.ledger-summary > div:last-child { border-right: 0; margin-right: 0; }
+.ledger-summary dt { font-size: var(--fs-caption); color: var(--text-3); }
+.ledger-summary dd { margin: 2px 0 0; font-size: 18px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.ledger-summary dd small { margin-left: 6px; font-size: var(--fs-caption); font-weight: var(--fw-medium); color: var(--text-2); }
+.ledger-summary dd small.is-bad { color: var(--danger); }
+.ledger-summary dd small.is-good { color: var(--success); }
+
+/* Mode banner */
+.ledger-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  padding: var(--sp-8) var(--sp-12) var(--sp-8) var(--sp-16);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-size: var(--fs-body);
+}
+.ledger-mode-bar.is-danger { border-left-color: var(--danger); }
+.ledger-mode-bar > .ui-icon { flex: none; color: var(--text-2); }
+.ledger-mode-bar strong { flex: none; font-weight: var(--fw-semibold); }
+.ledger-mode-bar p { margin: 0; color: var(--text-2); }
+
+/* Table */
+.ledger-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overscroll-behavior-x: contain;
+}
+table.ledger {
+  --cell-pad: 5px;
+  width: 100%;
+  min-width: 940px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+}
+.ledger th,
+.ledger td {
+  height: 36px;
+  padding: 0 var(--cell-pad);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  font-weight: var(--fw-regular);
+  background: var(--surface);
+}
+.ledger thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 40px;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-3);
+}
+.ledger .ledger-col-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  padding-left: var(--sp-12);
+  text-align: left;
+  border-right: 1px solid var(--border);
+}
+.ledger thead th.ledger-col-name { z-index: 4; }
+.ledger td.ledger-col-sum { font-weight: var(--fw-semibold); border-left: 1px solid var(--border); }
+.ledger thead th.ledger-col-sum { border-left: 1px solid var(--border); }
+.ledger td.ledger-col-avg { color: var(--text-2); padding-right: var(--sp-12); }
+.ledger thead th.ledger-col-avg { padding-right: var(--sp-12); }
+
+/* Current month: tint mixed over the cell background so sticky cells stay opaque. */
+.ledger .is-current { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.ledger thead th.is-current { color: var(--accent-text); }
+.ledger thead th.is-current span { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--accent-soft); }
+
+/* Entry rows */
+.ledger-entry:hover > * { background: var(--surface-2); }
+.ledger-entry:hover > .is-current { background: color-mix(in srgb, var(--accent) 6%, var(--surface-2)); }
+.ledger-name { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; }
+/* Fixed content width: in an auto-layout table the cell itself ignores max-width,
+   so long names would widen the column instead of truncating. */
+.ledger-col-name > .ledger-name { width: 168px; }
+.ledger-name-button {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ledger-name-button:hover { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
+[data-edit-mode] .ledger-name-button { cursor: default; }
+.ledger-comment { display: inline-flex; flex: none; color: var(--text-3); }
+
+/* Month cells: the whole cell is the button; tags are a colour bar plus a note corner. */
+.ledger-cell { position: relative; }
+.ledger-cell.is-empty .ledger-value { color: var(--text-3); }
+.ledger-value {
+  display: block;
+  width: calc(100% + 2 * var(--cell-pad));
+  height: 100%;
+  margin: 0 calc(-1 * var(--cell-pad));
+  padding: 0 var(--cell-pad);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  cursor: text;
+}
+.ledger-cell.is-tag-target .ledger-value { cursor: pointer; }
+.ledger-value:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ledger-cell.is-tagged::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--tag-c);
+  pointer-events: none;
+}
+.ledger-cell.has-note::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  border: 4px solid transparent;
+  border-top-color: var(--tag-c);
+  border-right-color: var(--tag-c);
+  pointer-events: none;
+}
+.ledger-input {
+  /* Percentage width keeps the column from widening while a cell is edited. */
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-1);
+  font: inherit;
+  text-align: right;
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+/* Group rows */
+.ledger-group > * { height: 34px; background: var(--surface-2); color: var(--text-2); font-size: var(--fs-caption); font-weight: var(--fw-semibold); }
+.ledger-group > .is-current { background: color-mix(in srgb, var(--accent) 6%, var(--surface-2)); }
+.ledger-group > .ledger-col-name { color: var(--text-1); font-size: var(--fs-small); }
+.ledger-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: var(--fw-semibold); }
+.ledger-collapse {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.ledger-collapse:hover { background: var(--surface-3); color: var(--text-1); }
+.ledger-count {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+}
+
+/* Edit modes */
+.ledger-handle {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: grab;
+  touch-action: none;
+}
+.ledger-handle:active { cursor: grabbing; }
+.ledger .is-dragging > * { background: var(--surface-3); }
+.ledger-check { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--danger); cursor: pointer; }
+.ledger .is-selected > * { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+
+/* Total row */
+.ledger tfoot th,
+.ledger tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  height: 40px;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 0;
+  font-weight: var(--fw-bold);
+}
+.ledger tfoot .ledger-col-name { z-index: 3; }
+.ledger tfoot td.ledger-col-avg { color: var(--text-1); }
+
+.ledger-empty.ledger-empty {
+  height: auto;
+  padding: var(--sp-24) var(--sp-16);
+  text-align: center;
+  white-space: normal;
+  color: var(--text-2);
+}
+.ledger-empty strong { color: var(--text-1); font-weight: var(--fw-semibold); }
+
+/* Focus */
+.ledger button:focus-visible,
+.ledger-check:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-sm); }
+
+/* Bulk bar: inverted floating bar below the grid. */
+.ledger-bulk-bar {
+  position: sticky;
+  bottom: var(--sp-16);
+  z-index: var(--z-sticky);
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-12);
+  max-width: 100%;
+  padding: var(--sp-8) var(--sp-8) var(--sp-8) var(--sp-16);
+  border-radius: var(--r-lg);
+  background: var(--text-1);
+  color: var(--surface);
+  box-shadow: var(--shadow-pop);
+  font-size: var(--fs-body);
+}
+.ledger-bulk-count { font-weight: var(--fw-semibold); }
+.ledger-bulk-error { display: inline-flex; align-items: center; gap: 6px; }
+.ledger-bulk-bar .ui-button-ghost { color: var(--surface); }
+.ledger-bulk-bar .ui-button-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--surface) 14%, transparent); color: var(--surface); }
+.ledger-bulk-bar .ui-button:focus-visible { outline: 2px solid var(--surface); outline-offset: 2px; }
+.ledger-confirm-list p { margin: 0 0 var(--sp-8); color: var(--text-2); }
+.ledger-confirm-list strong { color: var(--text-1); font-weight: var(--fw-semibold); }
+
+/* Compact density (F17). */
+html[data-view='compact'] .ledger th,
+html[data-view='compact'] .ledger td { height: 30px; }
+html[data-view='compact'] .ledger thead th,
+html[data-view='compact'] .ledger tfoot th,
+html[data-view='compact'] .ledger tfoot td { height: 34px; }
+html[data-view='compact'] .ledger-group > * { height: 28px; }
+html[data-view='compact'] .ledger-input { height: 24px; }
+
+@media (min-width: 960px) {
+  /* The grid scrolls inside its frame so the header and total row stay visible. */
+  .ledger-wrap { max-height: max(320px, calc(100vh - 250px)); }
+}
+
+@media (min-width: 960px) and (max-width: 1599px) {
+  /* Next to the sidebar, 12 months plus Sum and Avg fit at 1440 px with
+     five-digit monthly totals only at 12 px; wider screens keep 13 px. */
+  table.ledger { --cell-pad: 4px; font-size: var(--fs-caption); }
+  .ledger-col-name > .ledger-name { width: 156px; }
+}
+
+@media (max-width: 959px) {
+  /* Narrow screens keep the grid until the month list (plan Phase 8). */
+  .ledger-summary { display: none; }
+  .ledger-col-name > .ledger-name { width: 144px; }
+  .ledger-mode-bar { align-items: flex-start; flex-wrap: wrap; }
+}
+
+/* Editable text stays at 16px where mobile browsers zoom on focus (T-013). */
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .ledger-input { font-size: 16px; }
+}

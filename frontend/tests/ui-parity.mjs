@@ -4,7 +4,7 @@
 // the rendered result. No backend, real session, data or outbound request is used.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chromium, serveAsset, ui } from './ui-helpers.mjs';
+import { chromium, hooks, serveAsset, ui } from './ui-helpers.mjs';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -259,6 +259,17 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     // F15: current month and totals.
     assert.equal(await page.locator('[aria-current="date"]').textContent(), 'Oct');
     await page.getByText('1 180,00', { exact: true }).waitFor();
+    // Phase 3: summary strip (desktop; the narrow layout hides it until Phase 8)
+    // and all 12 months, Sum and Avg visible without horizontal scrolling at 1440 px.
+    if (context.mobile) {
+      assert.equal(await ui.summaryValue(page, 'Year total').isVisible(), false);
+    } else {
+      assert.equal(await ui.summaryValue(page, 'Year total').textContent(), '1 380');
+      assert.equal(await ui.summaryValue(page, 'Monthly average').textContent(), '115');
+      assert.equal(await ui.summaryValue(page, 'October').textContent(), '0▼ 100,0% below average');
+      assert.equal(await ui.summaryValue(page, 'Highest month').textContent(), 'January · 1 180');
+      assert.equal(await page.locator(hooks.table).evaluate(node => node.scrollWidth - node.clientWidth), 0);
+    }
     // F16: group subtotals follow the Settings toggle and persist.
     assert.equal(await page.getByText('1 100,00', { exact: true }).count(), 0);
     await ui.openAppMenuItem(page, 'Settings');
@@ -327,6 +338,10 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     assert.equal(await page.getByRole('alert').count(), 0);
     assert.deepEqual(errors, ['Synthetic failure']);
     await screenshot(page, `${label.replace(' ', '-')}-values`);
+    // F19: a year without entries explains the empty grid.
+    await ui.selectYear(page, 2025);
+    await page.getByText('No expenses in 2025 yet.', { exact: true }).waitFor();
+    await screenshot(page, `${label.replace(' ', '-')}-empty`);
   }));
 
   test(`${label}: entry and group details (F05, F12, F13, F41)`, () => openApp(context, async ({ page, api, errors }) => {
@@ -426,6 +441,9 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
       await page.mouse.down();
       await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2 - 4, { steps: 12 });
       await page.mouse.up();
+      // dnd-kit swallows clicks for 50 ms after a drop so the drop cannot click
+      // the control under the pointer; a user cannot click again that fast.
+      await page.waitForTimeout(100);
     };
     await drag('Reorder Rent', 'Reorder Groceries');
     w = await expectWrite(api, w, 'POST', '/api/entries/reorder', { orderedIds: [2, 1] });
@@ -437,6 +455,8 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
 
     // F10/F11: tag mode edits month tags; existing notes are rendered.
     assert.equal(await page.getByText('Synthetic note', { exact: true }).count(), 1);
+    assert.equal(await ui.cellNote(page, 'Groceries', 'Feb'), 'Synthetic note');
+    assert.equal(await ui.cellNote(page, 'Groceries', 'Jan'), null);
     await ui.enterEditMode(page, 'Tags');
     await ui.cell(page, 'Rent', 'Mar').click();
     let tag = ui.dialog(page, 'Mar details');
@@ -496,9 +516,29 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await page.getByRole('checkbox', { name: 'Select Rent', exact: true }).check();
     await page.getByRole('checkbox', { name: 'Select group Transport', exact: true }).check();
     await screenshot(page, `${label.replace(' ', '-')}-remove`);
-    // Bulk removal has no confirmation today (plan Phase 3 adds one).
+    // Phase 3 change: the bulk bar names the selection and removal needs confirmation.
+    assert.equal(await ui.removeSelected(page).textContent(), 'Remove 1 group and 1 entry');
     await ui.removeSelected(page).click();
+    const confirm = ui.dialog(page, 'Remove 1 group and 1 entry?');
+    await confirm.getByText('1 entry in this group stays and moves to Ungrouped.', { exact: false }).waitFor();
+    // Cancel sends nothing and keeps the selection.
+    await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await confirm.waitFor({ state: 'detached' });
+    await expectNoWrite(api, w);
+    assert.equal(await page.getByRole('checkbox', { name: 'Select Rent', exact: true }).isChecked(), true);
+    // A failed removal is shown and stays in the mode; the retry skips the group
+    // that was already removed.
+    api.failNext('DELETE', /^\/api\/entries$/);
+    await ui.removeSelected(page).click();
+    await confirm.getByRole('button', { name: 'Remove', exact: true }).click();
     w = await expectWrite(api, w, 'DELETE', '/api/entry-groups', { ids: [11] });
+    w = await expectWrite(api, w, 'DELETE', '/api/entries', { ids: [2] });
+    assert.equal(api.writes.at(-1).failed, true);
+    await page.getByRole('alert').filter({ hasText: 'Could not remove the selection. Try again.' }).waitFor();
+    await page.getByText('Transport', { exact: true }).waitFor({ state: 'detached' });
+    await expectText(ui.removeSelected(page), /^Remove 1 entry$/);
+    await ui.removeSelected(page).click();
+    await ui.dialog(page, 'Remove 1 entry?').getByRole('button', { name: 'Remove', exact: true }).click();
     w = await expectWrite(api, w, 'DELETE', '/api/entries', { ids: [2] });
     await page.getByText('Rent', { exact: true }).waitFor({ state: 'detached' });
     await page.getByText('Transport', { exact: true }).waitFor({ state: 'detached' });

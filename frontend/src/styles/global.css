@@ -8,6 +8,7 @@
 @import "./legacy-bridge.css";
 @import "./components.css";
 @import "./shell.css";
+@import "./grid.css";
 @source "../../index.html";
 @source "../";
 

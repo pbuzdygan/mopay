@@ -53,17 +53,17 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 | F06 | New group | Split button menu, Edit menu | 3 | Test |
 | F07 | Inline month value edit: decimal input filter, Enter saves, Esc reverts, blur saves, `-` = null, empty = 0, `.` is a thousands separator | Grid edit-in-place (D4) and inspector Value | 4 | Test. Phase 0: success paths; the failed save is a characterisation test (value kept, no visible error, unhandled rejection) that Phase 4 replaces with error + retry |
 | F08 | Arrange: drag entries **within** a group and drag groups (dnd-kit); moving an entry to another group uses the Group field in details (F12), not drag | Edit → Arrange, mode banner | 3 | Test (mode entry/exit, value/details blocked, entry and group drag payloads) |
-| F09 | Remove mode: select entries and groups, *Remove selected* (no confirmation today), clear on exit, search leaves the mode | Edit → Remove, mode banner, bulk bar | 3 | Test |
+| F09 | Remove mode: select entries and groups, *Remove selected* (no confirmation today), clear on exit, search leaves the mode | Edit → Remove, mode banner, bulk bar. **Phase 3 change:** the bulk bar names the selection, removal needs confirmation (Cancel keeps the selection, the dialog says which entries move to Ungrouped), a failure is shown and retried without resending already removed groups | 3 | Test |
 | F10 | Tag a month cell: colours none/grey/green/orange/red, note, clear, save; none + empty note removes; Enter saves; Cancel/Esc discard | Inspector Tag section; mobile sheet | 4 | Test |
-| F11 | Tag display: colour + note tooltip | Cell bar + note corner + `title`; inspector | 3, 4 | Render |
+| F11 | Tag display: colour + note tooltip | Cell bar + note corner + `title`; the note is the cell's accessible description; inspector | 3, 4 | Render + Test (note description) |
 | F12 | Entry details: rename, change group/ungroup, comment, remove with confirmation | Inspector Entry details + footer | 4 | Test |
 | F13 | Group details: rename, add entry to group, arrange group, remove group with confirmation | Inspector group variant | 4 | Test |
 | F14 | Group collapse/expand, persisted per mode/type/year, restored before paint | Group row toggle | 3 | Test (existing) |
-| F15 | Sum, Avg, Total row, current-month highlight | Sticky header/name/total, summary strip | 3 | Test + Render |
+| F15 | Sum, Avg, Total row, current-month highlight | Sticky header/name/total, summary strip (desktop, whole units) | 3 | Test + Render |
 | F16 | Show group totals setting | Settings → Display; group rows | 3, 7 | Test |
 | F17 | Normal / Compact density (`data-view`) | Settings → Display | 3, 7 | Render |
 | F18 | Ungrouped entries section (collapsible, persisted) | Grid "Ungrouped" group | 3 | Test |
-| F19 | Empty states (no year, no entries, no goals, no report data) | Each view | 3, 5, 6 | Render |
+| F19 | Empty states (no year, no entries, no goals, no report data) | Each view; grid: "No expenses in <year> yet." instead of an empty Ungrouped row | 3, 5, 6 | Render; grid also Test |
 | F20 | Savings: add goal (name, optional target) | *New goal* → dialog (SavingsGoalModal restyled) | 6 | Test |
 | F21 | Savings: edit goal (prefilled; clearing target = no target), remove goal with confirmation (outside click cancels) | Goal detail header / ⋯ menu | 6 | Test |
 | F22 | Savings items: add (blank item opens in edit, Esc removes it), inline edit name/value, remove (no confirmation), temporary withdrawal (negative), balance | Quick add form + item rows | 6 | Test |
@@ -144,11 +144,22 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 - Known interim limitation until Phase 3: the legacy grid needs about 1 420 px, so next to the sidebar at 1440 px Dec/Sum/Avg are reached by horizontal scrolling inside the table (the page itself does not overflow). Phase 3 replaces the grid with a table that has a sticky name column.
 - Checks: build; ui-transitions 12/12, ui-parity 25/25 (new: sidebar shell, D1 start/unlock, totals after edit, year listbox and Edit menu keyboard, theme segment, split button, update link F44, narrow toolbar tabs), browser-security 2/2, demo-runtime 1/1 (desktop sidebar and mobile toolbar), backend 29/29; renders at 1440, 1024, 960 and 959 px in both themes without page overflow; grid timing unchanged (217/188 ms medians).
 
-### Phase 3 – Expenses / Incomes grid
+### Phase 3 – Expenses / Incomes grid – done 2026-10-09
 
 - Semantic `<table>` with sticky header, name column and total row; group rows with inline subtotals (respecting F16); Ungrouped section; current-month column; tag cues (bar + note corner + `title`); summary strip (year to date, monthly average, current month vs average, highest month – computed client-side).
 - Edit menu (Arrange, Remove, New group); mode banner; bulk bar with specific labels and confirmation. Keep dnd-kit wiring and collapse-before-paint logic unchanged; restyle only.
 - Compare grid render time with the Phase 0 baseline.
+
+#### Phase 3 results
+
+- `TableView` renders a semantic `<table>` (`components/table/GridRows.tsx`, `TableGridRows.tsx`, styles in `styles/grid.css`): one `<tbody>` per group, entry names as row headers, sticky header, name column and total row inside a scroll frame (desktop height-limited so header and totals stay visible), group rows with subtotals only when *Show group totals* is on (F16), Ungrouped section, current-month column, tag bar + note corner + `title`, comment marker, Compact density. Classes use the `ledger-` prefix because Tailwind scans the sources and `grid` is a utility (`display: grid`), which broke the table layout.
+- Unchanged on purpose: `saveMonth` and the inline value rules (F07, known gap stays for Phase 4), the `useLayoutEffect` collapse restore (v1.6.3), the dnd-kit sensors, contexts, payloads and handlers (`SortableScope` only wraps them; its accessibility nodes are portaled to `document.body` because inline they would be `<div>`s inside the table), Tag mode and its popover, and the details panel.
+- Summary strip (desktop): year total, monthly average (same value as the Total row Avg), current month vs average (red when unfavourable: above for expenses, below for incomes; arrow and words, not colour only) and highest month, from the same visible totals as the Total row. Whole units like the sidebar, so the exact values stay in the grid and the strip does not repeat them.
+- Edit modes: the header badge and the header/narrow-toolbar *Remove selected* buttons are replaced by a mode banner (`role="status"`) above the grid and, in Remove mode, a bulk bar below it (`components/table/EditModeBars.tsx`). Store fields `bulkRemoveRequestId`/`requestBulkRemove` are removed; the removal runs from the bar's confirmation. Edit menu labels stay *Arrange*, *Remove*, *Tags* until Phase 4 removes Tags.
+- Layout: at 1440 px all 14 value columns fit next to the sidebar with five-digit monthly totals and six-digit yearly sums, at 12 px between 960 and 1599 px (13 px from 1600 px and below 960 px). From 960 to about 1300 px and on the narrow layout the table scrolls horizontally inside its frame with the name column pinned; the page itself never overflows. This removes the Phase 2 interim limitation.
+- Tests: `ui-parity` 25/25 with extended assertions (summary strip values, no horizontal grid overflow at 1440 px, tag note as accessible description, empty-year message, bulk removal confirmation/cancel/failure/retry payloads). The Arrange drag helper now waits 100 ms after a drop: dnd-kit swallows clicks for 50 ms after a drop by design, and the faster grid let the following *Done* click land inside that window (4 of 12 runs failed without the wait, 16 of 16 passed with it; the HEAD build passed 6 of 6 because its slower render delayed the click).
+- Checks: build; ad hoc `tsc --strict --noUnusedLocals` over the changed files clean (no project tsconfig); ui-transitions 12/12, ui-parity 25/25 (three runs), browser-security 2/2, demo-runtime 1/1; renders at 1440, 1024, 767, 390, 320 and 900×400 in both themes (view, inline edit, Remove with selection and confirmation, Arrange; Compact with group totals and the empty year at 1440 and 390) without page overflow and with 16 px inline inputs on mobile; grid timing with 200 entries: cached switch from Savings 183 ms and from Incomes 167 ms (medians of 7) vs. 218/182 ms baseline, first load is a single sample (353–425 ms vs. 400 ms).
+- Remaining for later phases: Arrange is pointer-only as before (keyboard grid model and sortable keyboard support belong to Phase 4); the narrow layout keeps the horizontally scrolling grid until the month list (Phase 8); a value-save failure is still unsurfaced (Phase 4).
 
 ### Phase 4 – Inspector drawer
 

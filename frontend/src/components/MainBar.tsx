@@ -14,9 +14,6 @@ export function MainBar() {
     setYear,
     theme,
     setTheme,
-    removeSelection,
-    groupRemoveSelection,
-    requestBulkRemove,
     openGoalModal,
     openAddEntry,
   } = useAppStore();
@@ -229,17 +226,6 @@ export function MainBar() {
           </>
         )}
       </DropdownMenu>
-      {editMode === 'remove' && (
-        <SoftButton
-          type="button"
-          variant="danger"
-          className="w-full md:w-auto mobile-primary mainbar-action-control context-remove-selected-button"
-          disabled={removeSelection.size === 0 && groupRemoveSelection.size === 0}
-          onClick={requestBulkRemove}
-        >
-          Remove selected
-        </SoftButton>
-      )}
     </>
   );
 

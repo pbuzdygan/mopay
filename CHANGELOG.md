@@ -13,13 +13,19 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - redesigned the PIN screen, first-run year dialog, encryption dialogs and the application-mode error page with the new base components (buttons, fields with visible labels and inline errors, callouts)
 - dialogs use a new shared frame; Escape closes dismissible dialogs, keyboard focus stays inside the open dialog and returns to the control that opened it; required dialogs (first-run year, encryption key mismatch) cannot be dismissed
 - animations respect the system reduced-motion setting
+- Expenses and Incomes use a new grid: a table with a sticky header, entry-name column and total row; quiet group rows with optional subtotals; the current month highlighted; tags shown as a coloured bar on the month (with a corner mark and tooltip for notes); a comment marker next to entry names; and an empty-year message. At 1440 px all twelve months, Sum and Avg are visible without horizontal scrolling
+- a summary strip above the grid shows the year total, monthly average, current month compared with the average and the highest month (desktop)
+- Arrange, Remove and Tags modes show a banner explaining the mode; in Remove mode a bar below the grid names the selection (for example "Remove 1 group and 2 entries") and offers *Clear selection*
+- removing selected entries and groups now asks for confirmation and states which entries move to Ungrouped; previously the selection was deleted immediately
 
 ### Bug fix
 - a newly added savings item now reliably opens for editing; previously it could stay closed when the refreshed list arrived late
+- a failed removal of selected entries or groups is now shown in the Remove bar and can be retried; previously it failed silently
 
 ### Improvements
 - added accessible names and dialog semantics to existing controls (dialogs and their close button, PIN overlay, year selector, month cells, remove checkboxes, reorder handles, tag editor, savings item fields and Settings toggles) without changing their appearance
 - moved browser-test selectors to shared role/name-based helpers and added feature-parity regressions with request-payload checks for value editing, details, Arrange/Remove/Tag modes, savings, year operations, export/import dialogs, Settings and encryption dialogs, plus a grid render-time measurement
+- the Expenses/Incomes grid renders faster with 200 entries (cached switch about 15 % faster on the reference host)
 
 ## v1.6.3
 

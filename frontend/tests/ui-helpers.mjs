@@ -82,7 +82,9 @@ export const ui = {
     await page.getByRole('menuitem', { name: mode, exact: true }).or(page.getByRole('button', { name: mode, exact: true })).click();
   },
   exitEditMode: (page) => page.getByRole('button', { name: /^(Close|Done)$/ }).click(),
-  removeSelected: (page) => page.getByRole('button', { name: 'Remove selected', exact: true }),
+  // Bulk bar below the grid: "Remove selected" while nothing is selected, then a
+  // specific label such as "Remove 1 group and 1 entry".
+  removeSelected: (page) => page.getByRole('button', { name: /^Remove (selected|\d+ (group|entr).*)$/ }),
   dialog: (page, name) => page.getByRole('dialog', name ? { name, exact: true } : undefined),
   closeDialog: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close dialog', exact: true }),
   details: (page) => page.getByRole('dialog', { name: /^(Entry|Group) details$/ }),
@@ -90,6 +92,12 @@ export const ui = {
   // Clicking an entry or group name opens its details.
   openDetails: (page, name) => page.getByText(name, { exact: true }).click(),
   cell: (page, entry, month) => page.getByRole('button', { name: new RegExp(`^${escapeRegExp(entry)}, ${month}: `) }),
+  // Tag note announced with the month cell (aria-describedby); null without a note.
+  cellNote: (page, entry, month) => ui.cell(page, entry, month)
+    .evaluate(node => document.getElementById(node.getAttribute('aria-describedby') ?? '')?.textContent ?? null),
+  // Value of a term in the summary strip above the grid (<dl>).
+  summaryValue: (page, term) => page.getByRole('term').filter({ hasText: new RegExp(`^${escapeRegExp(term)}$`) })
+    .locator('xpath=following-sibling::dd[1]'),
   cellInput: (page, entry, month) => page.getByRole('textbox', { name: `${entry}, ${month}`, exact: true }),
   collapseGroup: (page) => page.getByRole('button', { name: 'Collapse group', exact: true }),
   expandGroup: (page) => page.getByRole('button', { name: 'Expand group', exact: true }),

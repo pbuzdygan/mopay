@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Api } from '../../api';
 import { useAppStore } from '../../store';
-import { Badge, Button, Icon, Menu, type MenuItem } from '../ui';
+import { Button, Icon, Menu, type MenuItem } from '../ui';
 import { SECTIONS, useShellActions, type EditMode } from './useShell';
 
 const MODE_LABELS: Record<EditMode, string> = { order: 'Arrange', remove: 'Remove', tag: 'Tags' };
@@ -65,8 +65,6 @@ export function PageHeader() {
   const openAddEntry = useAppStore((s) => s.openAddEntry);
   const openModal = useAppStore((s) => s.openModal);
   const openGoalModal = useAppStore((s) => s.openGoalModal);
-  const removeCount = useAppStore((s) => s.removeSelection.size + s.groupRemoveSelection.size);
-  const requestBulkRemove = useAppStore((s) => s.requestBulkRemove);
   const { tab, editMode, selectEditMode, exitEditMode } = useShellActions();
   const title = SECTIONS.find((section) => section.id === tab)?.label ?? '';
   const subtitle = useSubtitle(tab, year);
@@ -90,17 +88,11 @@ export function PageHeader() {
           <SearchField />
           {!demo && table && (
             <>
-              {editMode && <Badge tone={editMode === 'remove' ? 'danger' : 'accent'}>{MODE_LABELS[editMode]} mode</Badge>}
               <Menu
                 label={editMode ? `Edit · ${MODE_LABELS[editMode]}` : 'Edit'}
                 icon="edit"
                 items={editItems}
               />
-              {editMode === 'remove' && (
-                <Button variant="danger" disabled={removeCount === 0} onClick={requestBulkRemove}>
-                  Remove selected
-                </Button>
-              )}
               {editMode ? (
                 <Button variant="primary" icon="check" onClick={exitEditMode}>Done</Button>
               ) : (

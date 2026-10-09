@@ -80,6 +80,8 @@ export function useTableQueryState({
   };
 
   return {
+    // Both lists arrived, so an empty grid really means "no entries" (empty state).
+    loaded: entriesQuery.isSuccess && groupsQuery.isSuccess,
     rows,
     groups,
     tagsByEntry,
