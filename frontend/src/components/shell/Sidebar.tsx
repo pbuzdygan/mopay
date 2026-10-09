@@ -49,22 +49,15 @@ function SidebarVersion() {
 }
 
 export function Sidebar() {
-  const demo = useAppStore((s) => s.demo);
   const year = useAppStore((s) => s.year);
   const setYear = useAppStore((s) => s.setYear);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
-  const openModal = useAppStore((s) => s.openModal);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const openSettings = useAppStore((s) => s.openSettings);
   const { years } = useYears();
   const { tab, goTo, lockSession } = useShellActions();
   const meta = useSectionMeta();
-
-  // Temporary until the Settings page (plan Phase 7) replaces these dialogs.
-  const dataItems: Array<{ label: string; icon: string; open: () => void; hidden?: boolean }> = [
-    { label: 'Year operations', icon: 'calendar-month', open: () => openModal('yearOps'), hidden: Boolean(demo) },
-    { label: 'Import data', icon: 'table-import', open: () => openModal('import'), hidden: Boolean(demo) },
-    { label: 'Export data', icon: 'table-export', open: () => openModal('export') },
-  ];
 
   return (
     <aside className="sidebar" aria-label="Sidebar">
@@ -79,7 +72,7 @@ export function Sidebar() {
             key={section.id}
             type="button"
             className="sidebar-item"
-            aria-current={tab === section.id ? 'page' : undefined}
+            aria-current={!settingsOpen && tab === section.id ? 'page' : undefined}
             // The total is a description, so the accessible name stays the section name.
             aria-label={section.label}
             aria-describedby={meta[section.id] ? `sidebar-meta-${section.id}` : undefined}
@@ -91,17 +84,8 @@ export function Sidebar() {
           </button>
         ))}
       </nav>
-      <div className="sidebar-group" role="group" aria-labelledby="sidebar-data-label">
-        <span id="sidebar-data-label" className="sidebar-group-label">Data</span>
-        {dataItems.filter((item) => !item.hidden).map((item) => (
-          <button key={item.label} type="button" className="sidebar-item" onClick={item.open}>
-            <Icon name={item.icon} />
-            <span className="sidebar-item-label">{item.label}</span>
-          </button>
-        ))}
-      </div>
       <div className="sidebar-foot">
-        <button type="button" className="sidebar-item" onClick={() => openModal('settings')}>
+        <button type="button" className="sidebar-item" aria-current={settingsOpen ? 'page' : undefined} onClick={openSettings}>
           <Icon name="settings" />
           <span className="sidebar-item-label">Settings</span>
         </button>

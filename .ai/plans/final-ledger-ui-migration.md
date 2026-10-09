@@ -16,7 +16,7 @@ Acceptance criteria:
 - Text colour tokens meet WCAG AA (4.5:1) in both themes; visible focus; keyboard operation of grid, drawer, menus and dialogs; `prefers-reduced-motion` respected.
 - Rendered checks at 1440, 1024, 767, 390, 320 px and 900×400 landscape, light and dark.
 
-## Decisions (D1, D2 and D10 confirmed by the user on 2026-10-09, D3–D5 before Phase 4; others are proposed defaults to confirm before their phase)
+## Decisions (D1, D2 and D10 confirmed by the user on 2026-10-09, D3–D5 before Phase 4, D6–D7 on 2026-10-10 before Phase 7; others are proposed defaults to confirm before their phase)
 
 | # | Decision | Default | Phase |
 | --- | --- | --- | --- |
@@ -25,8 +25,8 @@ Acceptance criteria:
 | D3 | Tag mode | **Confirmed.** Removed on desktop and mobile; tagging only in the inspector / bottom sheet, after parity is verified. | 4 |
 | D4 | Cell click | **Confirmed.** Single click selects the cell and opens the inspector; double-click, Enter or typing edits in place; arrows/Tab move the selection; Esc cancels edit, then closes the drawer. | 4 |
 | D5 | "Same month previous year" | **Confirmed.** Match the entry by exact name and type in the previous year (data Reports already loads). No match → "—". No API change. | 4 |
-| D6 | Theme "System" | Stored under a **new key** `themeMode` (`light`/`dark`/`system`); the existing `theme` key keeps the resolved `light`/`dark` so an older build still works after rollback. | 7 |
-| D7 | Settings view | Not persisted as `tab` (an older build would render an unknown tab). Held in non-persisted view state. | 7 |
+| D6 | Theme "System" | **Confirmed.** Stored under a **new key** `themeMode` (`light`/`dark`/`system`); the existing `theme` key keeps the resolved `light`/`dark` so an older build still works after rollback. | 7 |
+| D7 | Settings view | **Confirmed.** Not persisted as `tab` (an older build would render an unknown tab). Held in non-persisted view state. | 7 |
 | D8 | Deferred enhancements | "Copy entries and groups to new year", entry counts in year deletion and Overview "vs 2025" for metrics not already compared today are **out of scope** (separate tasks; copy needs many non-atomic calls or a backend endpoint). | – |
 | D9 | Delivery | Phased replacement on `dev`, each phase complete and shippable; no parallel old/new UI toggle (cost of maintaining two UIs outweighs benefit for a single-instance app). | all |
 | D10 | Version | **Confirmed: v2.0.0.** Accumulate notes under one `v2.0.0 (unreleased)` CHANGELOG section during all phases; `main` is merged only after Phase 9. The user decides final release timing. | 9 |
@@ -60,8 +60,8 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 | F13 | Group details: rename, add entry to group, arrange group, remove group with confirmation | Inspector group variant (*Add entry to group*, *Arrange*, *Remove group* → *Confirm*); rename saves on Enter/blur | 4 | Test |
 | F14 | Group collapse/expand, persisted per mode/type/year, restored before paint | Group row toggle | 3 | Test (existing) |
 | F15 | Sum, Avg, Total row, current-month highlight | Sticky header/name/total, summary strip (desktop, whole units) | 3 | Test + Render |
-| F16 | Show group totals setting | Settings → Display; group rows | 3, 7 | Test |
-| F17 | Normal / Compact density (`data-view`) | Settings → Display | 3, 7 | Render |
+| F16 | Show group totals setting | Settings → Display (switch); group rows | 3, 7 | Test |
+| F17 | Normal / Compact density (`data-view`) | Settings → Display (Table density) | 3, 7 | Render + Test |
 | F18 | Ungrouped entries section (collapsible, persisted) | Grid "Ungrouped" group | 3 | Test |
 | F19 | Empty states (no year, no entries, no goals, no report data) | Each view; grid: "No expenses in <year> yet." instead of an empty Ungrouped row; Overview keeps the Reports messages | 3, 5, 6 | Render; grid and Overview (year without data) also Test |
 | F20 | Savings: add goal (name, optional target) | *New goal* → dialog (SavingsGoalModal restyled). **Phase 6 change:** a failed save keeps the dialog and the typed values and shows an error (previously an unhandled rejection) | 6 | Test |
@@ -73,15 +73,15 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 | F26 | Savings overview (saved, target progress, remaining, reached, without target) | Overview Savings card with *Open savings* | 5 | Render + Test |
 | F27 | Where money went (groups) + top 5 entries | Overview horizontal bars. **Phase 5 change:** the donut and its colour legend become bars; group and entry bars share one scale (share of expenses) instead of entries scaled to the largest entry | 5 | Render + Test |
 | F28 | Predictability (income/expense stability, steadiest, most variable) | Overview Predictability card | 5 | Render + Test |
-| F29 | Year operations: create year (4 digits, duplicate message), delete years with second-click confirmation. Today **all** years can be deleted (the subtitle only advises keeping one); after deletion the working year becomes the latest remaining year even if it was not deleted; adding a year does **not** switch to it (defect, see Phase 0 results) | Settings → Years / Danger zone | 7 | Test (characterises current behaviour; Phase 7 changes are deliberate and recorded) |
-| F30 | Initiate year on first run (not dismissible; opens underneath Year operations after deleting all years) | InitiateYearModal restyled | 1 | Test |
-| F31 | Export: choose years, XLSX download | Settings → Import & export (dialog) | 7 | Test (`ui-parity`, demo-runtime download) |
-| F32 | Import: template download, validation, overwrite confirmation, progress, limits/retryable errors | Settings → Import & export (ImportModal flow) | 7 | Test for dialog and template download; † Manual with synthetic XLSX for validation, overwrite and progress |
-| F33 | Settings: release info, update check vs GitHub | Settings → About; sidebar version | 2, 7 | Render (Settings captured in Phase 0 baseline); controls checked by Test |
-| F34 | Lock session (logout, clears session) | Sidebar, Settings → Security, mobile More | 2, 7 | Test |
-| F35 | Theme toggle light/dark with transition | Sidebar segment, Settings (+ System, D6) | 2, 7 | Test |
+| F29 | Year operations: create year (4 digits, duplicate message), delete years with second-click confirmation. Today **all** years can be deleted (the subtitle only advises keeping one); after deletion the working year becomes the latest remaining year even if it was not deleted; adding a year does **not** switch to it (defect, see Phase 0 results) | Settings → Years / Danger zone. **Phase 7 changes:** a new year becomes the working year (defect fixed: the year list is refreshed before switching); the working year cannot be deleted, so at least one year always remains and the working year does not change after a deletion; deletion is a checklist with an export reminder (*Export a backup*) and needs the selected years typed; add and delete failures are shown. Entry counts per year are out of scope (D8) | 7 | Test |
+| F30 | Initiate year on first run (not dismissible; opens underneath Year operations after deleting all years) | InitiateYearModal restyled. Since Phase 7 only reachable on first run (the working year cannot be deleted); tested with an empty year list | 1, 7 | Test |
+| F31 | Export: choose years, XLSX download | Settings → Import & export → *Export…* (dialog unchanged); also *Export a backup* in the Danger zone | 7 | Test (`ui-parity`, demo-runtime download) |
+| F32 | Import: template download, validation, overwrite confirmation, progress, limits/retryable errors | Settings → Import & export: *Download template* (also still in the dialog) and *Import…* (ImportModal flow unchanged) | 7 | Test for dialog and template download; † Manual with synthetic XLSX for validation, overwrite and progress |
+| F33 | Settings: release info, update check vs GitHub | Settings → About: version, channel, time of the last check, result (up to date, update link, no release, failure) and *Check again*; sidebar version. The former *Language: In development* badge is dropped (no function behind it) | 2, 7 | Test |
+| F34 | Lock session (logout, clears session) | Sidebar, Settings → Security (*Lock now*, plus encryption status), narrow toolbar; mobile More in Phase 8 | 2, 7 | Test |
+| F35 | Theme toggle light/dark with transition | Sidebar segment, Settings → Display (Light / Dark / System, D6) | 2, 7 | Test |
 | F36 | PIN guard: verify, wrong PIN, rate limit/locked state, fade | Restyled overlay | 1 | Test (existing) |
-| F37 | Demo mode: banner, public PIN hint, read-only values, no Year ops/Import, demo/normal switch | Sidebar/header banner; inspector read-only; Settings sections explain | 2–7 | Test (existing demo scenarios) |
+| F37 | Demo mode: banner, public PIN hint, read-only values, no Year ops/Import, demo/normal switch | Sidebar/header banner; inspector read-only; Settings: Years, Import and Danger zone show an explanation instead of controls, Export works | 2–7 | Test (existing demo scenarios; demo-runtime checks the Settings page) |
 | F38 | Encryption migration notice, key mismatch modal with reset | Restyled dialogs | 1 | Test (notice acknowledgement; mismatch not dismissible, reset confirmation, failed reset shown; success reload not exercised) |
 | F39 | Runtime-mode load error with Retry | Restyled | 1 | Test (existing) |
 | F40 | PWA install prompt (AddToHomeScreen), offline assets | Unchanged behaviour | 1 | Test (browser-security) |
@@ -218,11 +218,24 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 - Checks: build; ad hoc strict `tsc --noUnusedLocals` clean; ui-transitions 12/12, ui-parity 29/29, browser-security 2/2, demo-runtime 1/1; renders at 1440, 1024, 767, 390, 320 and 900×400 in both themes (view, inline editor, removal dialog) without page overflow or content wider than the goal card and with 16 px editable text below 960 px; grid timing unchanged (167/150 ms).
 - Remaining: `SoftButton`, `Surface` and `FormSection` are no longer used by Savings but still by other components (Phase 9 list). The dedicated mobile Savings flow belongs to Phase 8.
 
-### Phase 7 – Settings page
+### Phase 7 – Settings page – done 2026-10-10
 
 - Non-persisted settings view (D7) with sections Display (theme incl. System per D6, density, group totals), Security (lock, encryption status), Years (create year), Import & export (Export dialog, template download, ImportModal flow unchanged), About (version, channel, update check), Danger zone (delete years: checklist, working year protected, export reminder, typed confirmation).
 - Demo mode: Years/Import sections show a read-only explanation.
 - Remove the temporary sidebar "Data" group and the hamburger menu once F29–F35 pass.
+
+#### Phase 7 results
+
+- `components/settings/SettingsView.tsx` (styles `styles/settings.css`, prefix `prefs-` because `global.css` still holds the old `.settings-*` dialog rules) with in-page section links and the sections Display (theme Light/Dark/System, table density, group totals switch), Security (*Lock now*, encryption status from `/api/encryption/status`), Years (existing years, create year), Import & export (*Export…*, *Download template*, *Import…*), About (version, channel, last check, result, *Check again*) and Danger zone (year deletion). Sections are regions named by their headings; the layout is two columns (section links + sections) from 760 px of view width.
+- D6: `themeMode` (`light`/`dark`/`system`) is a new key; `theme` keeps the resolved value. Builds before D6 have only `theme`, which becomes the mode. While the mode is System, the app follows `prefers-color-scheme` changes. The sidebar segment and the narrow toolbar toggle set an explicit Light/Dark mode.
+- D7: `settingsOpen` is view state. Opening Settings leaves the current section and edit mode; choosing a section, a month on Overview or unlocking closes it; `tab` is never `settings`. The sidebar *Settings* item and the narrow toolbar button carry `aria-current="page"` while it is open; no section is current then. Settings has no search and no page actions.
+- Removed: `SettingsModal`, `YearOperationsModal` (and their store flags), the sidebar *Data* group and the narrow toolbar menu; the narrow toolbar shows a *Settings* button in the menu's place. New base component `Switch` (off state uses `--text-3` for 3:1 against the surface instead of the mockup's border colour).
+- Deliberate changes (recorded in F29, F30, F33, F37): new year becomes the working year, working year protected from deletion, typed confirmation and backup reminder, visible add/delete/template failures, About shows the check result with *Check again*; the release check records `checking`/`done`/`failed`. Not taken from the mockup: copying entries into a new year and entry counts per year (D8).
+- Typed confirmation: the selected years as listed (for example `2025, 2026`), compared without spaces; changing the selection clears it.
+- During rendering a mistake in this phase removed the `.sidebar-nav` layout rule (sections shown in a row); the suites still passed, so the shell test now also asserts that the sidebar sections are stacked (fails with the broken rule, passes with the fix).
+- Tests: `ui-parity` 31/31 (new: Settings years and danger zone, first-run dialog with an empty year list and the Overview empty state; rewritten: Settings page test for export, template downloads, import dialog, density, theme incl. System with emulated colour scheme and stored keys, About and *Check again*, encryption status, *Lock now*, D7 after unlock and reload; group totals switch; sidebar shell with Settings as current page and without the Data group). ui-transitions uses the *Settings* button in the narrow toolbar layout check; demo-runtime checks the demo explanations and exports from Settings. The new and changed tests passed 3 of 3 repeated runs.
+- Checks: build; ad hoc strict `tsc --noUnusedLocals` clean; ui-transitions 12/12, ui-parity 31/31, browser-security 2/2, demo-runtime 1/1; renders of Settings at 1440, 1024, 767, 390, 320 and 900×400 in both themes (page and year deletion with confirmation) without page overflow and with 16 px editable text below 960 px; grid timing unchanged (167/150 ms).
+- Remaining: `ExportModal` and `ImportModal` keep their previous look (flows unchanged, restyle with the Phase 9 cleanup); README screenshots still show Year operations (Phase 9, T-016 procedure); the mobile *More* menu belongs to Phase 8.
 
 ### Phase 8 – Mobile (<960 px)
 

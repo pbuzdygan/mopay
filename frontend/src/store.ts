@@ -72,6 +72,17 @@ function save(k: string, v: any) {
 }
 
 type Tab = 'expenses' | 'incomes' | 'savings' | 'reports';
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+const systemTheme = (): 'light' | 'dark' => {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
+};
+const resolveTheme = (mode: ThemeMode): 'light' | 'dark' => (mode === 'system' ? systemTheme() : mode);
+const isThemeMode = (value: unknown): value is ThemeMode => value === 'light' || value === 'dark' || value === 'system';
 type ViewMode = 'normal' | 'compact';
 
 type State = {
@@ -80,7 +91,13 @@ type State = {
   setRuntimeMode: (demo: boolean, pin: string | null) => void;
   tab: Tab;
   year: number | null;
+  // D6: the chosen mode (`themeMode`) and the resolved theme (`theme`, also
+  // stored for older builds after a rollback).
+  themeMode: ThemeMode;
   theme: 'light' | 'dark';
+  // D7: the Settings page is view state, not a persisted `tab`.
+  settingsOpen: boolean;
+  releaseCheck: { status: 'idle' | 'checking' | 'done' | 'failed'; at: number | null; request: number };
   viewMode: ViewMode;
   searchQuery: string;
   showGroupTotals: boolean;
@@ -95,10 +112,8 @@ type State = {
   groupRemoveSelection: Set<number>;
   modals: {
     add: boolean;
-    yearOps: boolean;
     export: boolean;
     import: boolean;
-    settings: boolean;
     addGroup: boolean;
     initiateYear: boolean;
   };
@@ -115,6 +130,11 @@ type State = {
   clearGridMonthRequest: () => void;
   setYear: (y: number | null) => void;
   setTheme: (m: 'light' | 'dark') => void;
+  setThemeMode: (mode: ThemeMode) => void;
+  syncSystemTheme: () => void;
+  openSettings: () => void;
+  requestReleaseCheck: () => void;
+  setReleaseCheck: (status: 'checking' | 'done' | 'failed') => void;
   setViewMode: (mode: ViewMode) => void;
   setSearchQuery: (query: string) => void;
   setEditMode: (m: State['editMode']) => void;
@@ -136,6 +156,12 @@ type State = {
   setShowGroupTotals: (active: boolean) => void;
 };
 
+// Builds before D6 stored only `theme`; their choice becomes the mode.
+const storedThemeMode = load<unknown>('themeMode', null);
+const initialThemeMode: ThemeMode = isThemeMode(storedThemeMode)
+  ? storedThemeMode
+  : load<string>('theme', 'light') === 'dark' ? 'dark' : 'light';
+
 export const useAppStore = create<State>((set, get) => ({
   demo: null,
   demoPin: null,
@@ -143,7 +169,10 @@ export const useAppStore = create<State>((set, get) => ({
   // D1: always start on Overview ('reports'); the saved tab is kept only for older builds.
   tab: 'reports',
   year: load<number | null>('year', null),
-  theme: load<'light' | 'dark'>('theme', 'light'),
+  themeMode: initialThemeMode,
+  theme: resolveTheme(initialThemeMode),
+  settingsOpen: false,
+  releaseCheck: { status: 'idle', at: null, request: 0 },
   viewMode: load<ViewMode>('viewMode', 'normal'),
   searchQuery: '',
   showGroupTotals: load<boolean>('showGroupTotals', false),
@@ -157,10 +186,8 @@ export const useAppStore = create<State>((set, get) => ({
   groupRemoveSelection: new Set<number>(),
   modals: {
     add: false,
-    yearOps: false,
     export: false,
     import: false,
-    settings: false,
     addGroup: false,
     initiateYear: false,
   },
@@ -175,12 +202,12 @@ export const useAppStore = create<State>((set, get) => ({
 
   setTab: (tab) => {
     save('tab', tab);
-    set((state) => state.tab === tab ? { tab } : { tab, searchQuery: '', gridMonthRequest: null });
+    set((state) => state.tab === tab ? { tab, settingsOpen: false } : { tab, settingsOpen: false, searchQuery: '', gridMonthRequest: null });
   },
 
   openExpensesMonth: (month) => {
     save('tab', 'expenses');
-    set({ tab: 'expenses', searchQuery: '', editMode: null, gridMonthRequest: month });
+    set({ tab: 'expenses', settingsOpen: false, searchQuery: '', editMode: null, gridMonthRequest: month });
   },
 
   clearGridMonthRequest: () => set({ gridMonthRequest: null }),
@@ -190,10 +217,31 @@ export const useAppStore = create<State>((set, get) => ({
     set({ year });
   },
 
-  setTheme: (theme) => {
+  setTheme: (theme) => get().setThemeMode(theme),
+
+  setThemeMode: (themeMode) => {
+    const theme = resolveTheme(themeMode);
+    save('themeMode', themeMode);
+    save('theme', theme);
+    set({ themeMode, theme });
+  },
+
+  // Follows the operating system while the mode is "system".
+  syncSystemTheme: () => {
+    if (get().themeMode !== 'system') return;
+    const theme = resolveTheme('system');
+    if (theme === get().theme) return;
     save('theme', theme);
     set({ theme });
   },
+
+  openSettings: () => set({ settingsOpen: true, editMode: null, searchQuery: '', removeSelection: new Set(), groupRemoveSelection: new Set() }),
+
+  requestReleaseCheck: () => set((state) => ({ releaseCheck: { ...state.releaseCheck, request: state.releaseCheck.request + 1 } })),
+
+  setReleaseCheck: (status) => set((state) => ({
+    releaseCheck: { ...state.releaseCheck, status, at: status === 'done' ? Date.now() : state.releaseCheck.at },
+  })),
 
   setViewMode: (viewMode) => {
     save('viewMode', viewMode);
@@ -212,7 +260,7 @@ export const useAppStore = create<State>((set, get) => ({
   // Unlocking (including a restored session) always opens Overview (plan D1).
   setPinSession: (pinSession) => set((state) => {
     if (!pinSession) return { pinSession, financialReady: false };
-    return state.pinSession ? { pinSession } : { pinSession, tab: 'reports', searchQuery: '', editMode: null, gridMonthRequest: null };
+    return state.pinSession ? { pinSession } : { pinSession, tab: 'reports', settingsOpen: false, searchQuery: '', editMode: null, gridMonthRequest: null };
   }),
 
   toggleRemoveId: (id) => {

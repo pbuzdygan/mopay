@@ -54,10 +54,14 @@ test('real demo dataset renders desktop/mobile Expenses, Incomes, Savings and Re
       await ui.openSection(page, 'Expenses');
       await page.getByText('Groceries', { exact: true }).waitFor();
       if (process.env.MOPAY_SCREENSHOTS) await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/real-demo-${mobile ? 'mobile' : 'desktop'}-expenses.png` });
-      if (await ui.appMenu(page).count()) await ui.appMenu(page).click();
-      assert.equal(await page.getByRole('button', { name: 'Year operations', exact: true }).count(), 0);
-      assert.equal(await page.getByRole('button', { name: 'Import data', exact: true }).count(), 0);
-      await page.getByRole('button', { name: 'Export data', exact: true }).click();
+      // Settings: no year creation, deletion or import in demo mode, each explained; export works.
+      await ui.openSettings(page);
+      assert.equal(await page.getByRole('button', { name: 'Add year', exact: true }).count(), 0);
+      assert.equal(await page.getByRole('button', { name: 'Import…', exact: true }).count(), 0);
+      assert.equal(await ui.settingsSection(page, 'Danger zone').getByRole('checkbox').count(), 0);
+      await ui.settingsSection(page, 'Years').getByText('Demo data is read only. Years cannot be created or deleted.', { exact: true }).waitFor();
+      await ui.settingsSection(page, 'Import & export').getByText('Import is not available in demo mode.', { exact: true }).waitFor();
+      await ui.settingsSection(page, 'Import & export').getByRole('button', { name: 'Export…', exact: true }).click();
       await ui.dialog(page, 'Export data').getByRole('button', { name: /^\d{4}$/ }).first().click();
       const download = page.waitForEvent('download');
       await page.getByRole('button', { name: /^Export \d/ }).click();

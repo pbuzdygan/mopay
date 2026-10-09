@@ -69,12 +69,24 @@ export function PageHeader() {
   const title = SECTIONS.find((section) => section.id === tab)?.label ?? '';
   const subtitle = useSubtitle(tab, year);
   const table = tab === 'expenses' || tab === 'incomes';
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
 
   const editItems: MenuItem[] = [
     { label: 'Arrange', icon: 'arrows-sort', onSelect: () => selectEditMode('order') },
     { label: 'Remove', icon: 'trash', onSelect: () => selectEditMode('remove') },
     { label: 'New group', icon: 'folder', onSelect: () => openModal('addGroup'), separatorBefore: true },
   ];
+
+  if (settingsOpen) {
+    return (
+      <div className="page-head">
+        <div className="page-title">
+          <h1>Settings</h1>
+          <p>Preferences, data and security for this MOPAY installation.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-head">

@@ -29,6 +29,12 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - Savings shows a list of goals with progress next to the selected goal's details: balance against the target, remaining amount, contributions, withdrawals and the items
 - savings items are added with a form (note, amount and *Contribution* or *Temporary withdrawal*) instead of an empty row; a withdrawal is marked next to its note
 - removing a savings goal now asks for confirmation in a dialog that says how many items are removed; the goal menu (⋯) holds *Remove goal*
+- **Settings is now a page** (sidebar *Settings*, or the gear button below 960 px) with Display, Security, Years, Import & export, About and Danger zone; it replaces the Settings and Year operations dialogs, the sidebar *Data* group and the toolbar menu
+- new theme option **System** that follows the device setting
+- creating a year now makes it the working year
+- deleting years moved to the Danger zone: the working year cannot be deleted (so at least one year always remains and the working year stays selected), the selected years must be typed to confirm, and a reminder offers an export first
+- Settings → About shows when updates were last checked and offers *Check again*; Security shows whether encryption is active
+- in demo mode, Settings explains why years and import are not available instead of hiding them
 
 ### Bug fix
 - a newly added savings item now reliably opens for editing; previously it could stay closed when the refreshed list arrived late
@@ -36,6 +42,8 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - a failed save of a month value is now shown with *Retry* and *Undo change*; previously the value looked saved although the server had rejected it
 - Escape in the savings goal target field now restores the saved target; previously the typed value stayed
 - failed savings changes (adding or editing a goal, adding, saving or removing an item, removing a goal) are now shown and can be retried; a failed item add no longer leaves an empty item behind
+- adding a year in Settings now switches to it; previously the working year jumped back to the previous one
+- failures when adding or deleting a year or downloading the import template are now shown
 
 ### Improvements
 - added accessible names and dialog semantics to existing controls (dialogs and their close button, PIN overlay, year selector, month cells, remove checkboxes, reorder handles, tag editor, savings item fields and Settings toggles) without changing their appearance

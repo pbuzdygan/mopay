@@ -275,7 +275,8 @@ for (const mobile of [false, true]) {
             await page.waitForTimeout(200);
             // Each toolbar control must be present exactly once (boundingBox is strict).
             const year = await ui.yearSwitch(page).boundingBox();
-            const menu = await ui.appMenu(page).boundingBox();
+            // The Settings button took the place of the former menu (plan Phase 7).
+            const menu = await ui.settingsButton(page).boundingBox();
             const search = await ui.search(page).boundingBox();
             const lock = await ui.lock(page).boundingBox();
             const themeButton = await ui.themeToggle(page).boundingBox();

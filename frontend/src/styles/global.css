@@ -11,6 +11,7 @@
 @import "./grid.css";
 @import "./overview.css";
 @import "./savings.css";
+@import "./settings.css";
 @source "../../index.html";
 @source "../";
 

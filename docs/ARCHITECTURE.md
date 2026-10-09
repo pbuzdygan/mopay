@@ -58,7 +58,7 @@ Key repository areas:
   - [`components/OverviewView.tsx`](.../frontend/src/components/OverviewView.tsx): Overview (former Reports) UI
   - [`components/PinGuard.tsx`](.../frontend/src/components/PinGuard.tsx): PIN unlock overlay
   - [`components/ReleaseStatusProvider.tsx`](.../frontend/src/components/ReleaseStatusProvider.tsx): release metadata polling
-  - [`components/modals/`](.../frontend/src/components/modals): add/edit/import/export/settings flows
+  - [`components/modals/`](.../frontend/src/components/modals): add/edit/import/export flows
 - [`Dockerfile`](.../Dockerfile): multi-stage build and runtime image
 - [`docker-compose.yml`](.../docker-compose.yml): GHCR deployment example
 
@@ -239,17 +239,15 @@ Main screens:
 
 - table view for incomes/expenses
 - savings view
-- reports view
+- Overview (former reports view)
+- Settings page (display, security, years, import/export, about, year deletion)
 
 Global modal flows include:
 
 - add entry
 - add group
-- comment editing
-- year operations
 - export
 - import
-- settings
 - savings goal editing
 - encryption migration notice
 - encryption key mismatch recovery

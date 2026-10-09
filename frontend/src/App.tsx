@@ -10,15 +10,14 @@ import { PageHeader } from "./components/shell/PageHeader";
 import { useShellEffects } from "./components/shell/useShell";
 import { TableView } from "./components/TableView";
 import { OverviewView } from "./components/OverviewView";
+import { SettingsView } from "./components/settings/SettingsView";
 import { SavingsView } from "./components/SavingsView";
 import { PinGuard } from "./components/PinGuard";
 import { InitiateYearModal } from "./components/modals/InitiateYearModal";
 import { AddEntryModal } from "./components/modals/AddEntryModal";
 import { AddGroupModal } from "./components/modals/AddGroupModal";
-import { YearOperationsModal } from "./components/modals/YearOperationsModal";
 import { ExportModal } from "./components/modals/ExportModal";
 import { ImportModal } from "./components/modals/ImportModal";
-import { SettingsModal } from "./components/modals/SettingsModal";
 import { SavingsGoalModal } from "./components/modals/SavingsGoalModal";
 import { EncryptionMigrationModal } from "./components/modals/EncryptionMigrationModal";
 import { EncryptionKeyMismatchModal } from "./components/modals/EncryptionKeyMismatchModal";
@@ -33,6 +32,8 @@ export default function App() {
   const theme = useAppStore((s) => s.theme);
   const viewMode = useAppStore((s) => s.viewMode);
   const tab = useAppStore((s) => s.tab);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const themeMode = useAppStore((s) => s.themeMode);
   const demo = useAppStore((s) => s.demo);
   const pinSession = useAppStore((s) => s.pinSession);
   const financialReady = useAppStore((s) => s.financialReady);
@@ -88,6 +89,16 @@ export default function App() {
 
     return () => clearTimeout(tm);
   }, [theme]);
+
+  // Theme "System" (D6) follows the operating system while the app is open.
+  useEffect(() => {
+    if (themeMode !== 'system') return;
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const sync = () => useAppStore.getState().syncSystemTheme();
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, [themeMode]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-view', viewMode);
@@ -148,7 +159,9 @@ export default function App() {
               {demoBanner}
               <PageHeader />
             </div>
-            {pinSession && financialReady && (tab === 'reports'
+            {pinSession && financialReady && (settingsOpen
+              ? <SettingsView />
+              : tab === 'reports'
               ? <OverviewView />
               : tab === 'savings'
               ? <SavingsView />
@@ -157,10 +170,9 @@ export default function App() {
         </main>
       </div>
 
-      {!demo && <><InitiateYearModal /><AddEntryModal /><AddGroupModal /><YearOperationsModal /></>}
+      {!demo && <><InitiateYearModal /><AddEntryModal /><AddGroupModal /></>}
       <ExportModal />
       {!demo && <ImportModal />}
-      <SettingsModal />
       {!demo && <><SavingsGoalModal /><EncryptionMigrationModal /></>}
       <EncryptionKeyMismatchModal />
       <AddToHomeScreen />

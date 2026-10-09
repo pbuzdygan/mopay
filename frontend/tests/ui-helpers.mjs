@@ -56,12 +56,15 @@ export const ui = {
     await ui.yearSwitch(page).click();
     await page.getByRole('option', { name: String(year), exact: true }).click();
   },
-  appMenu: (page) => page.getByRole('button', { name: 'Menu', exact: true }),
-  // Year operations, Import, Export and Settings: sidebar items on desktop, Menu on the narrow toolbar.
-  async openAppMenuItem(page, item) {
-    if (await ui.appMenu(page).count()) await ui.appMenu(page).click();
-    await page.getByRole('button', { name: item, exact: true }).click();
+  // Settings page (plan Phase 7): sidebar item on desktop, toolbar icon below 960 px.
+  settingsButton: (page) => page.getByRole('button', { name: 'Settings', exact: true }),
+  async openSettings(page) {
+    await ui.settingsButton(page).click();
+    // The page title is only in the desktop header; the first section shows on every layout.
+    await ui.settingsSection(page, 'Display').waitFor();
   },
+  // Settings sections are regions named by their headings.
+  settingsSection: (page, name) => page.getByRole('region', { name, exact: true }),
   lock: (page) => page.getByRole('button', { name: 'Lock session', exact: true }),
   themeToggle: (page) => page.getByRole('button', { name: 'Toggle theme', exact: true }),
   newButton: (page) => page.getByRole('button', { name: /^New( entry)?$/ }),

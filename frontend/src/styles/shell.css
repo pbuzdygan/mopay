@@ -97,10 +97,7 @@
 .year-switch-option:focus-visible { background: var(--surface-3); outline: none; }
 .year-switch-option[aria-selected="true"] { color: var(--accent-text); font-weight: var(--fw-semibold); }
 
-.sidebar-nav,
-.sidebar-group { display: flex; flex-direction: column; gap: 2px; }
-.sidebar-group { margin-top: var(--sp-16); }
-.sidebar-group-label { padding: 0 10px var(--sp-4); font-size: var(--fs-caption); font-weight: var(--fw-semibold); color: var(--text-3); }
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .sidebar-item {
   display: flex;
   align-items: center;

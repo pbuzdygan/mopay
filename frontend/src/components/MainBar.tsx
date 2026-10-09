@@ -33,9 +33,13 @@ export function MainBar() {
   const demo = useAppStore((s) => s.demo);
   const { years } = useYears();
   const openModal = useAppStore((s) => s.openModal);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const openSettings = useAppStore((s) => s.openSettings);
 
   const viewTitle =
-    tab === 'incomes'
+    settingsOpen
+      ? 'Settings'
+      : tab === 'incomes'
       ? 'Income overview'
       : tab === 'savings'
       ? 'Savings goals'
@@ -71,9 +75,10 @@ export function MainBar() {
     </>
   );
 
-  const menuIconLabel = (
+  // Settings page (plan Phase 7) replaces the former menu with its dialogs.
+  const settingsIconLabel = (
     <img
-      src="/icons/ui/menu-2.svg"
+      src="/icons/ui/settings.svg"
       alt=""
       className="utility-menu-icon"
       aria-hidden="true"
@@ -101,11 +106,7 @@ export function MainBar() {
     </span>
   );
 
-  const renderUtilityControls = (
-    mode: 'mobile' | 'desktop' = 'desktop',
-    options: { includeMenu?: boolean } = {}
-  ) => {
-    const includeMenu = options.includeMenu ?? true;
+  const renderUtilityControls = (mode: 'mobile' | 'desktop' = 'desktop') => {
     const compact = mode === 'mobile';
     return (
       <div className={`utility-cluster ${compact ? 'utility-cluster-sm' : ''}`}>
@@ -128,33 +129,6 @@ export function MainBar() {
               <img src={nextThemeIcon} alt="" className="topbar-action-icon" aria-hidden="true" />
             </span>
           </SoftButton>
-          {includeMenu && (
-            <DropdownMenu
-              label={menuIconLabel}
-              align="right"
-              buttonClassName={`utility-menu-btn utility-menu-icon-btn ${compact ? 'utility-menu-btn-sm' : ''}`}
-              buttonAriaLabel="Menu"
-              buttonTooltip="Menu"
-              showCaret={false}
-            >
-              {({ close }) => (
-                <>
-                  {!demo && <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-                    {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
-                  </DropdownItem>}
-                  <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-                    {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
-                  </DropdownItem>
-                  {!demo && <DropdownItem onSelect={() => { openModal('import'); close(); }}>
-                    {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
-                  </DropdownItem>}
-                  <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-                    {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
-                  </DropdownItem>
-                </>
-              )}
-            </DropdownMenu>
-          )}
         </div>
         {mode === 'desktop' && (
           <div className={`version-indicator-slot ${compact ? 'version-indicator-slot-sm' : ''}`}>
@@ -171,7 +145,7 @@ export function MainBar() {
       : editMode === 'remove'
       ? 'Remove'
       : null;
-  const searchDisabled = tab === 'reports';
+  const searchDisabled = tab === 'reports' || settingsOpen;
   const searchActive = Boolean(searchQuery.trim());
 
   const primaryActions = (
@@ -236,7 +210,7 @@ export function MainBar() {
   );
 
   const renderActions = () => {
-    if (demo || tab === 'reports') return null;
+    if (demo || tab === 'reports' || settingsOpen) return null;
     if (tab === 'savings') return savingsActions;
     return primaryActions;
   };
@@ -304,7 +278,7 @@ export function MainBar() {
             />
           </div>
           <div className="hidden md:flex items-center gap-2 justify-end md:justify-self-end utility-group mainbar-desktop-only">
-            {renderUtilityControls('desktop', { includeMenu: false })}
+            {renderUtilityControls('desktop')}
           </div>
         </div>
 
@@ -315,8 +289,8 @@ export function MainBar() {
                 key={item.id}
                 type="button"
                 role="tab"
-                aria-selected={tab === item.id}
-                className={`chip-button ${tab === item.id ? 'active' : ''}`}
+                aria-selected={!settingsOpen && tab === item.id}
+                className={`chip-button ${!settingsOpen && tab === item.id ? 'active' : ''}`}
                 onClick={() => goTo(item.id)}
               >
                 <span
@@ -342,31 +316,16 @@ export function MainBar() {
                   className="mainbar-year-dropdown mainbar-year-dropdown-mobile"
                   triggerClassName="utility-menu-btn utility-menu-btn-sm soft-button"
                 />
-                <DropdownMenu
-                  label={menuIconLabel}
-                  align="left"
-                  buttonClassName="utility-menu-btn utility-menu-icon-btn utility-menu-btn-sm"
-                  buttonAriaLabel="Menu"
-                  buttonTooltip="Menu"
-                  showCaret={false}
+                <button
+                  type="button"
+                  className="utility-menu-btn utility-menu-icon-btn utility-menu-btn-sm"
+                  aria-label="Settings"
+                  title="Settings"
+                  aria-current={settingsOpen ? 'page' : undefined}
+                  onClick={openSettings}
                 >
-                  {({ close }) => (
-                    <>
-                      {!demo && <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-                        {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
-                      </DropdownItem>}
-                      <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-                        {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
-                      </DropdownItem>
-                      {!demo && <DropdownItem onSelect={() => { openModal('import'); close(); }}>
-                        {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
-                      </DropdownItem>}
-                      <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-                        {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
-                      </DropdownItem>
-                    </>
-                  )}
-                </DropdownMenu>
+                  {settingsIconLabel}
+                </button>
                 {renderSearch('mobile')}
                 <div className="mainbar-mobile-inline-utils mainbar-mobile-inline-utils-push">
                   {mobileUtilityButtons}
@@ -380,31 +339,16 @@ export function MainBar() {
                 onChange={(y) => setYear(y)}
                 className="w-full mainbar-year-dropdown"
               />
-              <DropdownMenu
-                label={menuIconLabel}
-                align="right"
-                buttonClassName="utility-menu-btn utility-menu-icon-btn"
-                buttonAriaLabel="Menu"
-                buttonTooltip="Menu"
-                showCaret={false}
+              <button
+                type="button"
+                className="utility-menu-btn utility-menu-icon-btn"
+                aria-label="Settings"
+                title="Settings"
+                aria-current={settingsOpen ? 'page' : undefined}
+                onClick={openSettings}
               >
-                {({ close }) => (
-                  <>
-                    {!demo && <DropdownItem onSelect={() => { openModal('yearOps'); close(); }}>
-                      {menuItemLabel('/icons/ui/calendar-month.svg', 'Year operations')}
-                    </DropdownItem>}
-                    <DropdownItem onSelect={() => { openModal('export'); close(); }}>
-                      {menuItemLabel('/icons/ui/table-export.svg', 'Export data')}
-                    </DropdownItem>
-                    {!demo && <DropdownItem onSelect={() => { openModal('import'); close(); }}>
-                      {menuItemLabel('/icons/ui/table-import.svg', 'Import data')}
-                    </DropdownItem>}
-                    <DropdownItem onSelect={() => { openModal('settings'); close(); }}>
-                      {menuItemLabel('/icons/ui/settings.svg', 'Settings')}
-                    </DropdownItem>
-                  </>
-                )}
-              </DropdownMenu>
+                {settingsIconLabel}
+              </button>
             </div>
           </div>
         </div>

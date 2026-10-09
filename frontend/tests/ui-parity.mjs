@@ -8,10 +8,10 @@ import { chromium, hooks, serveAsset, ui } from './ui-helpers.mjs';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-function createApi({ encryption = { encryptionEnabled: false, keyMismatch: false } } = {}) {
+function createApi({ encryption = { encryptionEnabled: false, keyMismatch: false }, years = [2025, 2026] } = {}) {
   let nextId = 1000;
   const state = {
-    years: [2025, 2026],
+    years: [...years],
     groups: { expense: [{ id: 10, name: 'Household', sortIndex: 0 }, { id: 11, name: 'Transport', sortIndex: 1 }], income: [] },
     entries: {
       expense: [
@@ -200,7 +200,7 @@ async function expectNoWrite(api, from) {
   assert.deepEqual(api.writes.slice(from), []);
 }
 
-async function openApp({ mobile, theme, encryption, section = 'Expenses', releases = [] }, scenario) {
+async function openApp({ mobile, theme, encryption, years, section = 'Expenses', releases = [] }, scenario) {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({
@@ -209,7 +209,7 @@ async function openApp({ mobile, theme, encryption, section = 'Expenses', releas
       isMobile: mobile,
       hasTouch: mobile,
     });
-    const api = createApi({ encryption });
+    const api = createApi({ encryption, years });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.clock.setFixedTime(new Date('2026-10-09T12:00:00'));
@@ -234,7 +234,9 @@ async function openApp({ mobile, theme, encryption, section = 'Expenses', releas
     });
     await page.goto('http://mopay.test/');
     // The app always starts on Overview (plan D1); most scenarios then open a section.
-    await ui.annualTotals(page).waitFor();
+    // Without any year, the first-run dialog asks for one instead.
+    if (years?.length === 0) await ui.dialog(page, 'Initiate MOPAY').waitFor();
+    else await ui.annualTotals(page).waitFor();
     assert.equal(await ui.currentSection(page), 'Overview');
     if (section) {
       await ui.openSection(page, section);
@@ -274,13 +276,18 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     }
     // F16: group subtotals follow the Settings toggle and persist.
     assert.equal(await page.getByText('1 100,00', { exact: true }).count(), 0);
-    await ui.openAppMenuItem(page, 'Settings');
-    await ui.dialog(page, 'Settings').getByRole('button', { name: 'Group totals' }).click();
-    await page.getByText('1 100,00', { exact: true }).waitFor();
+    const groupTotals = page.getByRole('switch', { name: 'Show group totals', exact: true });
+    await ui.openSettings(page);
+    await groupTotals.click();
+    assert.equal(await groupTotals.getAttribute('aria-checked'), 'true');
     assert.equal(await page.evaluate(() => localStorage.getItem('showGroupTotals')), 'true');
-    await ui.dialog(page, 'Settings').getByRole('button', { name: 'Group totals' }).click();
-    await ui.closeDialog(page).click();
-    await ui.dialog(page).waitFor({ state: 'detached' });
+    await ui.openSection(page, 'Expenses');
+    await page.getByText('1 100,00', { exact: true }).waitFor();
+    await ui.openSettings(page);
+    await groupTotals.click();
+    assert.equal(await groupTotals.getAttribute('aria-checked'), 'false');
+    await ui.openSection(page, 'Expenses');
+    await page.getByText('Groceries', { exact: true }).waitFor();
     assert.equal(await page.getByText('1 100,00', { exact: true }).count(), 0);
 
     // F18: ungrouped entries have their own collapsible section, saved per type/year.
@@ -848,54 +855,76 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     assert.deepEqual(errors, []);
   }));
 
-  test(`${label}: year operations and first-run year (F29, F30)`, () => openApp(context, async ({ page, api, errors }) => {
+  test(`${label}: Settings years and danger zone (F29)`, () => openApp(context, async ({ page, api, errors }) => {
     let w = 0;
-    await ui.openAppMenuItem(page, 'Year operations');
-    const dialog = ui.dialog(page, 'Year operations');
-    const year = dialog.getByRole('textbox', { name: 'Year' });
-    const add = dialog.getByRole('button', { name: 'Add year', exact: true });
+    await ui.openSettings(page);
+    const years = ui.settingsSection(page, 'Years');
+    const year = years.getByRole('textbox', { name: 'Year' });
+    const add = years.getByRole('button', { name: 'Add year', exact: true });
     // Only digits, exactly four.
     await year.fill('20a7');
     assert.equal(await year.inputValue(), '207');
     assert.equal(await add.isDisabled(), true);
     await year.fill('2026');
     await add.click();
-    await dialog.getByText('Year 2026 already exists', { exact: true }).waitFor();
+    await years.getByText('Year 2026 already exists.', { exact: true }).waitFor();
     await expectNoWrite(api, w);
+    // A failed request is shown; the next attempt succeeds.
     await year.fill('2027');
+    api.failNext('POST', /^\/api\/years$/);
     await year.press('Enter');
     w = await expectWrite(api, w, 'POST', '/api/years', { year: 2027 });
-    await dialog.getByText('Year 2027 added', { exact: true }).waitFor();
+    await years.getByText('Could not add 2027. Try again.', { exact: true }).waitFor();
+    await year.press('Enter');
+    w = await expectWrite(api, w, 'POST', '/api/years', { year: 2027 });
+    await years.getByText('Year 2027 added and selected as the working year.', { exact: true }).waitFor();
     assert.equal(await year.inputValue(), '');
-    // Known defect: the dialog selects the new year, but the year list is still
-    // stale, so the year guard in MainBar immediately restores the previous
-    // year. Fixing it is a deliberate change to record in the plan (F29).
+    // Phase 7 fix (F29): the new year becomes the working year and stays selected.
     await page.waitForTimeout(300);
-    assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2026');
-    // Deleting years needs a second click to confirm; afterwards the working
-    // year becomes the latest remaining year, even if it was not deleted.
-    await dialog.getByRole('button', { name: '2025', exact: true }).click();
-    assert.equal(await dialog.getByRole('button', { name: '2025', exact: true }).getAttribute('aria-pressed'), 'true');
-    await dialog.getByRole('button', { name: 'Delete 1 year(s)', exact: true }).click();
-    await expectNoWrite(api, w);
-    await screenshot(page, `${label.replace(' ', '-')}-year-delete`);
-    await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
-    w = await expectWrite(api, w, 'DELETE', '/api/years', { years: [2025] });
-    await dialog.getByText('Removed 1 year(s)', { exact: true }).waitFor();
-    await dialog.getByRole('button', { name: '2025', exact: true }).waitFor({ state: 'detached' });
     assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2027');
-    // Today nothing prevents deleting every year (the subtitle only advises
-    // keeping one); the first-run dialog then asks for a new year (F30). It
-    // opens underneath Year operations, which has to be closed first.
-    await dialog.getByRole('button', { name: '2026', exact: true }).click();
-    await dialog.getByRole('button', { name: '2027', exact: true }).click();
-    await dialog.getByRole('button', { name: 'Delete 2 year(s)', exact: true }).click();
-    await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
-    w = await expectWrite(api, w, 'DELETE', '/api/years', { years: [2026, 2027] });
+    await years.getByText('2025, 2026, 2027', { exact: true }).waitFor();
+
+    // Danger zone (F29 change): the working year cannot be deleted, deleting
+    // needs the years typed, a backup reminder offers Export, and the working
+    // year stays as it is afterwards.
+    const danger = ui.settingsSection(page, 'Danger zone');
+    assert.equal(await danger.getByRole('checkbox', { name: '2027 working year', exact: true }).isDisabled(), true);
+    await danger.getByRole('checkbox', { name: '2025', exact: true }).check();
+    await danger.getByRole('checkbox', { name: '2026', exact: true }).check();
+    const confirm = danger.getByRole('textbox', { name: 'Type 2025, 2026 to confirm' });
+    const remove = danger.getByRole('button', { name: 'Delete 2 years', exact: true });
+    assert.equal(await remove.isDisabled(), true);
+    await confirm.fill('2025');
+    assert.equal(await remove.isDisabled(), true);
+    await danger.getByRole('button', { name: 'Export a backup', exact: true }).click();
+    const exportDialog = ui.dialog(page, 'Export data');
+    await exportDialog.waitFor();
+    await ui.closeDialog(page).click();
+    await exportDialog.waitFor({ state: 'detached' });
+    await danger.getByRole('checkbox', { name: '2026', exact: true }).uncheck();
+    const confirmOne = danger.getByRole('textbox', { name: 'Type 2025 to confirm' });
+    assert.equal(await confirmOne.inputValue(), '', 'Changing the selection clears the confirmation');
+    await confirmOne.fill('2025');
+    await screenshot(page, `${label.replace(' ', '-')}-delete-years`);
+    api.failNext('DELETE', /^\/api\/years$/);
+    await danger.getByRole('button', { name: 'Delete 2025', exact: true }).click();
+    w = await expectWrite(api, w, 'DELETE', '/api/years', { years: [2025] });
+    await danger.getByText('Could not delete 2025. Try again.', { exact: true }).waitFor();
+    await danger.getByRole('button', { name: 'Delete 2025', exact: true }).click();
+    w = await expectWrite(api, w, 'DELETE', '/api/years', { years: [2025] });
+    await danger.getByText('Deleted 2025.', { exact: true }).waitFor();
+    await danger.getByRole('checkbox', { name: '2025', exact: true }).waitFor({ state: 'detached' });
+    assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2027');
+    // Only the working year can never be selected, so at least one year always remains.
+    await ui.selectYear(page, 2026);
+    assert.equal(await danger.getByRole('checkbox', { name: '2026 working year', exact: true }).isDisabled(), true);
+    assert.equal(await danger.getByRole('checkbox', { name: '2027', exact: true }).isDisabled(), false);
+    assert.deepEqual(errors, []);
+  }));
+
+  test(`${label}: first-run year dialog (F30, F19)`, () => openApp({ ...context, years: [], section: null }, async ({ page, api, errors }) => {
+    let w = 0;
     const initiate = ui.dialog(page, 'Initiate MOPAY');
-    await initiate.waitFor();
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-    await dialog.waitFor({ state: 'detached' });
     assert.equal(await initiate.getByRole('button', { name: 'Close dialog' }).count(), 0, 'First-run dialog cannot be dismissed');
     await initiate.getByRole('textbox', { name: 'Year' }).press('Escape');
     await page.waitForTimeout(250);
@@ -910,7 +939,6 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await initiate.waitFor({ state: 'detached' });
     assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2030');
     // A year without values or goals shows the Overview empty state (F19).
-    await ui.openSection(page, 'Overview');
     await page.getByText('Add income or expense values, or create a Savings goal, to build your financial story.', { exact: true }).waitFor();
     assert.equal(await ui.annualTotals(page).count(), 0);
     assert.deepEqual(errors, []);
@@ -982,7 +1010,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
 for (const mobile of [false, true]) {
   for (const theme of ['light', 'dark']) {
     const label = `${mobile ? 'mobile' : 'desktop'} ${theme}`;
-    test(`${label}: new group, export, import and settings dialogs (F06, F31, F32, F33)`, () => openApp({ mobile, theme }, async ({ page, api, errors }) => {
+    test(`${label}: new group and the Settings page (F06, F17, F31–F35, D6, D7)`, () => openApp({ mobile, theme }, async ({ page, api, errors }) => {
       let w = 0;
       const name = label.replace(' ', '-');
       // F06: new group.
@@ -994,8 +1022,10 @@ for (const mobile of [false, true]) {
       w = await expectWrite(api, w, 'POST', '/api/entry-groups', { type: 'expense', year: 2026, name: 'Leisure' });
       await page.getByText('Leisure', { exact: true }).waitFor();
       await group.waitFor({ state: 'detached' });
-      // F31: export selected years as an XLSX download.
-      await ui.openAppMenuItem(page, 'Export data');
+      // F31: export selected years as an XLSX download, opened from Settings.
+      await ui.openSettings(page);
+      const data = ui.settingsSection(page, 'Import & export');
+      await data.getByRole('button', { name: 'Export…', exact: true }).click();
       const exportDialog = ui.dialog(page, 'Export data');
       await exportDialog.getByRole('button', { name: '2026', exact: true }).click();
       await screenshot(page, `${name}-export`);
@@ -1005,9 +1035,12 @@ for (const mobile of [false, true]) {
       w = await expectWrite(api, w, 'POST', '/api/export', { years: [2026] });
       await ui.closeDialog(page).click();
       await exportDialog.waitFor({ state: 'detached' });
-      // F32: import dialog and template download (validation/overwrite stay a
-      // manual check with a synthetic XLSX, see the plan).
-      await ui.openAppMenuItem(page, 'Import data');
+      // F32: template download from Settings and from the import dialog
+      // (validation/overwrite stay a manual check with a synthetic XLSX, see the plan).
+      const settingsTemplate = page.waitForEvent('download');
+      await data.getByRole('button', { name: 'Download template', exact: true }).click();
+      assert.equal((await settingsTemplate).suggestedFilename(), 'mopay_import_template.xlsx');
+      await data.getByRole('button', { name: 'Import…', exact: true }).click();
       const importDialog = ui.dialog(page, 'Import data');
       await screenshot(page, `${name}-import`);
       const templateDownload = page.waitForEvent('download');
@@ -1016,20 +1049,52 @@ for (const mobile of [false, true]) {
       assert.equal(await importDialog.getByRole('button', { name: 'Import', exact: true }).isEnabled(), true);
       await ui.closeDialog(page).click();
       await importDialog.waitFor({ state: 'detached' });
-      // F33/F16/F17/F35: settings dialog controls.
-      await ui.openAppMenuItem(page, 'Settings');
-      const settings = ui.dialog(page, 'Settings');
-      for (const control of ['Group totals', 'View density', 'Dark theme', 'Screen lock']) {
-        await settings.getByRole('button', { name: control, exact: true }).waitFor();
-      }
-      assert.equal(await settings.getByRole('button', { name: 'Dark theme', exact: true }).getAttribute('aria-pressed'), String(theme === 'dark'));
+
+      // F17/F35/D6: display settings. Density and theme, including System.
+      const display = ui.settingsSection(page, 'Display');
+      const themeMode = display.getByRole('group', { name: 'Theme mode', exact: true });
+      assert.equal(await themeMode.getByRole('button', { name: theme === 'dark' ? 'Dark' : 'Light', exact: true }).getAttribute('aria-pressed'), 'true');
       await screenshot(page, `${name}-settings`);
-      await settings.getByRole('button', { name: 'View density', exact: true }).click();
+      const density = display.getByRole('group', { name: 'Table density', exact: true });
+      await density.getByRole('button', { name: 'Compact', exact: true }).click();
       assert.equal(await page.evaluate(() => document.documentElement.dataset.view), 'compact');
-      await settings.getByRole('button', { name: 'View density', exact: true }).click();
+      await density.getByRole('button', { name: 'Normal', exact: true }).click();
       assert.equal(await page.evaluate(() => document.documentElement.dataset.view), 'normal');
-      await ui.closeDialog(page).click();
-      await settings.waitFor({ state: 'detached' });
+      const stored = () => page.evaluate(() => [localStorage.getItem('themeMode'), localStorage.getItem('theme'), document.documentElement.dataset.theme]);
+      await page.emulateMedia({ colorScheme: theme === 'dark' ? 'light' : 'dark' });
+      await themeMode.getByRole('button', { name: 'System', exact: true }).click();
+      const system = theme === 'dark' ? 'light' : 'dark';
+      // `theme` keeps the resolved value for older builds (D6).
+      assert.deepEqual(await stored(), ['"system"', `"${system}"`, system]);
+      await page.emulateMedia({ colorScheme: theme });
+      for (let i = 0; i < 50 && (await stored())[2] !== theme; i++) await page.waitForTimeout(20);
+      assert.deepEqual(await stored(), ['"system"', `"${theme}"`, theme], 'System follows the device setting');
+      await themeMode.getByRole('button', { name: theme === 'dark' ? 'Dark' : 'Light', exact: true }).click();
+      assert.deepEqual(await stored(), [`"${theme}"`, `"${theme}"`, theme]);
+
+      // F33: About shows version, channel and the update check; Check again repeats it.
+      const about = ui.settingsSection(page, 'About');
+      await about.getByText('MOPAY v1.6.3', { exact: true }).waitFor();
+      await about.getByText(/^Release channel: main · checked \d{2}:\d{2}$/).waitFor();
+      await about.getByText('No published release found', { exact: true }).waitFor();
+      await about.getByRole('button', { name: 'Check again', exact: true }).click();
+      await about.getByText('No published release found', { exact: true }).waitFor();
+      // F34: Security shows the encryption state and locks the session.
+      const security = ui.settingsSection(page, 'Security');
+      await security.getByText('Not enabled', { exact: true }).waitFor();
+      await security.getByRole('button', { name: 'Lock now', exact: true }).click();
+      w = await expectWrite(api, w, 'POST', '/api/pin/logout', {});
+      await ui.pinDialog(page).waitFor();
+      await ui.unlock(page, '24681357');
+      w = await expectWrite(api, w, 'POST', '/api/pin/verify', { pin: '24681357' });
+      // D7: Settings is not persisted; unlocking and reloading open Overview.
+      await ui.annualTotals(page).waitFor();
+      assert.equal(await ui.currentSection(page), 'Overview');
+      await ui.openSettings(page);
+      assert.notEqual(await page.evaluate(() => localStorage.getItem('tab')), '"settings"');
+      await page.reload();
+      await ui.annualTotals(page).waitFor();
+      assert.equal(await ui.currentSection(page), 'Overview');
       assert.deepEqual(errors, []);
     }));
   }
@@ -1128,6 +1193,9 @@ for (const theme of ['light', 'dark']) {
     const nav = page.getByRole('navigation', { name: 'Primary' });
     assert.deepEqual(await nav.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))),
       ['Overview', 'Expenses', 'Incomes', 'Savings']);
+    // The sections are stacked full width in the sidebar (a lost layout rule once put them in a row).
+    const boxes = await nav.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()).map(({ x, y, width }) => ({ x, y, width })));
+    assert.ok(boxes.every((box, i) => box.x === boxes[0].x && box.width === boxes[0].width && (i === 0 || box.y > boxes[i - 1].y)), JSON.stringify(boxes));
     assert.equal(await ui.search(page).count(), 0, 'Overview has no search field');
     // Section totals follow the data and inline edits (whole units).
     assert.equal(await page.locator('#sidebar-meta-expenses').textContent(), '1 380');
@@ -1164,6 +1232,18 @@ for (const theme of ['light', 'dark']) {
     assert.equal(await page.getByRole('button', { name: other }).getAttribute('aria-pressed'), 'true');
     await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: theme === 'light' ? 'Light theme' : 'Dark theme' }).click();
     await screenshot(page, `desktop-${theme}-shell`);
+    // Settings is a page in the sidebar footer (plan Phase 7); the former Data group is gone.
+    for (const removed of ['Year operations', 'Import data', 'Export data']) {
+      assert.equal(await page.getByRole('button', { name: removed, exact: true }).count(), 0);
+    }
+    await ui.openSettings(page);
+    assert.equal(await ui.settingsButton(page).getAttribute('aria-current'), 'page');
+    assert.equal(await nav.locator('[aria-current]').count(), 0, 'No section is current on Settings');
+    await expectText(page.getByRole('heading', { level: 1 }), /^Settings$/);
+    assert.equal(await ui.search(page).count(), 0, 'Settings has no search field');
+    await ui.openSection(page, 'Expenses');
+    assert.equal(await ui.currentSection(page), 'Expenses');
+    assert.equal(await ui.settingsButton(page).getAttribute('aria-current'), null);
 
     // Lock and unlock: always back to Overview, year selection kept (D1).
     await page.getByRole('button', { name: 'Lock session', exact: true }).click();
