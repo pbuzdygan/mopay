@@ -60,7 +60,7 @@ export function DropdownMenu({
         data-tooltip={buttonTooltip}
       >
         {label}
-        {showCaret && <span className="opacity-60 text-xs">{open ? '▲' : '▼'}</span>}
+        {showCaret && <span className="opacity-60 text-xs" aria-hidden="true">{open ? '▲' : '▼'}</span>}
       </SoftButton>
 
       {open && (

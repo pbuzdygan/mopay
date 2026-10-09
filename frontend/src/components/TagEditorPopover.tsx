@@ -107,10 +107,12 @@ export function TagEditorPopover({ month, color, text, anchor, saving, onChange,
   return createPortal(
     <div
       className="tag-editor-popover"
+      role="dialog"
+      aria-labelledby="tag-editor-title"
       style={{ top: `${position.top}px`, left: `${position.left}px`, position: position.mode }}
     >
       <div className="tag-editor-header">
-        <span className="tag-editor-title">{month} details</span>
+        <span id="tag-editor-title" className="tag-editor-title">{month} details</span>
       </div>
       <div className="tag-editor-section">
         <span className="tag-editor-label">Color</span>
@@ -120,6 +122,7 @@ export function TagEditorPopover({ month, color, text, anchor, saving, onChange,
               key={c.id}
               type="button"
               className={`${c.className} ${color === c.id ? 'selected' : ''}`}
+              aria-pressed={color === c.id}
               onClick={() => onChange({ color: c.id })}
             >
               <span className="tag-chip-swatch" />
@@ -133,6 +136,7 @@ export function TagEditorPopover({ month, color, text, anchor, saving, onChange,
         <input
           type="text"
           className="tag-editor-input"
+          aria-label="Note"
           value={text}
           maxLength={160}
           onChange={(ev) => onChange({ text: ev.target.value })}

@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.0.0 (unreleased)
+
+Final Ledger UI migration in progress on `dev`. No data, API or configuration migration is planned.
+
+### Changes
+- introduced Final Ledger design tokens (colours per theme meeting WCAG AA text contrast, spacing, radii, type scale, motion, z-index) and applied the new palette to the existing screens
+- redesigned the PIN screen, first-run year dialog, encryption dialogs and the application-mode error page with the new base components (buttons, fields with visible labels and inline errors, callouts)
+- dialogs use a new shared frame; Escape closes dismissible dialogs, keyboard focus stays inside the open dialog and returns to the control that opened it; required dialogs (first-run year, encryption key mismatch) cannot be dismissed
+- animations respect the system reduced-motion setting
+
+### Bug fix
+- a newly added savings item now reliably opens for editing; previously it could stay closed when the refreshed list arrived late
+
+### Improvements
+- added accessible names and dialog semantics to existing controls (dialogs and their close button, PIN overlay, year selector, month cells, remove checkboxes, reorder handles, tag editor, savings item fields and Settings toggles) without changing their appearance
+- moved browser-test selectors to shared role/name-based helpers and added feature-parity regressions with request-payload checks for value editing, details, Arrange/Remove/Tag modes, savings, year operations, export/import dialogs, Settings and encryption dialogs, plus a grid render-time measurement
+
 ## v1.6.3
 
 ### Bug fix

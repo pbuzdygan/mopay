@@ -129,6 +129,8 @@ export function SavingsGoalModal() {
               onKeyDown={(ev) => {
                 if (ev.key === 'Enter') submit();
                 if (ev.key === 'Escape') {
+                  // Escape reverts the target here instead of closing the dialog.
+                  ev.preventDefault();
                   if (editingGoal && typeof editingGoal.targetValue === 'number') {
                     setTargetDraft(formatCurrency(editingGoal.targetValue));
                   } else {

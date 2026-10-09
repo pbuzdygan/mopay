@@ -1,0 +1,45 @@
+/* Inter shipped with the app (frontend/public/fonts), so mockups render with the real UI font. */
+@font-face {
+  font-family: "Inter";
+  src: url("../../../frontend/public/fonts/InterVariable-subset.woff2") format("woff2");
+  font-weight: 100 900; font-display: swap;
+}
+/*
+ * Presentation chrome around each concept (not part of any proposed UI).
+ * Neutral on purpose so it does not compete with the concept being reviewed.
+ */
+.mock-chrome {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  padding: 8px 16px;
+  background: #111214; color: #d9dadf;
+  font: 13px/1.4 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  border-bottom: 1px solid #2a2b30;
+}
+.mock-chrome a { color: #9fa3b0; text-decoration: none; }
+.mock-chrome a:hover { color: #fff; }
+.mock-chrome-title { font-weight: 600; color: #fff; margin-right: 8px; }
+.mock-chrome-title small { font-weight: 400; color: #8b8e99; margin-left: 6px; }
+.mock-chrome-group { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #1d1e22; }
+.mock-chrome-group button {
+  appearance: none; border: 0; background: transparent; color: #a9acb6;
+  font: inherit; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+}
+.mock-chrome-group button:hover { color: #fff; }
+.mock-chrome-group button[aria-pressed="true"] { background: #33353c; color: #fff; }
+.mock-chrome-group button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 1px; }
+.mock-chrome-spacer { flex: 1; }
+
+.mock-notes {
+  max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px;
+  font: 14px/1.6 Inter, system-ui, sans-serif; color: var(--text-2, #555);
+}
+.mock-notes h2 { font-size: 16px; margin: 0 0 8px; color: var(--text-1, #111); }
+.mock-notes ul { margin: 0; padding-left: 20px; }
+.mock-notes li { margin: 4px 0; }
+.mock-notes code { font-size: 12px; padding: 1px 4px; border-radius: 4px; background: rgba(127,127,127,.15); }
+.mock-notes .tag-new {
+  display: inline-block; font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 4px;
+  background: rgba(70,130,255,.14); color: #3b6fd8; margin-right: 4px;
+}
+.mock-screen[hidden], [data-notes][hidden] { display: none !important; }

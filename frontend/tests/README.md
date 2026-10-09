@@ -1,4 +1,4 @@
-# UI transition regression check
+# Browser regression checks
 
 Build the frontend with `npm --prefix frontend run build`, then run:
 
@@ -28,3 +28,11 @@ Search checks cover Expenses/Incomes/Savings filtering, `/` and Ctrl/Cmd+K focus
 Four additional demo scenarios cover desktop/mobile light/dark presentation, failed metadata and retry, public demo PIN, disabled financial editing, read-only details, savings browsing, and demo/normal mode changes with expired cached sessions and independent year selections. Fixtures remain synthetic and API writes are checked separately by backend regressions.
 
 For a full demo generator/API/UI check, install backend dependencies as well and run `node --test frontend/tests/demo-runtime.mjs` with the same Playwright environment. This check copies the backend into a disposable directory, binds only to loopback, generates its own synthetic demo database/key, and verifies desktop/mobile browsing and an XLSX download. It never opens the normal application database. Offline assets remain available, but application mode must be confirmed online before login; the browser security check verifies the Retry flow after reconnecting.
+
+## Shared locators and feature parity
+
+All browser checks import `ui-helpers.mjs`. Its locators use roles, accessible names and a few `data-testid` hooks (`entry-table`, `dialog-backdrop`, `details-backdrop`, `pin-card`) instead of layout classes, so a redesign updates only the helper when a control moves. The `MOPAY_UI_METRICS` capture stays class-based on purpose: it measures the previous design for migration comparisons.
+
+`node --test frontend/tests/ui-parity.mjs` (same Playwright environment, after building) covers the functions listed in the [UI migration parity inventory](../../.ai/plans/final-ledger-ui-migration.md#parity-inventory) that had no browser test: inline month values (including the parsing rules and the currently unsurfaced save failure), totals and group totals, the Ungrouped section, entry/group details with save errors and confirmed removal, Arrange (drag within a group and of groups), Remove and Tag modes, savings goals and items including withdrawals, year creation/deletion and the first-run year dialog, new group, export/template downloads, Settings controls, the encryption notice/key mismatch dialogs and dialog keyboard handling (Escape, focus trap, focus return). A stateful synthetic API records every write, so the checks compare request payloads as well as the rendered result. It runs at desktop light and mobile dark (dialogs in all four combinations); `MOPAY_SCREENSHOTS` also captures these states. XLSX validation, overwrite confirmation and import progress remain a manual check with a synthetic file.
+
+`node --test frontend/tests/grid-render-baseline.mjs` measures how long the Expenses grid with 200 synthetic entries takes from a tab click to a painted grid (first load and cached switches, median of `MOPAY_GRID_RUNS`, default 7). It asserts no thresholds because timings depend on the host; set `MOPAY_GRID_METRICS` to a temporary JSON path and compare builds with `MOPAY_UI_DIST` on the same machine.

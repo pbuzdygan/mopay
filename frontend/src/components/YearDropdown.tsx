@@ -50,9 +50,10 @@ export function YearDropdown({ years, value, onChange, className, triggerClassNa
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={value ? `Working year ${value}` : 'Select working year'}
       >
         {label}
-        <span className="year-trigger-caret opacity-60 text-xs">{open ? "▲" : "▼"}</span>
+        <span className="year-trigger-caret opacity-60 text-xs" aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (

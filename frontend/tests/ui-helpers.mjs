@@ -1,0 +1,89 @@
+// Shared browser-check helpers. Locators use roles, accessible names and a few
+// data-testid hooks instead of layout classes, so a redesign only has to update
+// this file when a control moves (for example tabs to a sidebar).
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { resolve, sep } from 'node:path';
+import { browserSecurityHeaders } from '../../backend/browserSecurity.js';
+
+const require = createRequire(import.meta.url);
+export const { chromium } = require(process.env.MOPAY_PLAYWRIGHT_MODULE || 'playwright');
+export const dist = process.env.MOPAY_UI_DIST ? resolve(process.env.MOPAY_UI_DIST) : resolve(import.meta.dirname, '../dist');
+const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
+
+// Serve a production build file with the backend's enforced browser headers.
+export async function serveAsset(route, url) {
+  const file = resolve(dist, '.' + (url.pathname === '/' ? '/index.html' : url.pathname));
+  assert.ok(file.startsWith(dist + sep));
+  try {
+    const body = await readFile(file);
+    const extension = file.slice(file.lastIndexOf('.'));
+    await route.fulfill({ body, headers: browserSecurityHeaders, contentType: mime[extension] || 'application/octet-stream' });
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    await route.fulfill({ status: 404, body: '' });
+  }
+}
+
+// CSS hooks for in-page sampling (requestAnimationFrame cannot use Playwright locators).
+export const hooks = {
+  table: '[data-testid="entry-table"]',
+  dialog: '[role="dialog"]',
+  dialogBackdrop: '[data-testid="dialog-backdrop"]',
+  detailsBackdrop: '[data-testid="details-backdrop"]',
+  pinCard: '[data-testid="pin-card"]',
+  expandedGroup: 'button[aria-label="Collapse group"]',
+};
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export const ui = {
+  // Sections are tabs today; 'Reports' stays the internal name of Overview (plan D2).
+  section: (page, name) => page.getByRole('tab', { name, exact: true }),
+  openSection: (page, name) => ui.section(page, name).click(),
+  search: (page) => page.getByRole('searchbox'),
+  yearSwitch: (page) => page.getByRole('button', { name: /^(Working year|Select working year)/ }),
+  async selectYear(page, year) {
+    await ui.yearSwitch(page).click();
+    await page.getByRole('option', { name: String(year), exact: true }).click();
+  },
+  appMenu: (page) => page.getByRole('button', { name: 'Menu', exact: true }),
+  async openAppMenuItem(page, item) {
+    await ui.appMenu(page).click();
+    await page.getByRole('button', { name: item, exact: true }).click();
+  },
+  lock: (page) => page.getByRole('button', { name: 'Lock session', exact: true }),
+  themeToggle: (page) => page.getByRole('button', { name: 'Toggle theme', exact: true }),
+  newButton: (page) => page.getByRole('button', { name: 'New', exact: true }),
+  async openNew(page, kind) {
+    await ui.newButton(page).click();
+    await page.getByRole('button', { name: kind, exact: true }).click();
+  },
+  editMenu: (page) => page.getByRole('button', { name: /^Actions/ }),
+  async enterEditMode(page, mode) {
+    await ui.editMenu(page).click();
+    await page.getByRole('button', { name: mode, exact: true }).click();
+  },
+  exitEditMode: (page) => page.getByRole('button', { name: 'Close', exact: true }).click(),
+  removeSelected: (page) => page.getByRole('button', { name: 'Remove selected', exact: true }),
+  dialog: (page, name) => page.getByRole('dialog', name ? { name, exact: true } : undefined),
+  closeDialog: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close dialog', exact: true }),
+  details: (page) => page.getByRole('dialog', { name: /^(Entry|Group) details$/ }),
+  closeDetails: (page) => ui.details(page).getByRole('button', { name: 'Close details', exact: true }),
+  // Clicking an entry or group name opens its details.
+  openDetails: (page, name) => page.getByText(name, { exact: true }).click(),
+  cell: (page, entry, month) => page.getByRole('button', { name: new RegExp(`^${escapeRegExp(entry)}, ${month}: `) }),
+  cellInput: (page, entry, month) => page.getByRole('textbox', { name: `${entry}, ${month}`, exact: true }),
+  collapseGroup: (page) => page.getByRole('button', { name: 'Collapse group', exact: true }),
+  expandGroup: (page) => page.getByRole('button', { name: 'Expand group', exact: true }),
+  annualTotals: (page) => page.getByRole('group', { name: 'Annual totals', exact: true }),
+  demoBanner: (page) => page.getByRole('status').filter({ hasText: 'Demo mode' }),
+  pinDialog: (page) => page.getByRole('dialog', { name: 'Enter PIN', exact: true }),
+  pinInput: (page) => page.getByLabel('PIN', { exact: true }),
+  async unlock(page, pin) {
+    await ui.pinInput(page).fill(pin);
+    await page.getByRole('button', { name: 'Enter', exact: true }).click();
+  },
+  goal: (page, name) => page.getByRole('button', { name: new RegExp(`^${escapeRegExp(name)} `) }),
+};

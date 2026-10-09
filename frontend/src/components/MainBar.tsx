@@ -52,7 +52,8 @@ export function MainBar() {
       if (!shortcut || event.defaultPrevented || event.isComposing || event.repeat) return;
       const target = event.target;
       if (target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
-      if (!useAppStore.getState().pinSession || document.querySelector('.modal-overlay-premium, .table-context-panel, .pin-guard-overlay')) return;
+      // Dialogs, entry details and the PIN overlay are all aria-modal.
+      if (!useAppStore.getState().pinSession || document.querySelector('[aria-modal="true"]')) return;
       const input = [mobileSearchRef.current, desktopSearchRef.current].find(node => node && node.getClientRects().length);
       if (!input || input.disabled || !input.getClientRects().length) return;
       event.preventDefault();

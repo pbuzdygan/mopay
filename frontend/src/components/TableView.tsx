@@ -65,7 +65,7 @@ const GroupRowSortable = memo(function GroupRowSortable({
           className="order-handle group-order-handle mode-enter"
           {...attributes}
           {...listeners}
-          aria-label="Reorder group"
+          aria-label={`Reorder group ${group.name}`}
         >
           <span className="order-handle-icon" aria-hidden="true" />
         </button>
@@ -180,7 +180,7 @@ const Row = memo(function Row({
             {...listeners}
             className="order-handle mode-enter"
             style={{ background: 'var(--panel-subtle)' }}
-            aria-label="Reorder"
+            aria-label={`Reorder ${e.name}`}
           >
             <span className="order-handle-icon" aria-hidden="true" />
           </button>
@@ -188,6 +188,7 @@ const Row = memo(function Row({
           <input
             type="checkbox"
             className="remove-checkbox mode-enter"
+            aria-label={`Select ${e.name}`}
             checked={isRemoveSelected}
             onChange={() => toggleRemoveId(e.id)}
           />
@@ -205,11 +206,13 @@ const Row = memo(function Row({
         const tag = tags?.[m];
         const tagText = tag?.text?.trim();
         const tagHasColor = Boolean(tag && tag.color !== 'none');
+        const valueText = monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0);
         return (
         <div key={m} className="table-month-cell text-right">
           {(canEditValues && editingMonth === m) ? (
             <input
               className="table-input"
+              aria-label={`${e.name}, ${m}`}
               value={monthDraft}
               onChange={(ev)=> {
                 const value = ev.target.value.replace(/[^\d,.\s-]/g, '');
@@ -230,6 +233,8 @@ const Row = memo(function Row({
             <div className={`table-value-wrapper ${tagHasColor ? 'has-tag' : ''}`}>
               <button
                 className={`table-value ${tagHasColor ? `has-tag tag-color-${tag!.color}` : ''} ${tagText ? 'has-note' : ''} ${isTagMode ? 'is-tag-target' : ''}`}
+                // Name includes the visible value; tests locate cells by entry and month.
+                aria-label={`${e.name}, ${m}: ${valueText}`}
                 onClick={(ev)=> {
                 if (isTagMode) {
                   onRequestTag(e.id, m, ev.currentTarget, tag);
@@ -240,7 +245,7 @@ const Row = memo(function Row({
                 setMonthDraft(monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrencyPlain(monthNumbers[m] ?? 0));
               }}
             >
-                {monthNumbers[m] === null || monthNumbers[m] === undefined ? '-' : formatCurrency(monthNumbers[m] ?? 0)}
+                {valueText}
               </button>
               {tagText && (
                 <span className="tag-tooltip">{tagText}</span>
@@ -550,6 +555,7 @@ export function TableView() {
           <div className="overflow-x-auto">
             <div
               className="table-content inline-block min-w-full space-y-3 px-3 sm:px-4 py-4"
+              data-testid="entry-table"
               style={{ width: 'max-content' }}
             >
             <TableHeaderRow gridTemplate={GRID_TEMPLATE} tab={tableTab} currentMonth={currentMonth} />
@@ -683,6 +689,7 @@ export function TableView() {
                             <input
                               type="checkbox"
                               className="remove-checkbox remove-checkbox-group mode-enter"
+                              aria-label={`Select group ${g.name}`}
                               checked={groupRemoveSelection.has(g.id)}
                               onChange={() => toggleRemoveGroupId(g.id)}
                             />

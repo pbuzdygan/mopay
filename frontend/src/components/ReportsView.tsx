@@ -144,7 +144,7 @@ export function ReportsView() {
       <Surface variant="layer" className="reports-story-hero">
         <div className="reports-story-overview">
           <div className="reports-financial-overview">
-            <div className="reports-story-metrics" aria-label="Annual totals">
+            <div className="reports-story-metrics" role="group" aria-label="Annual totals">
               <StoryMetric
                 comparison={comparison?.income}
                 comparisonYear={comparison ? previousYear : null}

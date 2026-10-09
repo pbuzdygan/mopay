@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept D · Calm home</title>
+<link rel="stylesheet" href="shared/chrome.css">
+<style>
+/* ---------- Design tokens (Concept D, warm and calm) ---------- */
+:root {
+  --bg: #F6F5F2; --surface: #FFFFFF; --surface-2: #FAF9F7; --surface-3: #EFEDE8;
+  --border: #E5E2DB; --border-strong: #D2CEC5;
+  --text-1: #1F1D1A; --text-2: #57534C; --text-3: #6E6A61;
+  --accent: #3A5A9E; --accent-hover: #2F4C88; --on-accent: #FFFFFF; --accent-soft: rgba(58, 90, 158, .09); --accent-text: #34528F;
+  --focus: rgba(58, 90, 158, .45);
+  --success: #2E7D5B; --warning: #A2650C; --danger: #B8433A;
+  --success-soft: rgba(46,125,91,.10); --warning-soft: rgba(162,101,12,.11); --danger-soft: rgba(184,67,58,.09);
+  --income: #2E7D5B; --expense: #C0663F;
+  --tag-grey: #8F8A80; --tag-green: #3C9A6C; --tag-orange: #D9892A; --tag-red: #CF5348;
+  --shadow-pop: 0 12px 32px rgba(40, 32, 20, .12), 0 1px 3px rgba(40, 32, 20, .06);
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #161513; --surface: #1D1C19; --surface-2: #23221F; --surface-3: #2C2A26;
+  --border: #302E29; --border-strong: #403D37;
+  --text-1: #EDEBE6; --text-2: #ADA89E; --text-3: #959086;
+  --accent: #91AAE3; --accent-hover: #A7BCEB; --on-accent: #111A2E; --accent-soft: rgba(145, 170, 227, .13); --accent-text: #A9BEEC;
+  --focus: rgba(145, 170, 227, .5);
+  --success: #5CC293; --warning: #E2A852; --danger: #EE7A6E;
+  --success-soft: rgba(92,194,147,.12); --warning-soft: rgba(226,168,82,.13); --danger-soft: rgba(238,122,110,.12);
+  --income: #5CC293; --expense: #E59468;
+  --shadow-pop: 0 14px 36px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-1); font: 15px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.i { width: 20px; height: 20px; flex: none; } .i-sm { width: 16px; height: 16px; flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-3); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- Header ---------- */
+.header { background: var(--surface); border-bottom: 1px solid var(--border); }
+.header-in { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.head-top { display: flex; align-items: center; gap: 12px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: .01em; }
+.brand-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; }
+.head-top .right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.nav { display: flex; gap: 28px; }
+.nav button { height: 44px; border: 0; background: none; padding: 0; color: var(--text-2); font-weight: 500; border-bottom: 2px solid transparent; cursor: pointer; }
+.nav button:hover { color: var(--text-1); }
+.nav button[aria-current="page"] { color: var(--text-1); font-weight: 600; border-bottom-color: var(--text-1); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: var(--r-md); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-1); font-weight: 550; cursor: pointer; white-space: nowrap; transition: background 150ms, border-color 150ms; }
+.btn:hover { background: var(--surface-2); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.btn-ghost:hover { background: var(--surface-3); color: var(--text-1); }
+.btn-icon { width: 38px; padding: 0; justify-content: center; }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 14px; }
+.btn-danger { background: var(--surface); border-color: var(--danger); color: var(--danger); }
+.select { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); font-weight: 600; cursor: pointer; }
+
+/* ---------- Page ---------- */
+.page { max-width: 1200px; margin: 0 auto; padding: 32px 24px 48px; }
+.page-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+.page-head h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 650; letter-spacing: -.015em; }
+.page-head p { margin: 4px 0 0; color: var(--text-2); }
+.page-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); }
+.stepper button { width: 36px; height: 36px; border: 0; background: none; display: grid; place-items: center; cursor: pointer; color: var(--text-2); }
+.stepper span { padding: 0 8px; font-weight: 600; min-width: 128px; text-align: center; }
+
+.hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 24px; }
+.hero > div { padding: 24px 28px; }
+.hero > div + div { border-left: 1px solid var(--border); }
+.eyebrow { font-size: 13px; color: var(--text-3); font-weight: 500; margin: 0 0 6px; }
+.big { font-size: 40px; line-height: 1.1; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 0; }
+.lead { margin: 8px 0 20px; color: var(--text-2); }
+.split2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.metric dt { font-size: 13px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.metric dd { margin: 2px 0 0; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.metric .cmp { font-size: 13px; color: var(--text-3); margin-top: 2px; }
+.sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.meter { position: relative; height: 6px; border-radius: 3px; background: var(--surface-3); margin-top: 8px; }
+.meter span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.meter i { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text-2); border-radius: 1px; }
+.year-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.year-list li { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.year-list li:last-child { border-bottom: 0; }
+.year-list li span:first-child { color: var(--text-2); }
+.year-list li b { font-weight: 600; }
+
+.cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; }
+.block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px 24px; margin-bottom: 24px; }
+.block-h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.block-h h2 { margin: 0; font-size: 18px; font-weight: 650; }
+.block-h p { margin: 0; color: var(--text-3); font-size: 13px; }
+.block-h .link { margin-left: auto; font-size: 14px; color: var(--accent-text); border: 0; background: none; cursor: pointer; font-weight: 550; }
+.callout { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: var(--r-md); background: var(--accent-soft); margin-bottom: 24px; }
+.callout .i { color: var(--accent-text); }
+.callout p { margin: 0; flex: 1; }
+.callout b { font-weight: 600; }
+.netbars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; height: 150px; align-items: end; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
+.netbars div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+.netbars span { width: 100%; max-width: 34px; border-radius: 4px 4px 0 0; background: var(--success); opacity: .55; }
+.netbars .cur span { opacity: 1; }
+.netbars .none span { background: transparent; border: 1px dashed var(--border-strong); border-bottom: 0; height: 30%; opacity: 1; }
+.netbars small { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.netl { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; margin-top: 6px; text-align: center; font-size: 12px; color: var(--text-3); }
+.netl .cur { color: var(--text-1); font-weight: 650; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.rows li:last-child { border-bottom: 0; }
+.rows .v { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.rows .s { grid-column: 1 / -1; font-size: 13px; color: var(--text-3); display: flex; align-items: center; gap: 8px; }
+.rows .bar { flex: 1; height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.rows .bar span { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.notes li { grid-template-columns: auto 1fr auto; align-items: center; }
+.notes .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--tag-c); }
+.notes .when { font-size: 13px; color: var(--text-3); }
+.notes .t b { font-weight: 600; display: block; font-size: 14px; }
+.notes .t span { font-size: 14px; color: var(--text-2); }
+
+/* Savings two-pane */
+.sv { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+.goal-nav { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.goal-nav button { display: block; width: 100%; padding: 14px 18px; border: 0; border-bottom: 1px solid var(--border); background: none; text-align: left; cursor: pointer; }
+.goal-nav button:last-child { border-bottom: 0; }
+.goal-nav button:hover { background: var(--surface-2); }
+.goal-nav button[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.goal-nav .n { display: flex; justify-content: space-between; font-weight: 600; }
+.goal-nav .n span { font-weight: 500; color: var(--text-3); font-size: 14px; font-variant-numeric: tabular-nums; }
+.goal-nav .p { height: 5px; border-radius: 3px; background: var(--surface-3); margin: 8px 0 4px; overflow: hidden; }
+.goal-nav .p span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.goal-nav small { color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.goal-detail { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.gd-head { display: flex; align-items: flex-start; gap: 16px; padding: 24px 28px 20px; border-bottom: 1px solid var(--border); }
+.gd-head h2 { margin: 0; font-size: 22px; }
+.gd-head .right { margin-left: auto; display: flex; gap: 6px; }
+.gd-progress { padding: 20px 28px; border-bottom: 1px solid var(--border); }
+.gd-progress .row { display: flex; align-items: baseline; gap: 12px; }
+.gd-progress .big { font-size: 32px; }
+.gd-progress .pbar { height: 10px; border-radius: 5px; background: var(--surface-3); margin: 14px 0 8px; overflow: hidden; }
+.gd-progress .pbar span { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+.gd-progress .facts { display: flex; gap: 32px; font-size: 14px; color: var(--text-2); }
+.gd-progress .facts b { color: var(--text-1); font-variant-numeric: tabular-nums; }
+.add-form { display: grid; grid-template-columns: 1fr 160px auto; gap: 10px; padding: 20px 28px; border-bottom: 1px solid var(--border); background: var(--surface-2); align-items: end; }
+.lbl { display: block; font-size: 13px; color: var(--text-2); font-weight: 550; margin-bottom: 6px; }
+.inp { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); outline: 0; font-size: 16px; }
+.inp:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.radio-row { grid-column: 1 / -1; display: flex; gap: 16px; font-size: 14px; color: var(--text-2); }
+.radio-row label { display: flex; gap: 6px; align-items: center; }
+.radio-row input { accent-color: var(--accent); }
+table.hist { width: 100%; border-collapse: collapse; font-size: 15px; }
+.hist th { text-align: left; font-size: 13px; color: var(--text-3); font-weight: 550; padding: 12px 28px 8px; border-bottom: 1px solid var(--border); }
+.hist td { padding: 12px 28px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.hist tr:last-child td { border-bottom: 0; }
+.hist .r { text-align: right; }
+.badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; }
+.badge-warn { background: var(--warning-soft); color: var(--warning); }
+
+/* Settings page */
+.set { display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: start; }
+.set-nav { position: sticky; top: 64px; display: flex; flex-direction: column; gap: 2px; }
+.set-nav button { text-align: left; height: 38px; padding: 0 12px; border: 0; border-radius: var(--r-sm); background: none; color: var(--text-2); cursor: pointer; }
+.set-nav button[aria-current="true"] { background: var(--surface-3); color: var(--text-1); font-weight: 600; }
+.set-sec { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 24px; }
+.set-sec > h2 { margin: 0; padding: 18px 24px 4px; font-size: 17px; }
+.set-sec > p { margin: 0; padding: 0 24px 8px; font-size: 14px; color: var(--text-3); }
+.set-row { display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-top: 1px solid var(--border); }
+.set-row:first-of-type { border-top: 0; }
+.set-row .t { flex: 1; }
+.set-row .t b { display: block; font-weight: 600; }
+.set-row .t span { font-size: 14px; color: var(--text-2); }
+.seg { display: inline-flex; padding: 3px; border-radius: var(--r-md); background: var(--surface-3); gap: 2px; }
+.seg button { height: 32px; padding: 0 14px; border: 0; border-radius: 6px; background: none; color: var(--text-2); font-weight: 550; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.switch { position: relative; width: 44px; height: 26px; border-radius: 13px; background: var(--border-strong); border: 0; cursor: pointer; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 150ms; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+.set-sec.danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.set-sec.danger > h2 { color: var(--danger); }
+.ok { display: inline-flex; align-items: center; gap: 6px; color: var(--success); font-weight: 600; font-size: 14px; }
+
+/* Lock screen */
+.lock { min-height: calc(100vh - 41px); display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.lock-card { width: 360px; max-width: 100%; text-align: center; }
+.lock-card .brand-mark { width: 52px; height: 52px; border-radius: 14px; font-size: 24px; margin: 0 auto 16px; }
+.lock-card h1 { margin: 0; font-size: 22px; }
+.lock-card p { margin: 6px 0 24px; color: var(--text-2); }
+.pin-dots { display: flex; justify-content: center; gap: 12px; height: 20px; margin-bottom: 8px; }
+.pin-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--text-1); }
+.pin-dots span.empty { background: transparent; border: 2px solid var(--border-strong); }
+.pin-help { font-size: 13px; color: var(--text-3); margin-bottom: 20px; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.keypad button { height: 60px; border-radius: 30px; border: 1px solid var(--border); background: var(--surface); font-size: 22px; font-weight: 550; cursor: pointer; display: grid; place-items: center; }
+.keypad button:hover { background: var(--surface-2); }
+.keypad button.blank { visibility: hidden; }
+.lock-card .btn-primary { width: 100%; height: 48px; justify-content: center; font-size: 16px; }
+.lock-foot { margin-top: 20px; font-size: 13px; color: var(--text-3); display: flex; justify-content: center; gap: 16px; }
+
+@media (max-width: 960px) {
+  .hero, .cols, .sv, .set { grid-template-columns: 1fr; }
+  .hero > div + div { border-left: 0; border-top: 1px solid var(--border); }
+  .set-nav { position: static; flex-direction: row; overflow-x: auto; }
+  .add-form { grid-template-columns: 1fr; }
+  .callout { flex-wrap: wrap; }
+  .nav { gap: 18px; overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="mock-chrome">
+  <span class="mock-chrome-title">Concept D · Calm home <small>overview-first, readable for every household member</small></span>
+  <div class="mock-chrome-group" role="group" aria-label="Screen">
+    <button data-screen-link="overview">Overview</button>
+    <button data-screen-link="savings">Savings goal</button>
+    <button data-screen-link="settings">Settings page</button>
+    <button data-screen-link="lock">PIN screen</button>
+  </div>
+  <div class="mock-chrome-spacer"></div>
+  <div class="mock-chrome-group" role="group" aria-label="Theme">
+    <button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button>
+  </div>
+  <a href="index.html">All concepts</a>
+</div>
+
+<section class="mock-screen" id="screen-overview"></section>
+<section class="mock-screen" id="screen-savings" hidden></section>
+<section class="mock-screen" id="screen-settings" hidden></section>
+<section class="mock-screen" id="screen-lock" hidden></section>
+
+<div class="mock-notes">
+  <div data-notes="overview">
+    <h2>Overview – answers "how are we doing?" in five seconds</h2>
+    <ul>
+      <li><b>Information architecture</b>: <i>Overview · Expenses · Incomes · Savings</i>. Today's <b>Reports become Overview</b> and open first. Every current Reports element is kept (income/expenses/net with year-over-year change, month-by-month, where money went, top entries, predictability, savings overview) – Overview shows the summary, month by month, where money went and savings; <b>top entries and predictability move to the <i>Full analysis</i> page</b> (linked, not mocked here).</li>
+      <li><b>Hero</b>: the current month's net result as the single most important number, in a sentence ("you kept 45% of income"), then the year so far. A marker on each meter shows the monthly average for context (§21 single clear metric).</li>
+      <li><span class="tag-new">Better</span><b>Next step prompt</b>: when a month of the working year has no values yet (here December), the overview says how many entries are missing and offers <i>Fill December</i>, opening Expenses on that month.</li>
+      <li><span class="tag-new">Better</span><b>Notes from tags</b>: all tag notes of the year in one list, newest first, each linking to its cell. Today notes are visible only by hovering individual cells.</li>
+      <li>Warmer neutrals, 15px body text, larger headings and more whitespace – calmer for occasional users, while tables elsewhere stay compact (§35).</li>
+    </ul>
+  </div>
+  <div data-notes="savings" hidden>
+    <h2>Savings – list + detail</h2>
+    <ul>
+      <li>Goals on the left (master), selected goal on the right (detail) – avoids long accordion pages (§39 list → details).</li>
+      <li><span class="tag-new">Better</span><b>Add contribution</b> form directly in the goal: amount, note and type (<i>Contribution</i> / <i>Temporary withdrawal</i>). Same savings item model as today; withdrawal = negative amount.</li>
+      <li>Remaining amount and "goals without target" are explicit. Edit/delete goal stay in the header; item actions on hover.</li>
+    </ul>
+  </div>
+  <div data-notes="settings" hidden>
+    <h2>Settings as a page, not a modal</h2>
+    <ul>
+      <li>Consolidates the hamburger menu: <i>Year operations, Import, Export, Settings, Release info</i> become sections of one page with in-page navigation (§41). Fewer modals, clearer consequences.</li>
+      <li>Existing settings: group totals, view density (Normal/Compact), theme, lock session, release check. <span class="tag-new">Better</span> Theme gains <i>System</i> (follows OS).</li>
+      <li>Import keeps template download, validation and overwrite confirmation (shown as a step flow after choosing a file). Year deletion lives in a separated <b>Danger zone</b>.</li>
+      <li>Demo mode: Year operations and Import sections show a read-only explanation instead of disappearing silently.</li>
+    </ul>
+  </div>
+  <div data-notes="lock" hidden>
+    <h2>PIN screen</h2>
+    <ul>
+      <li>Centred, quiet unlock: dots grow with input (PIN length 4–8 is not revealed in advance), on-screen keypad for touch, physical keyboard works as usual.</li>
+      <li>Errors are explained in words under the dots (§24), focus stays in the field. Theme follows the saved preference so the screen does not flash.</li>
+    </ul>
+  </div>
+</div>
+
+<script src="shared/data.js"></script>
+<script src="shared/icons.js"></script>
+<script>
+const D = window.MOPAY_DEMO;
+const { fmt, esc, MONTHS, MONTHS_LONG, CURRENT_MONTH: CM } = D;
+
+function header(active) {
+  return `<header class="header"><div class="header-in">
+    <div class="head-top"><div class="brand"><span class="brand-mark">M</span>MOPAY</div>
+      <div class="right"><button class="select" aria-label="Working year">2026 ${icon('chevron-down', 'i-sm')}</button>
+        <button class="btn btn-ghost btn-icon" aria-label="Search">${icon('search')}</button>
+        <button class="btn btn-ghost btn-icon" aria-label="Settings">${icon('settings')}</button>
+        <button class="btn btn-ghost btn-icon" aria-label="Lock session">${icon('lock')}</button></div></div>
+    <nav class="nav" aria-label="Sections">${['Overview', 'Expenses', 'Incomes', 'Savings'].map((n) => `<button ${n === active ? 'aria-current="page"' : ''}>${n}</button>`).join('')}</nav>
+  </div></header>`;
+}
+
+function overview() {
+  const ti = D.monthTotals(D.incomes), te = D.monthTotals(D.expenses);
+  const inc = ti[CM], exp = te[CM], net = inc - exp;
+  const avgInc = D.rowAvg(ti), avgExp = D.rowAvg(te);
+  const yInc = D.rowSum(ti), yExp = D.rowSum(te);
+  const nets = MONTHS.map((m, i) => (ti[i] !== null && te[i] !== null ? ti[i] - te[i] : null));
+  const maxNet = Math.max(...nets.filter((x) => x !== null));
+  const groups = D.expenses.map((g) => ({ n: g.name, v: D.rowSum(D.groupTotals(g)) })).sort((a, b) => b.v - a.v);
+  const tags = [];
+  [...D.expenses, ...D.incomes].forEach((g) => g.entries.forEach((e) => Object.entries(e.tags || {}).forEach(([m, t]) => tags.push({ e: e.name, m: +m, ...t }))));
+  tags.sort((a, b) => b.m - a.m);
+  return header('Overview') + `<div class="page">
+    <div class="page-head"><div><h1>Overview</h1><p>Your household finances for 2026</p></div>
+      <div class="right"><div class="stepper"><button aria-label="Previous month">${icon('chevron-left', 'i-sm')}</button><span>October 2026</span><button aria-label="Next month">${icon('chevron-right', 'i-sm')}</button></div></div></div>
+
+    <div class="callout">${icon('calendar')}<p><b>December is still empty.</b> 12 entries have no December values yet; October and November are complete.</p><button class="btn btn-sm">Fill December</button></div>
+
+    <div class="hero">
+      <div><p class="eyebrow">October net result</p><p class="big" style="color:var(--success)">${fmt(net, { signed: true })}</p>
+        <p class="lead">You kept <b>${Math.round((net / inc) * 100)}%</b> of this month's income.</p>
+        <dl class="split2">
+          <div class="metric"><dt><span class="sw" style="background:var(--income)"></span>Income</dt><dd>${fmt(inc)}</dd>
+            <div class="meter"><span style="width:${(inc / 12000) * 100}%;background:var(--income)"></span><i style="left:${(avgInc / 12000) * 100}%" title="Monthly average"></i></div><div class="cmp">Average ${fmt(avgInc)}</div></div>
+          <div class="metric"><dt><span class="sw" style="background:var(--expense)"></span>Expenses</dt><dd>${fmt(exp)}</dd>
+            <div class="meter"><span style="width:${(exp / 12000) * 100}%;background:var(--expense)"></span><i style="left:${(avgExp / 12000) * 100}%" title="Monthly average"></i></div><div class="cmp">Average ${fmt(avgExp)}</div></div>
+        </dl></div>
+      <div><p class="eyebrow">2026 so far</p><p class="big" style="font-size:30px">${fmt(yInc - yExp, { signed: true })}</p>
+        <ul class="year-list"><li><span>Income</span><b>${fmt(yInc)} <small class="muted" style="font-weight:500">▲ 6,2% vs 2025</small></b></li>
+          <li><span>Expenses</span><b>${fmt(yExp)} <small class="muted" style="font-weight:500">▲ 3,4% vs 2025</small></b></li>
+          <li><span>Saved in goals</span><b>${fmt(D.goals.reduce((a, g) => a + D.goalBalance(g), 0))}</b></li></ul></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <div class="block"><div class="block-h"><h2>Month by month</h2><p>Net result after expenses</p><button class="link">Full analysis →</button></div>
+          <div class="netbars">${nets.map((n, i) => `<div class="${i === CM ? 'cur' : ''} ${n === null ? 'none' : ''}"><small>${n === null ? '' : fmt(n / 1000, { decimals: 1 }) + 'k'}</small><span style="height:${n === null ? 30 : (n / maxNet) * 85}%"></span></div>`).join('')}</div>
+          <div class="netl">${MONTHS.map((m, i) => `<span class="${i === CM ? 'cur' : ''}">${m}</span>`).join('')}</div>
+        </div>
+        <div class="block"><div class="block-h"><h2>Notes from tags</h2><p>${tags.length} notes this year</p></div>
+          <ul class="rows notes">${tags.map((t) => `<li style="--tag-c:var(--tag-${t.color})"><span class="dot"></span><span class="t"><b>${esc(t.e)}</b><span>${esc(t.text)}</span></span><span class="when">${MONTHS_LONG[t.m]}</span></li>`).join('')}</ul></div>
+      </div>
+      <div>
+        <div class="block"><div class="block-h"><h2>Where money went</h2><p>2026</p></div>
+          <ul class="rows">${groups.map((g) => `<li><span>${esc(g.n)}</span><span class="v">${fmt(g.v)}</span><span class="s"><span class="bar"><span style="width:${(g.v / yExp) * 100}%;background:var(--expense)"></span></span>${Math.round((g.v / yExp) * 100)}%</span></li>`).join('')}</ul></div>
+        <div class="block"><div class="block-h"><h2>Savings goals</h2><button class="link">All goals →</button></div>
+          <ul class="rows">${D.goals.map((g) => { const b = D.goalBalance(g); const p = g.target ? Math.min(100, (b / g.target) * 100) : null; return `<li><span>${esc(g.name)}</span><span class="v">${fmt(b)}</span><span class="s">${p !== null ? `<span class="bar"><span style="width:${p}%"></span></span>${Math.round(p)}% of ${fmt(g.target, { decimals: 0 })}` : 'No target set'}</span></li>`; }).join('')}</ul></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function savings() {
+  const g = D.goals[1];
+  const bal = D.goalBalance(g);
+  return header('Savings') + `<div class="page">
+    <div class="page-head"><div><h1>Savings</h1><p>4 goals · ${fmt(D.goals.reduce((a, x) => a + D.goalBalance(x), 0))} saved</p></div><div class="right"><button class="btn btn-primary">${icon('plus', 'i-sm')}New goal</button></div></div>
+    <div class="sv">
+      <nav class="goal-nav" aria-label="Goals">${D.goals.map((x) => { const b = D.goalBalance(x); const p = x.target ? Math.min(100, (b / x.target) * 100) : null; return `<button ${x.id === g.id ? 'aria-current="true"' : ''}><span class="n">${esc(x.name)}<span>${p !== null ? Math.round(p) + '%' : ''}</span></span>${p !== null ? `<div class="p"><span style="width:${p}%"></span></div>` : '<div style="height:9px"></div>'}<small>${fmt(b)} ${x.target ? 'of ' + fmt(x.target) : '· no target'}</small></button>`; }).join('')}</nav>
+      <article class="goal-detail">
+        <div class="gd-head"><div><h2>${esc(g.name)}</h2><span class="muted">Target ${fmt(g.target)} · 2026</span></div><div class="right"><button class="btn btn-sm">${icon('edit', 'i-sm')}Edit goal</button><button class="btn btn-ghost btn-icon" aria-label="More goal actions">${icon('dots')}</button></div></div>
+        <div class="gd-progress"><div class="row"><p class="big num">${fmt(bal)}</p><span class="muted">of ${fmt(g.target)}</span><span style="margin-left:auto;font-weight:650;font-size:20px">${Math.round((bal / g.target) * 100)}%</span></div>
+          <div class="pbar"><span style="width:${(bal / g.target) * 100}%"></span></div>
+          <div class="facts"><span>Remaining <b>${fmt(g.target - bal)}</b></span><span>Contributions <b>${fmt(6400)}</b></span><span>Withdrawals <b>${fmt(-600)}</b></span></div></div>
+        <form class="add-form" onsubmit="return false">
+          <div><label class="lbl" for="an">Note</label><input id="an" class="inp" placeholder="e.g. October transfer"></div>
+          <div><label class="lbl" for="aa">Amount</label><input id="aa" class="inp" inputmode="decimal" placeholder="0,00" style="text-align:right"></div>
+          <button class="btn btn-primary" style="height:40px">Add</button>
+          <div class="radio-row" role="radiogroup" aria-label="Type"><label><input type="radio" name="t" checked> Contribution</label><label><input type="radio" name="t"> Temporary withdrawal</label></div>
+        </form>
+        <table class="hist"><thead><tr><th>Source or note</th><th></th><th class="r">Amount</th></tr></thead><tbody>
+          ${g.items.map((it) => `<tr><td>${esc(it.name)}</td><td>${it.withdrawal ? '<span class="badge badge-warn">Temporary withdrawal</span>' : ''}</td><td class="r" style="${it.value < 0 ? 'color:var(--danger)' : ''}">${fmt(it.value, { signed: true })}</td></tr>`).join('')}
+          <tr><td><b>Current balance</b></td><td></td><td class="r"><b>${fmt(bal)}</b></td></tr></tbody></table>
+      </article>
+    </div></div>`;
+}
+
+function settings() {
+  const row = (t, d, ctl) => `<div class="set-row"><div class="t"><b>${t}</b><span>${d}</span></div>${ctl}</div>`;
+  return header('') + `<div class="page">
+    <div class="page-head"><div><h1>Settings</h1><p>Preferences, data and security for this MOPAY installation</p></div></div>
+    <div class="set">
+      <nav class="set-nav" aria-label="Settings sections">${['Display', 'Security', 'Years', 'Import & export', 'About', 'Danger zone'].map((s, i) => `<button ${i === 0 ? 'aria-current="true"' : ''}>${s}</button>`).join('')}</nav>
+      <div>
+        <section class="set-sec"><h2>Display</h2>
+          ${row('Theme', 'Applies to this browser only.', `<div class="seg" role="group" aria-label="Theme"><button aria-pressed="false">${icon('sun', 'i-sm')}Light</button><button aria-pressed="false">${icon('moon', 'i-sm')}Dark</button><button aria-pressed="true">System</button></div>`)}
+          ${row('Table density', 'Compact shows more rows on screen.', `<div class="seg" role="group" aria-label="Density"><button aria-pressed="true">Normal</button><button aria-pressed="false">Compact</button></div>`)}
+          ${row('Show group totals', 'Display subtotals in group rows of Expenses and Incomes.', `<button class="switch" role="switch" aria-checked="true" aria-label="Show group totals"></button>`)}
+        </section>
+        <section class="set-sec"><h2>Security</h2>
+          ${row('Lock session', 'Ends the current session. The PIN is required to open MOPAY again.', `<button class="btn">${icon('lock', 'i-sm')}Lock now</button>`)}
+          ${row('Encryption', 'Monetary values are stored encrypted with the server key.', `<span class="ok">${icon('shield', 'i-sm')}Active</span>`)}
+        </section>
+        <section class="set-sec"><h2>Years</h2><p>Working year is selected in the header.</p>
+          ${row('Create year', 'Start a new year, optionally with the entries and groups of 2026.', `<div style="display:flex;gap:8px"><input class="inp" style="width:100px" value="2027" aria-label="Year"><button class="btn">Create</button></div>`)}
+          ${row('Existing years', '2024 · 2025 · 2026', `<span class="muted" style="font-size:14px">Delete in Danger zone</span>`)}
+        </section>
+        <section class="set-sec"><h2>Import &amp; export</h2>
+          ${row('Export data', 'Download selected years as an XLSX workbook. Nothing leaves this server otherwise.', `<button class="btn">${icon('export', 'i-sm')}Export…</button>`)}
+          ${row('Import data', 'Upload a filled template. You review a summary and confirm before anything is overwritten.', `<div style="display:flex;gap:8px"><button class="btn btn-ghost">Download template</button><button class="btn">${icon('import', 'i-sm')}Import…</button></div>`)}
+        </section>
+        <section class="set-sec"><h2>About</h2>
+          ${row('MOPAY v2.6.0', 'Release channel: main', `<span class="ok">${icon('check', 'i-sm')}Up to date</span>`)}
+        </section>
+        <section class="set-sec danger"><h2>Danger zone</h2>
+          ${row('Delete years', 'Permanently removes entries, tags and savings of the selected years. Export a backup first.', `<button class="btn btn-danger">${icon('trash', 'i-sm')}Delete years…</button>`)}
+        </section>
+      </div>
+    </div></div>`;
+}
+
+function lock() {
+  return `<div class="lock"><div class="lock-card">
+    <div class="brand-mark">M</div><h1>MOPAY is locked</h1><p>Enter your PIN to continue.</p>
+    <div class="pin-dots" aria-label="4 digits entered"><span></span><span></span><span></span><span></span><span class="empty"></span></div>
+    <div class="pin-help">4–8 digits · you can also type on the keyboard</div>
+    <div class="keypad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button>${n}</button>`).join('')}<button class="blank" tabindex="-1" aria-hidden="true"></button><button>0</button><button aria-label="Delete digit">${icon('backspace')}</button></div>
+    <button class="btn btn-primary">Unlock</button>
+    <div class="lock-foot"><span>v2.6.0</span><span>Encrypted</span></div>
+  </div></div>`;
+}
+
+document.getElementById('screen-overview').innerHTML = overview();
+document.getElementById('screen-savings').innerHTML = savings();
+document.getElementById('screen-settings').innerHTML = settings();
+document.getElementById('screen-lock').innerHTML = lock();
+MockupChrome.init();
+</script>
+</body>
+</html>

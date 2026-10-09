@@ -22,6 +22,7 @@ import { EncryptionMigrationModal } from "./components/modals/EncryptionMigratio
 import { EncryptionKeyMismatchModal } from "./components/modals/EncryptionKeyMismatchModal";
 import AddToHomeScreen from "./components/AddToHomeScreen";
 import { ReleaseStatusProvider } from "./components/ReleaseStatusProvider";
+import { Button, Callout } from "./components/ui";
 
 // style globalne
 import "./styles/global.css";
@@ -106,9 +107,16 @@ export default function App() {
     })();
   }, [demo, setMigrationNotice, setKeyMismatch]);
 
-  if (demo === null) return <div className="app-container py-6" role="status">
-    {runtimeError ? <>Could not load application mode. <button className="btn" onClick={() => setAttempt(value => value + 1)}>Retry</button></> : 'Loading Mopay…'}
-  </div>;
+  if (demo === null) return <main className="ui-status-page">
+    <div className="ui-status-card" role="status">
+      {runtimeError ? <>
+        <Callout tone="danger" title="Could not load application mode.">
+          <p>Check that the Mopay server is reachable, then try again.</p>
+        </Callout>
+        <Button icon="refresh" onClick={() => setAttempt(value => value + 1)}>Retry</Button>
+      </> : <p className="ui-status-text">Loading Mopay…</p>}
+    </div>
+  </main>;
 
   return (
     <div className="min-h-screen">

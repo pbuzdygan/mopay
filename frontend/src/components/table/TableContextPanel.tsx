@@ -122,6 +122,7 @@ export function TableContextPanel({
             type="button"
             aria-label="Close details"
             className="table-context-backdrop"
+            data-testid="details-backdrop"
             // Keep opacity in the same frame loop as the panel (see ModalBase).
             style={{ opacity: 'var(--details-backdrop-opacity)' }}
             initial={{ '--details-backdrop-opacity': 0 }}

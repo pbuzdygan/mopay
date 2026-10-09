@@ -289,6 +289,9 @@ function GoalItemsLedger({
   const [savingRowId, setSavingRowId] = useState<number | null>(null);
   const [addingRow, setAddingRow] = useState(false);
   const editorNameRef = useRef<HTMLTextAreaElement>(null);
+  // A new item is selected for editing as soon as it is created, possibly
+  // before the refreshed item list renders; keep it selected until it arrives.
+  const pendingRowIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     setRows((currentRows) => {
@@ -298,7 +301,10 @@ function GoalItemsLedger({
       );
     });
 
-    if (editingRowId && !items.some((item) => item.id === editingRowId)) {
+    if (pendingRowIdRef.current !== null && items.some((item) => item.id === pendingRowIdRef.current)) {
+      pendingRowIdRef.current = null;
+    }
+    if (editingRowId && editingRowId !== pendingRowIdRef.current && !items.some((item) => item.id === editingRowId)) {
       setEditingRowId(null);
     }
   }, [items, editingRowId]);
@@ -394,7 +400,10 @@ function GoalItemsLedger({
         await persistRow(editingRowId);
       }
       const id = await onAddRow();
-      if (Number.isFinite(id)) setEditingRowId(id);
+      if (Number.isFinite(id)) {
+        pendingRowIdRef.current = id;
+        setEditingRowId(id);
+      }
     } finally {
       setAddingRow(false);
     }
@@ -436,6 +445,7 @@ function GoalItemsLedger({
                 <textarea
                   ref={editorNameRef}
                   className="goal-input goal-description-input"
+                  aria-label="Source or note"
                   value={row.nameDraft}
                   placeholder="Source or note"
                   maxLength={80}
@@ -456,6 +466,7 @@ function GoalItemsLedger({
                   <input
                     type="text"
                     className="goal-input value"
+                    aria-label="Amount"
                     inputMode="decimal"
                     value={row.valueDraft}
                     placeholder="0,00"

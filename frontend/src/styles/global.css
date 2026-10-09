@@ -4,6 +4,9 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" source(none);
+@import "./tokens.css";
+@import "./legacy-bridge.css";
+@import "./components.css";
 @source "../../index.html";
 @source "../";
 
@@ -14,7 +17,7 @@
   --color-textSec: var(--text-sec);
   --color-accent: var(--accent);
   --color-accentHover: var(--accent-hover);
-  --color-border: var(--border);
+  --color-border: var(--border-strong);
   --color-rowHover: var(--row-hover);
   --color-error: var(--error);
   --color-success: var(--success);
@@ -45,8 +48,8 @@
   --space-4: 1rem;    /* 16px */
   --space-5: 1.5rem;  /* 24px */
   --space-6: 2rem;    /* 32px */
-  --soft-border: color-mix(in srgb, var(--border) 60%, transparent);
-  --soft-border-strong: color-mix(in srgb, var(--border) 80%, transparent);
+  --soft-border: color-mix(in srgb, var(--border-strong) 60%, transparent);
+  --soft-border-strong: color-mix(in srgb, var(--border-strong) 80%, transparent);
   --panel-solid: color-mix(in srgb, var(--panel) 96%, transparent);
   --panel-subtle: color-mix(in srgb, var(--panel) 88%, transparent);
   --layer-shadow: 0 18px 38px rgba(0, 0, 0, 0.14);
@@ -123,7 +126,7 @@ html {
 }
 
 .header-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 1rem;
   background: var(--panel);
   box-shadow: var(--tw-shadow, 0 6px 24px rgba(0,0,0,.08));
@@ -152,30 +155,68 @@ html {
   padding: var(--space-4);
 }
 
-.pin-banner {
-  width: min(280px, 70vw);
-  height: auto;
-  display: block;
-  border-radius: 2rem;
-  border: 1px solid var(--soft-border);
-  box-shadow: var(--layer-shadow);
-}
-
+/* PIN guard (Final Ledger card). The mobile shift keeps the card above the
+   software keyboard; PinGuard.tsx sets --keyboard-inset and --pin-guard-shift. */
 .pin-guard-overlay {
-  padding: 1.25rem;
-}
-
-.pin-input-wrap {
-  position: relative;
-}
-
-.pin-input-error {
-  position: absolute;
-  inset: 2px;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-pin);
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
+  padding: var(--sp-20);
+  background: var(--bg);
+}
+
+.pin-guard-motion {
+  width: 100%;
+  max-width: 360px;
+}
+
+.pin-guard-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-16);
+  padding: var(--sp-24);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+}
+
+.pin-guard-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.pin-guard-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+}
+
+.pin-guard-title {
+  margin: 0;
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+.pin-guard-help {
+  margin: 4px 0 0;
+  color: var(--text-2);
+}
+
+.pin-guard-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-8);
 }
 
 @media (max-width: 640px) {
@@ -185,32 +226,16 @@ html {
   }
 
   .pin-guard-overlay {
-    padding: 0.85rem;
+    padding: var(--sp-12);
     align-items: flex-end;
-    padding-bottom: calc(0.85rem + var(--keyboard-inset, 0px));
+    padding-bottom: calc(var(--sp-12) + var(--keyboard-inset, 0px));
     transition: padding-bottom 180ms ease;
   }
 
   .pin-guard-card {
-    margin-top: 0;
-    max-width: 320px;
-    padding: 1rem;
-    border-radius: 1.1rem;
+    padding: var(--sp-20);
     transform: translateY(var(--pin-guard-shift, 0px));
     transition: transform 180ms ease;
-  }
-
-  .pin-guard-card .type-title-xl {
-    font-size: 1.1rem;
-  }
-
-  .pin-guard-card .type-body-sm {
-    font-size: 0.82rem;
-  }
-
-  .pin-guard-card .pin-banner {
-    width: min(220px, 70vw);
-    border-radius: 1.4rem;
   }
 }
 
@@ -443,7 +468,7 @@ html[data-view='compact'] {
 .divider-soft {
   width: 100%;
   height: 1px;
-  background: color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--border-strong) 70%, transparent);
 }
 
 .modal-section {
@@ -850,7 +875,7 @@ html[data-view='compact'] {
 }
 
 .mainbar-search-input:focus {
-  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border-strong));
   background: color-mix(in srgb, var(--panel) 98%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
@@ -905,7 +930,7 @@ html[data-view='compact'] {
 }
 
 .mainbar-search.is-active .mainbar-search-input {
-  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--border-strong));
   background: color-mix(in srgb, var(--accent) 7%, var(--panel));
   animation: searchFilterPulse 1.8s ease-in-out infinite;
 }
@@ -1734,7 +1759,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
 .table-row-premium {
   min-height: 40px;
   background: color-mix(in srgb, var(--panel) 96%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 50%, transparent);
   transition: background var(--transition), box-shadow var(--transition);
   border-radius: 1rem;
 }
@@ -1752,7 +1777,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   width: 26px;
   height: 26px;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1799,14 +1824,14 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
 .group-toggle {
   padding: 0.15rem 0.35rem;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, #fff 15%, transparent);
   line-height: 1;
   color: inherit;
 }
 
 .group-select {
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   color: var(--textSec);
   border-radius: 999px;
@@ -1825,7 +1850,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   width: 26px;
   height: 26px;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   display: inline-flex;
   align-items: center;
@@ -1851,7 +1876,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   width: 26px;
   height: 26px;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   display: inline-flex;
   align-items: center;
@@ -1863,7 +1888,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   width: 26px;
   height: 26px;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   display: inline-flex;
   align-items: center;
@@ -1910,7 +1935,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   height: 22px;
   box-sizing: border-box;
   border-radius: 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   padding: 0.2rem 0.1rem;
   text-align: right;
@@ -1923,7 +1948,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   height: 26px;
   box-sizing: border-box;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   padding: 0.2rem 0.35rem;
   font-size: 0.75rem;
@@ -1944,7 +1969,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   min-height: 22px;
   box-sizing: border-box;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   padding: 0.2rem 0.35rem;
   font-size: 0.75rem;
@@ -2011,7 +2036,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   min-width: 26px;
   padding: 0;
   border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   display: inline-flex;
   align-items: center;
@@ -2128,7 +2153,7 @@ html[data-theme='dark'] #pin-guard-input::-ms-clear {
   height: 26px;
   border-radius: 0.6rem;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   transition: border var(--transition), background var(--transition), color var(--transition);
 }
 
@@ -2486,7 +2511,7 @@ html[data-theme='dark'] .table-value.tag-color-red {
   height: 7px;
   overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--border) 28%, transparent);
+  background: color-mix(in srgb, var(--border-strong) 28%, transparent);
 }
 
 .reports-savings-progress-track span {
@@ -2755,7 +2780,7 @@ html[data-theme='dark'] .table-value.tag-color-red {
   place-items: center;
   flex: 0 0 auto;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 28%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 28%, transparent);
 }
 
 .reports-spending-donut::after {
@@ -2904,7 +2929,7 @@ html[data-theme='dark'] .table-value.tag-color-red {
 .reports-stability-track {
   height: 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--border) 24%, transparent);
+  background: color-mix(in srgb, var(--border-strong) 24%, transparent);
   overflow: hidden;
 }
 
@@ -3201,7 +3226,7 @@ html[data-theme='dark'] .table-value.tag-color-red {
 }
 
 .app-select:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
 }
 
 .btn {
@@ -3254,7 +3279,7 @@ html[data-theme='dark'] .table-value.tag-color-red {
   z-index: 50;
   backdrop-filter: saturate(1.2) blur(10px);
   background: color-mix(in srgb, var(--panel) 85%, transparent);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-strong);
   box-shadow: 0 0 0 rgba(0,0,0,0);
   transition: background var(--transition), box-shadow var(--transition), transform 240ms ease;
 }
@@ -3277,7 +3302,7 @@ html[data-theme='dark'] .sticky-glass.scrolled {
   z-index: 40;
   backdrop-filter: saturate(1.2) blur(8px);
   background: color-mix(in srgb, var(--panel) 90%, transparent);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-strong);
   box-shadow: 0 -10px 30px rgba(0,0,0,.1);
 }
 
@@ -3359,7 +3384,7 @@ html[data-theme='dark'] .row-remove-selected {
   width: 26px;
   height: 26px;
   border-radius: 0.6rem;
-  border: 2px solid var(--border);
+  border: 2px solid var(--border-strong);
   background: var(--panel);
   cursor: pointer;
   position: relative;
@@ -3377,7 +3402,7 @@ html[data-theme='dark'] .row-remove-selected {
 }
 
 html[data-theme='dark'] .remove-checkbox {
-  border-color: color-mix(in srgb, #ff7777 35%, var(--border));
+  border-color: color-mix(in srgb, #ff7777 35%, var(--border-strong));
   background: color-mix(in srgb, var(--panel) 92%, #000 8%);
 }
 
@@ -3412,7 +3437,7 @@ html[data-theme='dark'] .remove-checkbox:checked {
   width: 18px;
   height: 18px;
   border-radius: 6px;
-  border: 2px solid var(--border);
+  border: 2px solid var(--border-strong);
   background: var(--panel);
   cursor: pointer;
   position: relative;
@@ -3638,12 +3663,12 @@ html.theme-changing * {
   padding: 1.5rem 1.75rem;
   box-shadow:
     0 18px 45px rgba(0, 0, 0, 0.26),
-    0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--border-strong) 70%, transparent);
 }
 
 .modal-header-premium {
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 65%, transparent);
 }
 
 .modal-body-premium {
@@ -3679,7 +3704,7 @@ html.theme-changing * {
 
 /* Modal footer button area (nice alignment) */
 .modal-footer-premium {
-  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   margin-top: 0.5rem;
   padding-top: 0.75rem;
 }
@@ -3737,7 +3762,7 @@ html.theme-changing * {
   height: 36px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 70%, transparent);
   background: color-mix(in srgb, var(--panel) 88%, transparent);
   color: var(--textSec);
   font-size: 0.82rem;
@@ -3846,7 +3871,7 @@ html[data-theme='light'] .settings-toggle.is-on {
   padding: 0 0.75rem;
   box-sizing: border-box;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 95%, transparent);
   color: var(--textSec);
   font-size: 0.8rem;
@@ -4162,7 +4187,7 @@ html[data-theme='dark'] .settings-release-button-update {
   height: 30px;
   min-width: 30px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   display: inline-flex;
   align-items: center;
@@ -4218,7 +4243,7 @@ html[data-theme='dark'] .settings-release-button-update {
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--border) 24%, transparent);
+  background: color-mix(in srgb, var(--border-strong) 24%, transparent);
   overflow: hidden;
 }
 
@@ -4272,7 +4297,7 @@ html[data-theme='dark'] .settings-release-button-update {
   align-items: center;
   min-height: 52px;
   padding: 0.55rem 0.9rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 34%, transparent);
 }
 
 .goal-ledger-row:last-child,
@@ -4480,7 +4505,7 @@ html[data-theme='dark'] .settings-release-button-update {
   width: 28px;
   height: 16px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   position: relative;
 }
 
@@ -4691,7 +4716,7 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
 
 .context-action-active {
   white-space: nowrap;
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 9%, var(--panel));
 }
@@ -5067,5 +5092,5 @@ html[data-theme='dark'] .tag-chip.red .tag-chip-swatch {
 
 /* Keep demo status readable without changing the navigation row. */
 .demo-banner { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; padding: 0.5rem 0; color: var(--textPrim); font-size: 0.875rem; }
-.demo-pin { font-size: 1rem; }
+.demo-pin { margin: 0; font-size: var(--fs-lead); color: var(--text-1); }
 [hidden] { display: none !important; }

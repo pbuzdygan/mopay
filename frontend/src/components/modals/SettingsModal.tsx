@@ -90,6 +90,7 @@ export function SettingsModal(){
             <button
               type="button"
               className={`settings-toggle ${showGroupTotals ? 'is-on' : ''}`}
+              aria-label="Group totals"
               aria-pressed={showGroupTotals}
               onClick={() => setShowGroupTotals(!showGroupTotals)}
             >
@@ -137,6 +138,7 @@ export function SettingsModal(){
             <button
               type="button"
               className={`settings-toggle ${theme === 'dark' ? 'is-on' : ''}`}
+              aria-label="Dark theme"
               aria-pressed={theme === 'dark'}
               onClick={() => setTheme(nextTheme)}
             >
@@ -164,6 +166,7 @@ export function SettingsModal(){
             <button
               type="button"
               className={`settings-toggle settings-toggle-lock ${locking ? 'is-on' : ''}`}
+              aria-label="Screen lock"
               aria-pressed={locking}
               onClick={() => setLocking(true)}
             >

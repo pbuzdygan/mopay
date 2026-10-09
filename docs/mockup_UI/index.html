@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MOPAY UI Concepts</title>
+<link rel="stylesheet" href="shared/chrome.css">
+<style>
+:root {
+  --bg: #F4F4F6; --surface: #FFFFFF; --border: #E2E2E8; --text-1: #18181B; --text-2: #55555F; --text-3: #8A8A94;
+  --accent: #3A5BD0; --soft: rgba(58, 91, 208, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #131316; --surface: #1B1B1F; --border: #2C2C33; --text-1: #ECECEF; --text-2: #A8A8B2; --text-3: #74747E; --accent: #8EA6F2; --soft: rgba(142, 166, 242, .12); }
+}
+:root[data-theme="dark"] { --bg: #131316; --surface: #1B1B1F; --border: #2C2C33; --text-1: #ECECEF; --text-2: #A8A8B2; --text-3: #74747E; --accent: #8EA6F2; --soft: rgba(142, 166, 242, .12); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-1); font: 15px/1.55 Inter, system-ui, sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 40px 16px 64px; }
+h1 { margin: 0; font-size: 30px; letter-spacing: -.015em; }
+.lead { color: var(--text-2); max-width: 70ch; margin: 8px 0 32px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 40px; }
+.card { display: flex; flex-direction: column; gap: 8px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; color: inherit; text-decoration: none; transition: border-color 150ms; }
+.card:hover { border-color: var(--accent); }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card .k { font-size: 13px; font-weight: 600; color: var(--accent); }
+.card h2 { margin: 0; font-size: 19px; }
+.card p { margin: 0; color: var(--text-2); font-size: 14px; }
+.card ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-2); font-size: 14px; }
+.swatches { display: flex; gap: 4px; margin-top: auto; padding-top: 8px; }
+.swatches span { width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(127,127,127,.25); }
+h2.sec { font-size: 20px; margin: 0 0 12px; }
+.tbl-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 32px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 13px; color: var(--text-3); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+.rec { padding: 20px; border-radius: 12px; background: var(--soft); border: 1px solid var(--border); }
+.rec h2 { margin: 0 0 8px; font-size: 18px; }
+.rec p { margin: 0 0 8px; color: var(--text-2); }
+.rec p:last-child { margin: 0; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="mock-chrome">
+  <span class="mock-chrome-title">MOPAY UI concepts <small>conceptual work · no application code changed</small></span>
+  <div class="mock-chrome-spacer"></div>
+  <div class="mock-chrome-group" role="group" aria-label="Theme">
+    <button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button>
+  </div>
+</div>
+<main>
+  <h1>Four directions for the MOPAY interface</h1>
+  <p class="lead">Each concept is a complete UI direction – layout, navigation, components, density, colour and interaction – based on <code>.ai/UI_DESIGN_GUIDELINES.md</code>. All current features are kept; improvements that go beyond styling are marked <b>Better</b> inside each mockup. Synthetic demo data only. Every page has light and dark themes and several clickable screens.</p>
+
+  <a class="card" href="final-ledger.html" style="margin-bottom:32px;border-color:var(--accent)">
+    <span class="k">Final direction</span><h2>Ledger – final</h2>
+    <p>Concept A as the base, with Overview as the start page (former Reports), the cell inspector from C as an overlay drawer (Value → Entry details → Tag → Entry), Savings and Settings page from D, and the mobile layout from B.</p>
+    <div class="swatches"><span style="background:#5B54C6"></span><span style="background:#F4F5F8"></span><span style="background:#15151A"></span></div>
+  </a>
+
+  <h2 class="sec">Explored concepts</h2>
+  <div class="grid">
+    <a class="card" href="concept-a-ledger.html">
+      <span class="k">Concept A</span><h2>Ledger</h2>
+      <p>Evolution of today's UI into a classic application shell: sidebar, compact header, spreadsheet-grade grid.</p>
+      <ul><li>Sticky header, name column and totals</li><li>Keyboard cell navigation</li><li>Entry drawer, mode banners, bulk bar</li></ul>
+      <div class="swatches"><span style="background:#5B54C6"></span><span style="background:#F4F5F8"></span><span style="background:#15151A"></span></div>
+    </a>
+    <a class="card" href="concept-b-monthly.html">
+      <span class="k">Concept B</span><h2>Monthly</h2>
+      <p>Top navigation and a month-first workflow for the recurring task: enter this month, check the balance.</p>
+      <ul><li>Month view with previous month and change</li><li>Fill empty values from last month</li><li>Mobile list + bottom sheet editor</li></ul>
+      <div class="swatches"><span style="background:#2F62D9"></span><span style="background:#F5F7FA"></span><span style="background:#12161D"></span></div>
+    </a>
+    <a class="card" href="concept-c-inspector.html">
+      <span class="k">Concept C</span><h2>Inspector</h2>
+      <p>Dark-first three-pane workspace for power users: rail, dense grid, persistent inspector, command palette.</p>
+      <ul><li>No Tags/Remove/Arrange modes on desktop</li><li>Ctrl/⌘ K for every action</li><li>Reports with one combined chart</li></ul>
+      <div class="swatches"><span style="background:#9D8CF0"></span><span style="background:#18181B"></span><span style="background:#F5F5F7"></span></div>
+    </a>
+    <a class="card" href="concept-d-calm.html">
+      <span class="k">Concept D</span><h2>Calm home</h2>
+      <p>Warm, readable, overview-first interface for every household member; settings become a page.</p>
+      <ul><li>Overview replaces Reports as home</li><li>Notes from tags in one list</li><li>Savings list + detail with quick contribution</li></ul>
+      <div class="swatches"><span style="background:#3A5A9E"></span><span style="background:#F6F5F2"></span><span style="background:#161513"></span></div>
+    </a>
+  </div>
+
+  <h2 class="sec">Comparison</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th></th><th>A · Ledger</th><th>B · Monthly</th><th>C · Inspector</th><th>D · Calm home</th></tr></thead>
+    <tbody>
+      <tr><td>Navigation</td><td>Sidebar with year and data actions</td><td>Top tabs, menu for data actions</td><td>Icon rail + command palette</td><td>Header tabs, settings page</td></tr>
+      <tr><td>Main editing</td><td>Year grid, keyboard navigation</td><td>Month list (year grid one click away)</td><td>Year grid + inspector</td><td>Year grid (A style), overview first</td></tr>
+      <tr><td>Tags / Remove / Arrange</td><td>Modes with banner and bulk bar</td><td>Modes in ⋯ menu; sheet on mobile</td><td>Direct manipulation, no modes</td><td>As A</td></tr>
+      <tr><td>Mobile</td><td>Drawer nav, scrolling grid</td><td>Designed list + bottom sheets</td><td>Inspector becomes sheet (not mocked)</td><td>Stacked, readable</td></tr>
+      <tr><td>Density</td><td>Medium-high</td><td>Medium</td><td>High</td><td>Low-medium</td></tr>
+      <tr><td>Change vs today</td><td>Low – evolution</td><td>Medium</td><td>High</td><td>Medium</td></tr>
+      <tr><td>Implementation effort</td><td>Low–medium, CSS + shell</td><td>Medium, new month view</td><td>High, new interaction model</td><td>Medium, new Overview + settings page</td></tr>
+      <tr><td>Best for</td><td>Everyone, safest path</td><td>Monthly bookkeeping, phones</td><td>Keyboard power users</td><td>Shared household use</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="rec">
+    <h2>Recommendation</h2>
+    <p><b>Use A as the base</b> – it follows guideline §29 (extend, don't replace), keeps spatial memory and has the lowest risk. Then add, in this order: B's <b>month view</b> as a second view of Expenses/Incomes (biggest workflow gain, and it solves mobile), D's <b>settings page</b> and <b>notes from tags</b>, and later C's <b>command palette</b> as an optional shortcut layer.</p>
+    <p>Details, feature coverage map and API impact: <code>README.md</code> in this folder.</p>
+  </div>
+</main>
+<script src="shared/data.js"></script>
+<script>
+// Theme buttons only; this page has no screens.
+(function () {
+  const root = document.documentElement;
+  let saved = null;
+  try { saved = localStorage.getItem('mopay-mockup-theme'); } catch (e) { /* storage may be blocked */ }
+  if (saved) root.dataset.theme = saved;
+  const sync = () => document.querySelectorAll('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === (root.dataset.theme || 'light'))));
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => {
+    root.dataset.theme = b.dataset.themeSet;
+    try { localStorage.setItem('mopay-mockup-theme', b.dataset.themeSet); } catch (e) { /* ignore */ }
+    sync();
+  }));
+  sync();
+})();
+</script>
+</body>
+</html>

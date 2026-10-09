@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { Api, ApiError } from "../api";
 import { useAppStore } from "../store";
-import { SoftButton } from "./SoftButton";
+import { Button, Callout, Input } from "./ui";
 
 export function PinGuard() {
   const pinOk = useAppStore((s) => s.pinSession);
@@ -67,8 +67,7 @@ export function PinGuard() {
       root.style.setProperty("--keyboard-inset", `${layoutDelta}px`);
 
       const cardHeight = root.querySelector(".pin-guard-card")?.getBoundingClientRect().height ?? 0;
-      const rootFontSize = Number.parseFloat(getComputedStyle(root).fontSize || "16");
-      const basePaddingPx = 0.85 * rootFontSize;
+      const basePaddingPx = Number.parseFloat(getComputedStyle(root).paddingTop) || 12;
       const centerShift = basePaddingPx + cardHeight / 2 - maxViewportHeight / 2;
 
       // Blend between centered (keyboard closed) and bottom-aligned (keyboard open) to avoid jumps.
@@ -140,7 +139,11 @@ export function PinGuard() {
       {!pinOk && (
         <motion.div
           ref={overlayRef}
-          className="pin-guard-overlay fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pin-guard-title"
+          aria-describedby="pin-guard-help"
+          className="pin-guard-overlay"
           // Native opacity completion can restore full visibility before unmount.
           style={{ opacity: 'var(--pin-opacity)' }}
           initial={{ '--pin-opacity': 0 }}
@@ -149,75 +152,56 @@ export function PinGuard() {
           transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
         >
           <motion.div
+            className="pin-guard-motion"
             style={{ opacity: 'var(--pin-card-opacity)' }}
             initial={{ scale: 0.94, '--pin-card-opacity': 0, y: 10 }}
             animate={{ scale: 1, '--pin-card-opacity': 1, y: 0 }}
             exit={{ scale: 0.92, '--pin-card-opacity': 0, y: 8 }}
             transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
           >
-            <div className="layer-card compact pin-guard-card w-full max-w-sm stack">
-              <div className="flex justify-center">
-                <img
-                  src="/mopay_banner_512x512.png"
-                  alt="MOPAY"
-                  className="pin-banner"
-                />
+            <form
+              className="pin-guard-card"
+              data-testid="pin-card"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
+            >
+              <div className="pin-guard-brand">
+                <img src="/icon-128x128.png" alt="" className="pin-guard-logo" />
+                <span>MOPAY</span>
               </div>
-              <div className="stack-sm">
-                <h2 className="type-title-xl">Enter PIN</h2>
-                {demoPin && <p className="demo-pin">Demo PIN: <strong>{demoPin}</strong></p>}
-                <p className="type-body-sm text-textSec">
-                  Unlock your data with a 4–8 digit PIN.
-                </p>
+              <div>
+                <h2 id="pin-guard-title" className="pin-guard-title">Enter PIN</h2>
+                <p id="pin-guard-help" className="pin-guard-help">Unlock your data with a 4–8 digit PIN.</p>
               </div>
-
-            <div className="stack-sm">
-              <label className="field-label" htmlFor="pin-guard-input">
-                PIN
-              </label>
-              <div className="pin-input-wrap">
-                <input
-                  id="pin-guard-input"
-                  ref={inputRef}
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={8}
-                  className={`input w-full ${error ? "input-error" : ""}`}
-                  value={pin}
-                  disabled={locked}
-                  onChange={(e) =>
-                    setPin(e.target.value.replace(/[^0-9]/g, ""))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") submit();
-                  }}
-                />
-                {error && (
-                  <div className="pin-input-error feedback-badge err" aria-live="polite">
-                    {error}
-                  </div>
-                )}
+              {demoPin && (
+                <Callout tone="info">
+                  <p className="demo-pin">Demo PIN: <strong>{demoPin}</strong></p>
+                </Callout>
+              )}
+              <Input
+                ref={inputRef}
+                id="pin-guard-input"
+                label="PIN"
+                type="password"
+                inputMode="numeric"
+                autoComplete="current-password"
+                maxLength={8}
+                value={pin}
+                disabled={locked}
+                error={error}
+                onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
+              />
+              <div className="pin-guard-actions">
+                <Button variant="ghost" onClick={() => setPin("")} disabled={!pin.length || locked}>
+                  Clear
+                </Button>
+                <Button type="submit" variant="primary" disabled={pin.length < 4 || locked}>
+                  Enter
+                </Button>
               </div>
-            </div>
-
-            <div className="cluster justify-end">
-              <SoftButton
-                type="button"
-                variant="ghost"
-                onClick={() => setPin("")}
-                disabled={!pin.length || locked}
-              >
-                Clear
-              </SoftButton>
-              <button
-                className="btn px-6"
-                disabled={pin.length < 4 || locked}
-                onClick={submit}
-              >
-                Enter
-              </button>
-            </div>
-            </div>
+            </form>
           </motion.div>
         </motion.div>
       )}
