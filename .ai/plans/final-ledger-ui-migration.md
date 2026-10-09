@@ -16,15 +16,15 @@ Acceptance criteria:
 - Text colour tokens meet WCAG AA (4.5:1) in both themes; visible focus; keyboard operation of grid, drawer, menus and dialogs; `prefers-reduced-motion` respected.
 - Rendered checks at 1440, 1024, 767, 390, 320 px and 900×400 landscape, light and dark.
 
-## Decisions (D1, D2 and D10 confirmed by the user on 2026-10-09; others are proposed defaults to confirm before their phase)
+## Decisions (D1, D2 and D10 confirmed by the user on 2026-10-09, D3–D5 before Phase 4; others are proposed defaults to confirm before their phase)
 
 | # | Decision | Default | Phase |
 | --- | --- | --- | --- |
 | D1 | Start view | **Confirmed.** Always open **Overview** after load/unlock; the last tab is no longer restored. Year selection stays persisted. | 2 |
 | D2 | Internal tab key | **Confirmed.** Keep `'reports'` as the store key, label it "Overview" – avoids persistence and test churn. | 2 |
-| D3 | Tag mode | Removed on desktop and mobile; tagging only in the inspector / bottom sheet, after parity is verified. | 4 |
-| D4 | Cell click | Single click selects the cell and opens the inspector; double-click, Enter or typing edits in place; arrows/Tab move the selection; Esc cancels edit, then closes the drawer. | 4 |
-| D5 | "Same month previous year" | Match the entry by exact name and type in the previous year (data Reports already loads). No match → "—". No API change. | 4 |
+| D3 | Tag mode | **Confirmed.** Removed on desktop and mobile; tagging only in the inspector / bottom sheet, after parity is verified. | 4 |
+| D4 | Cell click | **Confirmed.** Single click selects the cell and opens the inspector; double-click, Enter or typing edits in place; arrows/Tab move the selection; Esc cancels edit, then closes the drawer. | 4 |
+| D5 | "Same month previous year" | **Confirmed.** Match the entry by exact name and type in the previous year (data Reports already loads). No match → "—". No API change. | 4 |
 | D6 | Theme "System" | Stored under a **new key** `themeMode` (`light`/`dark`/`system`); the existing `theme` key keeps the resolved `light`/`dark` so an older build still works after rollback. | 7 |
 | D7 | Settings view | Not persisted as `tab` (an older build would render an unknown tab). Held in non-persisted view state. | 7 |
 | D8 | Deferred enhancements | "Copy entries and groups to new year", entry counts in year deletion and Overview "vs 2025" for metrics not already compared today are **out of scope** (separate tasks; copy needs many non-atomic calls or a backend endpoint). | – |
@@ -51,13 +51,13 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 | F04 | Search filtering in Expenses, Incomes, Savings incl. no-match message | Same | 3, 6 | Test |
 | F05 | New entry (optionally preselected group) | *New entry* split button; inspector group variant | 3, 4 | Test |
 | F06 | New group | Split button menu, Edit menu | 3 | Test |
-| F07 | Inline month value edit: decimal input filter, Enter saves, Esc reverts, blur saves, `-` = null, empty = 0, `.` is a thousands separator | Grid edit-in-place (D4) and inspector Value | 4 | Test. Phase 0: success paths; the failed save is a characterisation test (value kept, no visible error, unhandled rejection) that Phase 4 replaces with error + retry |
+| F07 | Inline month value edit: decimal input filter, Enter saves, Esc reverts, blur saves, `-` = null, empty = 0, `.` is a thousands separator | Grid edit-in-place (D4: Enter, F2, typing or double-click; Tab saves and moves) and inspector Value with quick fill (previous month, average, clear). **Phase 4 fix:** a failed save keeps the typed value and shows an error with *Retry* and *Undo change* (inspector footer, or above the grid when the inspector is closed); same rules for both editors, the inspector skips unchanged values | 4 | Test |
 | F08 | Arrange: drag entries **within** a group and drag groups (dnd-kit); moving an entry to another group uses the Group field in details (F12), not drag | Edit → Arrange, mode banner | 3 | Test (mode entry/exit, value/details blocked, entry and group drag payloads) |
 | F09 | Remove mode: select entries and groups, *Remove selected* (no confirmation today), clear on exit, search leaves the mode | Edit → Remove, mode banner, bulk bar. **Phase 3 change:** the bulk bar names the selection, removal needs confirmation (Cancel keeps the selection, the dialog says which entries move to Ungrouped), a failure is shown and retried without resending already removed groups | 3 | Test |
-| F10 | Tag a month cell: colours none/grey/green/orange/red, note, clear, save; none + empty note removes; Enter saves; Cancel/Esc discard | Inspector Tag section; mobile sheet | 4 | Test |
-| F11 | Tag display: colour + note tooltip | Cell bar + note corner + `title`; the note is the cell's accessible description; inspector | 3, 4 | Render + Test (note description) |
-| F12 | Entry details: rename, change group/ungroup, comment, remove with confirmation | Inspector Entry details + footer | 4 | Test |
-| F13 | Group details: rename, add entry to group, arrange group, remove group with confirmation | Inspector group variant | 4 | Test |
+| F10 | Tag a month cell: colours none/grey/green/orange/red, note, clear, save; none + empty note removes; Enter saves; Cancel/Esc discard | Inspector Tag section; mobile sheet. **Phase 4 change (D3):** Tags mode and its popover are removed; a colour saves on click, the note on Enter/blur (two requests when both change), Escape reverts a changed note, *Clear tag* removes it | 4 | Test |
+| F11 | Tag display: colour + note tooltip | Cell bar + note corner + `title`; the note is the cell's accessible description; inspector Tag section | 3, 4 | Render + Test |
+| F12 | Entry details: rename, change group/ungroup, comment, remove with confirmation | Inspector Entry details + footer. **Phase 4 change:** no *Save changes*/*Cancel*; name saves on Enter/blur, group on change, comment on blur, each as its own PATCH with only that field (the backend accepts partial patches); an empty name is not saved; Escape reverts a changed field; failures keep the draft with *Retry* | 4 | Test |
+| F13 | Group details: rename, add entry to group, arrange group, remove group with confirmation | Inspector group variant (*Add entry to group*, *Arrange*, *Remove group* → *Confirm*); rename saves on Enter/blur | 4 | Test |
 | F14 | Group collapse/expand, persisted per mode/type/year, restored before paint | Group row toggle | 3 | Test (existing) |
 | F15 | Sum, Avg, Total row, current-month highlight | Sticky header/name/total, summary strip (desktop, whole units) | 3 | Test + Render |
 | F16 | Show group totals setting | Settings → Display; group rows | 3, 7 | Test |
@@ -85,8 +85,8 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 | F38 | Encryption migration notice, key mismatch modal with reset | Restyled dialogs | 1 | Test (notice acknowledgement; mismatch not dismissible, reset confirmation, failed reset shown; success reload not exercised) |
 | F39 | Runtime-mode load error with Retry | Restyled | 1 | Test (existing) |
 | F40 | PWA install prompt (AddToHomeScreen), offline assets | Unchanged behaviour | 1 | Test (browser-security) |
-| F41 | Entry comment (CommentModal) | Inspector comment field | 4 | Test |
-| F42 | Keyboard: search shortcuts, modal focus, Esc | Plus grid navigation (D4), drawer focus management | 4 | Test |
+| F41 | Entry comment (CommentModal) | Inspector comment field (saves on blur). `CommentModal` was no longer opened anywhere since the details panel took over comments; it is removed | 4 | Test |
+| F42 | Keyboard: search shortcuts, modal focus, Esc | Plus grid navigation (arrows, Home/End, roving tabindex), Shift+Enter into the inspector, Escape closes it and returns focus, keyboard Arrange (Space, arrows) | 4 | Test |
 | F43 | Mobile ≥16 px editable text, no horizontal overflow, landscape toolbar | Mobile layout | 8 | Test (existing, adapted) |
 | F44 | Update-available indicator | Sidebar version dot + Settings → About | 2 | Render |
 
@@ -161,7 +161,7 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 - Checks: build; ad hoc `tsc --strict --noUnusedLocals` over the changed files clean (no project tsconfig); ui-transitions 12/12, ui-parity 25/25 (three runs), browser-security 2/2, demo-runtime 1/1; renders at 1440, 1024, 767, 390, 320 and 900×400 in both themes (view, inline edit, Remove with selection and confirmation, Arrange; Compact with group totals and the empty year at 1440 and 390) without page overflow and with 16 px inline inputs on mobile; grid timing with 200 entries: cached switch from Savings 183 ms and from Incomes 167 ms (medians of 7) vs. 218/182 ms baseline, first load is a single sample (353–425 ms vs. 400 ms).
 - Remaining for later phases: Arrange is pointer-only as before (keyboard grid model and sortable keyboard support belong to Phase 4); the narrow layout keeps the horizontally scrolling grid until the month list (Phase 8); a value-save failure is still unsurfaced (Phase 4).
 
-### Phase 4 – Inspector drawer
+### Phase 4 – Inspector drawer – done 2026-10-09
 
 - Non-modal overlay drawer (no layout reflow, no scrim), 360 px, focus moves into it on open and returns to the cell on close; selected row highlighted.
 - Sections in order: Value (quick fill: previous month, average, clear) → Entry details (name, group, comment) → Tag (colour + note) → Entry (12-month bars with average line; Sum, Average, vs previous month, same month previous year per D5). Footer: save status and *Remove entry* with confirmation.
@@ -169,6 +169,20 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 - Grid keyboard model (D4) with ARIA grid semantics and roving tabindex.
 - Explicit save feedback: pending, saved, and inline error with retry for value, details and tag saves; today `saveMonth` has no error handling – fix as part of this phase without changing API calls.
 - After parity rows F07, F10–F13, F41 pass: remove `TableContextPanel`, `TagEditorPopover`, `CommentModal` usage and the `'tag'` edit mode (D3).
+
+#### Phase 4 results
+
+- `components/table/Inspector.tsx`: a non-modal overlay drawer (`aside` named after the selection, no scrim, no layout reflow, 360 px; below 960 px a bottom sheet of at most 75 % height until Phase 8). Sections: Value (quick fill: previous month, average, clear) → Entry details (name, group, comment) → Tag (colour swatches + note) → Entry (12 bars with the average line; Sum, Average, vs previous month, same month of the previous year). Variants: group (rename, add entry to group, arrange, remove), entry name (details and facts only), demo read-only (texts and an explanation, no inputs or remove). Footer: save status (*Saving…*, *Saved hh:mm*, error with *Retry*/*Undo change*) and remove with *Confirm*. The drawer fades/slides with the Dialog's CSS-variable opacity technique; the transitions suite checks monotonic opacity and that no dialog layer exists.
+- D4: one click selects a month cell and opens the inspector; Enter, F2, a typed digit/sign/separator or a double-click edit in place; Tab/Shift+Tab in the editor save and move; Escape cancels an edit, then closes the drawer and returns focus to the cell (or to the name that opened it). Arrow keys, Home and End move between month cells; while the inspector shows a cell the selection follows. Shift+Enter moves focus into the inspector. Entry and group names move focus into it directly.
+- **Deviation from "ARIA grid semantics":** the table keeps native table semantics (row headers, captions) with buttons in the month cells and a roving tabindex among them, instead of `role="grid"`. The buttons keep their names (`entry, month: value`), and the name, collapse and handle buttons stay reachable with Tab. A full ARIA grid would have to move all of those into arrow navigation; that is not justified for this table. Focus stays in the grid on a cell click, because D4 lets typing edit the selected cell in place.
+- D5: same name in the previous year from the `['entries', type, year - 1]` query that Overview uses (fetched only while the inspector shows an entry and the year exists); no match or no value → "—". January has no "vs previous month".
+- D3: Tags mode, `TagEditorPopover`, `TableContextPanel` and the unused `CommentModal` (with its store state) are deleted, ahead of the Phase 9 list. The Edit menu and the narrow Actions menu offer Arrange and Remove.
+- Saves: `useSaveStatus` serves values, details, tags and removals. Value edits stay optimistic as before, with undo. A failure stays visible until it is retried or undone, even if later saves succeed. Fields remember the last submitted value, so Enter followed by blur, or a blur caused by clicking *Retry*, does not send a change twice.
+- Arrange gains dnd-kit's `KeyboardSensor` (Space/Enter picks up, arrows move, Space/Enter drops, Escape cancels). Payloads and handlers are unchanged.
+- Rows get stable callbacks and a shared empty tag object, so memoised rows skip re-rendering when the selection or focus moves. Grid timing with 200 entries: cached switches 167/150 ms (Phase 3: 183/167 ms, baseline 218/182 ms); first load 388 ms (single sample).
+- Tests: `ui-parity` 27/27 (new: cell inspector with value, quick fill, keyboard model, Tab/Escape semantics, roving tabindex, tags, D5; details rewritten for single-field saves, empty name, Retry; F07 failure now asserts error, Retry and Undo instead of the unhandled rejection; Edit menu without Tags; keyboard reordering). The keyboard sorting test paces its keys by 100 ms because dnd-kit updates the drop target on the next frames. `ui-transitions` 12/12 (inspector open/close opacity, no modal layer, cell selection with focus return, demo read-only inspector). Helpers: `details` is the inspector, `rowName`/`openDetails` look up names inside the grid (the inspector repeats the name as its title), `selectCell`, `editCell` (focus + Enter) and `inspectorValue`. The parity fixture has 2025 incomes for D5.
+- Checks: build; ad hoc strict `tsc --noUnusedLocals` over all 51 sources clean; ui-transitions 12/12, ui-parity 27/27, browser-security 2/2, demo-runtime 1/1, backend not touched; renders at 1440, 1024, 767, 390, 320 and 900×400 in both themes (cell, save error, group, entry): the drawer stays inside the viewport, no page overflow, editable inspector text 16 px on mobile.
+- Remaining: on the narrow layout the bottom sheet covers most of the grid while open (non-modal, closed with ✕ or Escape) until the Phase 8 sheet; screen-reader testing is still a documented gap.
 
 ### Phase 5 – Overview (former Reports)
 
@@ -196,7 +210,7 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 
 ### Phase 9 – Cleanup and documentation
 
-- Delete unused CSS from `global.css` (currently ~5 000 lines) and unused components (`MainBar`, `Surface`, `SoftButton`, `TableContextPanel`, `TagEditorPopover`, `CommentModal`, `SettingsModal`, `YearOperationsModal` if fully replaced). Verify with build and a search for references.
+- Delete unused CSS from `global.css` (currently ~5 000 lines) and unused components (`MainBar`, `Surface`, `SoftButton`, `SettingsModal`, `YearOperationsModal` if fully replaced; `TableContextPanel`, `TagEditorPopover` and `CommentModal` were already removed in Phase 4). Verify with build and a search for references.
 - Update README screenshots (T-016 procedure), `docs/ARCHITECTURE.md` UI section, `frontend/tests/README.md`, CHANGELOG; keep `docs/mockup_UI` as design reference.
 - Final full parity pass over all 44 rows in normal and demo mode.
 - CHANGELOG `v2.0.0`: *Breaking UI changes* (navigation, start page, tagging, click-to-select, settings page, mobile), *Improvements* (deliberate functional changes recorded per parity row), *Upgrade notes* (no migration; data, API, configuration unchanged; rollback = previous image).

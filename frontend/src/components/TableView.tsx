@@ -1,24 +1,28 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
-import { getCurrentMonthForYear } from '../utils/months';
+import { getCurrentMonthForYear, MONTHS } from '../utils/months';
 import { includesSearch, normalizeSearchText } from '../utils/search';
-import { PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
-import { TagEditorPopover, type TagColor } from './TagEditorPopover';
+import { KeyboardSensor, PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { TableHeaderRow, TableTotalRow } from './table/TableGridRows';
-import { EntryRow, GroupRow, SortableGroupRow, SortableScope, makeGroupTotals } from './table/GridRows';
+import { EntryRow, GroupRow, SortableGroupRow, SortableScope, makeGroupTotals, monthValue } from './table/GridRows';
 import { GridSummary } from './table/GridSummary';
 import { BulkRemoveBar, ModeBanner } from './table/EditModeBars';
 import { useTableQueryState } from './table/useTableQueryState';
-import { TableContextPanel, type TableContextTarget } from './table/TableContextPanel';
-import type { EntryPatch, EntryRowData, EntryTag } from './table/types';
+import { Inspector, SaveStatusLine, type EntryDetailsPatch } from './table/Inspector';
+import { useSaveStatus } from './table/useSaveStatus';
+import { useYears } from './shell/useShell';
+import type { EntryGroup, EntryPatch, EntryRowData, EntryTag, GridSelection, TagColor } from './table/types';
 
 // Name column + 12 months + Sum + Avg.
 const COLUMN_COUNT = 15;
 
 const normalizeEntryMonthKey = (month: string) => (month === 'Dec' ? 'Decm' : month);
+// Shared empty value keeps memoised rows without tags from re-rendering.
+const NO_TAGS: Record<string, EntryTag | undefined> = {};
+const GRID_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
 
 export function TableView() {
   const tab = useAppStore((s) => s.tab);
@@ -44,11 +48,27 @@ export function TableView() {
   const [removingGroupIds, setRemovingGroupIds] = useState<number[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
-  const [tagEditor, setTagEditor] = useState<null | { entryId: number; month: string; rect: DOMRect; color: TagColor; text: string }>(null);
-  const [tagSaving, setTagSaving] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [groupOrder, setGroupOrder] = useState<number[] | null>(null);
-  const [contextTarget, setContextTarget] = useState<TableContextTarget | null>(null);
+  // Inspector (plan Phase 4): selected cell, entry or group; focusCell is the
+  // month cell in the Tab order (roving tabindex).
+  const [selection, setSelection] = useState<GridSelection | null>(null);
+  const [focusCell, setFocusCell] = useState<{ entryId: number; month: string } | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  const { state: saveState, run: runSave } = useSaveStatus();
+  const { years } = useYears();
+  const previousYear = year ? year - 1 : null;
+  const hasPreviousYear = previousYear !== null && years.includes(previousYear);
+  // D5: the previous year's entries of this type, shared with Overview's query.
+  const previousYearQuery = useQuery({
+    enabled: hasPreviousYear && selection !== null && selection.kind !== 'group',
+    queryKey: ['entries', type, previousYear],
+    queryFn: () => Api.entries.list(type, previousYear!),
+  });
   const normalizedSearch = normalizeSearchText(searchQuery);
   const matchingGroupIds = useMemo(() => {
     if (!normalizedSearch) return new Set<number>();
@@ -83,12 +103,18 @@ export function TableView() {
 
   useEffect(() => {
     setGroupOrder(null);
-    setContextTarget(null);
+    setSelection(null);
+    setFocusCell(null);
   }, [type, year]);
 
+  // Filtering or an edit mode closes the inspector (Arrange/Remove block details, as before).
   useEffect(() => {
-    setContextTarget(null);
+    setSelection(null);
   }, [normalizedSearch]);
+
+  useEffect(() => {
+    if (editMode) setSelection(null);
+  }, [editMode]);
 
   const setGroupCollapsed = (groupKey: string, collapsed: boolean) => {
     if (!year) return;
@@ -101,10 +127,6 @@ export function TableView() {
     });
   };
 
-
-  useEffect(() => {
-    if (editMode !== 'tag') setTagEditor(null);
-  }, [editMode]);
 
   const queryKey = ['entries', type, year];
 
@@ -153,7 +175,11 @@ export function TableView() {
   };
 
   // DnD
-  const sensors = useSensors(useSensor(PointerSensor));
+  // Keyboard: Space or Enter on a handle picks the row up, arrows move it, Space/Enter drops, Escape cancels.
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function handleDragEnd(groupEntries: EntryRowData[], event: DragEndEvent) {
     const { active, over } = event;
@@ -253,78 +279,153 @@ export function TableView() {
     }));
   };
 
-  const handleTagRequest = (entryId: number, month: string, target: HTMLButtonElement, tag?: EntryTag) => {
-    if (editMode !== 'tag') return;
-    const rect = target.getBoundingClientRect();
-    setTagEditor({
-      entryId,
-      month,
-      rect,
-      color: (tag?.color ?? 'none') as TagColor,
-      text: tag?.text ?? '',
+  // Value edits from the grid and the inspector: optimistic, with retry and undo on failure (F07).
+  const saveMonth = (entry: EntryRowData, month: string, value: number | null) => {
+    const previous = monthValue(entry, month);
+    handleRowMonthUpdate(entry.id, month, value);
+    void runSave({
+      label: `${entry.name}, ${month}`,
+      request: () => Api.entries.patch(entry.id, { [month]: value }),
+      undo: () => handleRowMonthUpdate(entry.id, month, previous),
     });
   };
 
-  const handleContextEntrySave = async (
-    entryId: number,
-    patch: { name: string; groupId: number | null; comment: string }
-  ) => {
-    await Api.entries.patch(entryId, patch);
-    patchEntryLocal(entryId, patch);
-    await qc.invalidateQueries({ queryKey });
+  // Inspector fields save one field at a time on blur/Enter/change.
+  const saveEntry = (entry: EntryRowData, patch: EntryDetailsPatch) => runSave({
+    label: `the details of ${entry.name}`,
+    request: async () => {
+      await Api.entries.patch(entry.id, patch);
+      patchEntryLocal(entry.id, patch);
+      await qc.invalidateQueries({ queryKey });
+    },
+  });
+
+  const saveGroup = (group: EntryGroup, name: string) => runSave({
+    label: `group ${group.name}`,
+    request: async () => {
+      await Api.entryGroups.patch(group.id, { name });
+      if (year) await qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
+    },
+  });
+
+  // No colour and no note removes the tag (F10).
+  const saveTag = (entry: EntryRowData, month: string, color: TagColor, text: string) => runSave({
+    label: `the ${month} tag of ${entry.name}`,
+    request: async () => {
+      if (color === 'none' && !text) await Api.tags.remove(entry.id, month);
+      else await Api.tags.save({ entryId: entry.id, month, color, text });
+      if (year) await qc.invalidateQueries({ queryKey: ['tags', year] });
+    },
+  });
+
+  const removeEntry = async (entry: EntryRowData) => {
+    const ok = await runSave({
+      label: `the removal of ${entry.name}`,
+      request: async () => {
+        await Api.entries.remove([entry.id]);
+        await qc.invalidateQueries({ queryKey });
+        if (year) await qc.invalidateQueries({ queryKey: ['tags', year] });
+      },
+    });
+    if (ok) setSelection(null);
+    return ok;
   };
 
-  const handleContextGroupSave = async (groupId: number, name: string) => {
-    await Api.entryGroups.patch(groupId, { name });
-    if (year) await qc.invalidateQueries({ queryKey: ['entry-groups', type, year] });
+  const removeGroup = async (group: EntryGroup) => {
+    const ok = await runSave({
+      label: `the removal of group ${group.name}`,
+      request: async () => {
+        await Api.entryGroups.remove([group.id]);
+        await Promise.all([
+          qc.invalidateQueries({ queryKey }),
+          qc.invalidateQueries({ queryKey: ['entry-groups', type, year] }),
+        ]);
+      },
+    });
+    if (ok) setSelection(null);
+    return ok;
   };
 
-  const handleContextEntryRemove = async (entryId: number) => {
-    await Api.entries.remove([entryId]);
-    await qc.invalidateQueries({ queryKey });
-    if (year) await qc.invalidateQueries({ queryKey: ['tags', year] });
-  };
+  const closeInspector = useCallback(() => {
+    const closed = selectionRef.current;
+    setSelection(null);
+    // Return focus to the cell or name that opened the panel, unless the user moved on.
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && !active.closest('[data-testid="inspector"]')) return;
+      const cell = closed?.kind === 'cell'
+        ? tableRef.current?.querySelector<HTMLElement>(`tr[data-entry-id="${closed.entryId}"] button[data-month="${closed.month}"]`)
+        : null;
+      const target = cell ?? (openerRef.current?.isConnected ? openerRef.current : null);
+      target?.focus({ preventScroll: true });
+    });
+  }, []);
 
-  const handleContextGroupRemove = async (groupId: number) => {
-    await Api.entryGroups.remove([groupId]);
-    await Promise.all([
-      qc.invalidateQueries({ queryKey }),
-      qc.invalidateQueries({ queryKey: ['entry-groups', type, year] }),
-    ]);
-  };
+  // Escape closes the inspector after inner fields, menus and dialogs had their turn.
+  useEffect(() => {
+    if (!selection) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      closeInspector();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selection, closeInspector]);
 
-  const handleTagSave = async () => {
-    if (!tagEditor) return;
-    setTagSaving(true);
-    try {
-      const trimmed = tagEditor.text.trim();
-      if (tagEditor.color === 'none' && !trimmed) {
-        await Api.tags.remove(tagEditor.entryId, tagEditor.month);
-      } else {
-        await Api.tags.save({
-          entryId: tagEditor.entryId,
-          month: tagEditor.month,
-          color: tagEditor.color,
-          text: trimmed,
-        });
-      }
-      if (year) qc.invalidateQueries({ queryKey: ['tags', year] });
-      setTagEditor(null);
-    } finally {
-      setTagSaving(false);
+  // Arrow keys, Home and End move between month cells; the selection follows
+  // while the inspector shows a cell (plan D4).
+  const moveFrom = (entryId: number, month: string, key: string) => {
+    const rowsInGrid = [...(tableRef.current?.querySelectorAll<HTMLTableRowElement>('tr.ledger-entry') ?? [])];
+    let row = rowsInGrid.findIndex((node) => node.dataset.entryId === String(entryId));
+    let column = MONTHS.indexOf(month as (typeof MONTHS)[number]);
+    if (row < 0 || column < 0) return;
+    if (key === 'ArrowLeft') column = Math.max(0, column - 1);
+    if (key === 'ArrowRight') column = Math.min(11, column + 1);
+    if (key === 'ArrowUp') row = Math.max(0, row - 1);
+    if (key === 'ArrowDown') row = Math.min(rowsInGrid.length - 1, row + 1);
+    if (key === 'Home') column = 0;
+    if (key === 'End') column = 11;
+    const target = rowsInGrid[row].querySelector<HTMLButtonElement>(`button[data-month="${MONTHS[column]}"]`);
+    if (!target) return;
+    target.focus();
+    if (selectionRef.current?.kind === 'cell') {
+      setSelection({ kind: 'cell', entryId: Number(rowsInGrid[row].dataset.entryId), month: MONTHS[column] });
     }
   };
 
-  const handleTagClear = async () => {
-    if (!tagEditor) return;
-    setTagSaving(true);
-    try {
-      await Api.tags.remove(tagEditor.entryId, tagEditor.month);
-      if (year) qc.invalidateQueries({ queryKey: ['tags', year] });
-      setTagEditor(null);
-    } finally {
-      setTagSaving(false);
-    }
+  const onGridKeyDown = (event: ReactKeyboardEvent<HTMLTableElement>) => {
+    const target = event.target as HTMLElement;
+    if (!target.matches('button.ledger-value') || !GRID_KEYS.has(event.key)) return;
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    event.preventDefault();
+    const row = target.closest<HTMLTableRowElement>('tr.ledger-entry');
+    if (row?.dataset.entryId && target.dataset.month) moveFrom(Number(row.dataset.entryId), target.dataset.month, event.key);
+  };
+
+  // Stable callbacks for the memoised rows; they read the latest handlers.
+  const latest = useRef({ saveMonth, moveFrom });
+  latest.current = { saveMonth, moveFrom };
+  const onSaveMonth = useCallback((entry: EntryRowData, month: string, value: number | null) => latest.current.saveMonth(entry, month, value), []);
+  const onMoveFrom = useCallback((entryId: number, month: string, key: string) => latest.current.moveFrom(entryId, month, key), []);
+  const onFocusCell = useCallback((entryId: number, month: string) => {
+    setFocusCell((prev) => (prev?.entryId === entryId && prev.month === month ? prev : { entryId, month }));
+  }, []);
+  const onSelectCell = useCallback((entryId: number, month: string, options?: { focusInspector?: boolean }) => {
+    openerRef.current = null;
+    setSelection({ kind: 'cell', entryId, month });
+    setFocusCell({ entryId, month });
+    if (options?.focusInspector) setFocusRequest((value) => value + 1);
+  }, []);
+  const onOpenEntry = useCallback((entry: EntryRowData, opener: HTMLElement) => {
+    openerRef.current = opener;
+    setSelection({ kind: 'entry', entryId: entry.id });
+    setFocusRequest((value) => value + 1);
+  }, []);
+  const openGroup = (group: EntryGroup, opener: HTMLElement) => {
+    openerRef.current = opener;
+    setSelection({ kind: 'group', groupId: group.id });
+    setFocusRequest((value) => value + 1);
   };
 
   const ordering = editMode === 'order';
@@ -335,23 +436,45 @@ export function TableView() {
       items={groupEntries.map((e) => e.id)}
       onDragEnd={(event) => handleDragEnd(groupEntries, event)}
     >
-      {groupEntries.map((e) => (
-        <EntryRow
-          key={e.id}
-          e={e}
-          removing={removingIds.includes(e.id)}
-          currentMonth={currentMonth}
-          onMonthUpdate={(month, value) => handleRowMonthUpdate(e.id, month, value)}
-          tags={tagsByEntry.get(e.id) ?? {}}
-          onRequestTag={handleTagRequest}
-          onOpenDetails={(entry) => setContextTarget({ kind: 'entry', entry })}
-        />
-      ))}
+      {groupEntries.map((e) => {
+        const shown = selection && selection.kind !== 'group' && selection.entryId === e.id;
+        return (
+          <EntryRow
+            key={e.id}
+            e={e}
+            removing={removingIds.includes(e.id)}
+            currentMonth={currentMonth}
+            tags={tagsByEntry.get(e.id) ?? NO_TAGS}
+            selectedMonth={shown && selection.kind === 'cell' ? selection.month : null}
+            rowSelected={Boolean(shown)}
+            activeMonth={activeCell?.entryId === e.id ? activeCell.month : null}
+            onSelectCell={onSelectCell}
+            onFocusCell={onFocusCell}
+            onSaveMonth={onSaveMonth}
+            onMoveFrom={onMoveFrom}
+            onOpenDetails={onOpenEntry}
+          />
+        );
+      })}
     </SortableScope>
   );
 
   const ungroupedEntries = entriesByGroup.get(null) ?? [];
   const ungroupedCollapsed = normalizedSearch ? false : Boolean(collapsedGroups.ungrouped);
+  const isGroupCollapsed = (groupId: number) => (normalizedSearch ? false : Boolean(collapsedGroups[`g:${groupId}`]));
+
+  // One month cell is in the Tab order: the focused one, else the first visible entry's January.
+  const renderedEntries = [
+    ...visibleGroups.flatMap((g) => (isGroupCollapsed(g.id) ? [] : entriesByGroup.get(g.id) ?? [])),
+    ...(ungroupedCollapsed ? [] : ungroupedEntries),
+  ];
+  const activeCell = focusCell && renderedEntries.some((e) => e.id === focusCell.entryId)
+    ? focusCell
+    : renderedEntries[0] ? { entryId: renderedEntries[0].id, month: 'Jan' } : null;
+
+  const selectedEntry = selection && selection.kind !== 'group' ? rows.find((e) => e.id === selection.entryId) ?? null : null;
+  const selectedGroup = selection?.kind === 'group' ? groups.find((g) => g.id === selection.groupId) ?? null : null;
+  const inspectorOpen = Boolean(selectedEntry || selectedGroup);
   const isEmpty = loaded && !normalizedSearch && rows.length === 0 && groups.length === 0;
   const noMatches = Boolean(normalizedSearch) && visibleRows.length === 0 && visibleGroups.length === 0;
 
@@ -364,8 +487,11 @@ export function TableView() {
   return (
     <div className="ledger-view" data-edit-mode={editMode ?? undefined}>
       {editMode ? <ModeBanner mode={editMode} /> : <GridSummary totals={totals} currentMonth={currentMonth} type={type} />}
+      {saveState.status === 'error' && !inspectorOpen && (
+        <div className="ledger-save-bar"><SaveStatusLine state={saveState} /></div>
+      )}
       <div className="ledger-wrap" data-testid="entry-table">
-        <table className="ledger">
+        <table className="ledger" ref={tableRef} onKeyDown={onGridKeyDown}>
           <caption className="sr-only">{type === 'income' ? 'Incomes' : 'Expenses'} {year} by month</caption>
           <TableHeaderRow currentMonth={currentMonth} />
           <SortableScope
@@ -377,7 +503,7 @@ export function TableView() {
             {visibleGroups.map((g) => {
               const groupKey = `g:${g.id}`;
               const groupEntries = entriesByGroup.get(g.id) ?? [];
-              const isCollapsed = normalizedSearch ? false : Boolean(collapsedGroups[groupKey]);
+              const isCollapsed = isGroupCollapsed(g.id);
               const groupProps = {
                 entryCount: groupEntries.length,
                 isCollapsed,
@@ -395,7 +521,8 @@ export function TableView() {
                       group={g}
                       {...groupProps}
                       removing={removingGroupIds.includes(g.id)}
-                      onOpenDetails={() => setContextTarget({ kind: 'group', group: g, entryCount: groupEntries.length })}
+                      active={selection?.kind === 'group' && selection.groupId === g.id}
+                      onOpenDetails={(opener) => openGroup(g, opener)}
                     />
                   )}
                   {!isCollapsed && renderEntries(groupEntries)}
@@ -454,39 +581,37 @@ export function TableView() {
         />
       )}
 
-      {tagEditor && (
-        <TagEditorPopover
-          month={tagEditor.month}
-          color={tagEditor.color}
-          text={tagEditor.text}
-          anchor={tagEditor.rect}
-          saving={tagSaving}
-          onChange={(patch) =>
-            setTagEditor((prev) => (prev ? { ...prev, ...patch } : prev))
-          }
-          onSave={handleTagSave}
-          onClear={handleTagClear}
-          onClose={() => !tagSaving && setTagEditor(null)}
+      {year && (
+        <Inspector
+          selection={selection}
+          entry={selectedEntry}
+          group={selectedGroup}
+          groupEntryCount={selectedGroup ? rows.filter((e) => e.groupId === selectedGroup.id).length : 0}
+          groups={sortedGroups}
+          tags={selectedEntry ? tagsByEntry.get(selectedEntry.id) ?? NO_TAGS : NO_TAGS}
+          year={year}
+          previousYearEntries={hasPreviousYear ? ((previousYearQuery.data?.entries ?? null) as EntryRowData[] | null) : null}
+          readOnly={demo !== false}
+          saveState={saveState}
+          focusRequest={focusRequest}
+          onClose={closeInspector}
+          onSaveMonth={saveMonth}
+          onSaveEntry={saveEntry}
+          onSaveGroup={saveGroup}
+          onSaveTag={saveTag}
+          onRemoveEntry={removeEntry}
+          onRemoveGroup={removeGroup}
+          onAddEntry={(groupId) => {
+            setSelection(null);
+            openAddEntry(groupId);
+          }}
+          onArrangeGroup={() => {
+            setSelection(null);
+            useAppStore.getState().setSearchQuery('');
+            setEditMode('order');
+          }}
         />
       )}
-      <TableContextPanel
-        target={contextTarget}
-        groups={sortedGroups}
-        onClose={() => setContextTarget(null)}
-        onSaveEntry={handleContextEntrySave}
-        onSaveGroup={handleContextGroupSave}
-        onRemoveEntry={handleContextEntryRemove}
-        onRemoveGroup={handleContextGroupRemove}
-        onAddEntry={(groupId) => {
-          setContextTarget(null);
-          openAddEntry(groupId);
-        }}
-        onArrangeGroup={() => {
-          setContextTarget(null);
-          useAppStore.getState().setSearchQuery('');
-          setEditMode('order');
-        }}
-      />
     </div>
   );
 }

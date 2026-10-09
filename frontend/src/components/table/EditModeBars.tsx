@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Dialog, Icon } from '../ui';
 
-type EditMode = 'order' | 'remove' | 'tag';
+type EditMode = 'order' | 'remove';
 
 const MODE_TEXT: Record<EditMode, { icon: string; title: string; text: string }> = {
   order: {
@@ -13,11 +13,6 @@ const MODE_TEXT: Record<EditMode, { icon: string; title: string; text: string }>
     icon: 'trash',
     title: 'Remove mode',
     text: 'Select entries or whole groups. Nothing is removed until you confirm.',
-  },
-  tag: {
-    icon: 'tag',
-    title: 'Tags mode',
-    text: 'Select a month to set its tag colour and note.',
   },
 };
 

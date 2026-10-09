@@ -17,15 +17,21 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - a summary strip above the grid shows the year total, monthly average, current month compared with the average and the highest month (desktop)
 - Arrange, Remove and Tags modes show a banner explaining the mode; in Remove mode a bar below the grid names the selection (for example "Remove 1 group and 2 entries") and offers *Clear selection*
 - removing selected entries and groups now asks for confirmation and states which entries move to Ungrouped; previously the selection was deleted immediately
+- Expenses and Incomes have an inspector panel on the right (a bottom sheet below 960 px) that replaces the details panel, Tags mode and its tag popover. It shows the selected month's value with quick fill (previous month, average, clear), the entry's name, group and comment, the month's tag colour and note, a 12-month chart with sum, average, change against the previous month and the same month of the previous year (matched by entry name). Group rows open group details (rename, add entry, arrange, remove). In demo mode it is read only
+- a single click on a month now selects it and opens the inspector; Enter, F2, typing a number or a double-click edits the value in place, Tab saves and moves to the next month, arrow keys, Home and End move between months, Shift+Enter moves into the inspector and Escape closes it
+- inspector fields save on their own (name and tag note on Enter or when leaving the field, group and tag colour on change, comment when leaving the field) and show *Saving…*/*Saved hh:mm*; *Save changes* and *Cancel* are gone, and Escape reverts a changed field
+- **Tags mode is removed**; tags are set in the inspector
+- Arrange mode can also be used with the keyboard (Space picks up a row, arrow keys move it, Space drops it)
 
 ### Bug fix
 - a newly added savings item now reliably opens for editing; previously it could stay closed when the refreshed list arrived late
 - a failed removal of selected entries or groups is now shown in the Remove bar and can be retried; previously it failed silently
+- a failed save of a month value is now shown with *Retry* and *Undo change*; previously the value looked saved although the server had rejected it
 
 ### Improvements
 - added accessible names and dialog semantics to existing controls (dialogs and their close button, PIN overlay, year selector, month cells, remove checkboxes, reorder handles, tag editor, savings item fields and Settings toggles) without changing their appearance
 - moved browser-test selectors to shared role/name-based helpers and added feature-parity regressions with request-payload checks for value editing, details, Arrange/Remove/Tag modes, savings, year operations, export/import dialogs, Settings and encryption dialogs, plus a grid render-time measurement
-- the Expenses/Incomes grid renders faster with 200 entries (cached switch about 15 % faster on the reference host)
+- the Expenses/Incomes grid renders faster with 200 entries (cached switch about 20 % faster than v1.6.3 on the reference host)
 
 ## v1.6.3
 

@@ -326,14 +326,21 @@ for (const mobile of [false, true]) {
         await ui.closeDialog(page).click();
         await ui.dialog(page).waitFor({ state: 'detached' });
 
+        // Inspector drawer (plan Phase 4): fades in and out monotonically, has no
+        // scrim or dialog layer, and Escape closes it.
         for (const target of ['Test groceries', 'Test group']) {
-          monotonic(await sample(page, hooks.dialog, () => ui.openDetails(page, target)), 1);
-          assert.equal(await page.locator(hooks.detailsBackdrop).evaluate(node => getComputedStyle(node).backdropFilter), 'none');
+          monotonic(await sample(page, hooks.inspector, () => ui.openDetails(page, target)), 1);
+          assert.equal(await page.locator(`${hooks.dialog}, ${hooks.dialogBackdrop}`).count(), 0, 'Inspector is not modal');
           const box = await ui.details(page).boundingBox();
           assert.ok(box.x >= 0 && box.y >= 0, 'Details stay within the viewport');
           await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-${target === 'Test group' ? 'group' : 'entry'}`);
-          monotonic(await sample(page, hooks.dialog, () => page.keyboard.press('Escape')), -1);
+          monotonic(await sample(page, hooks.inspector, () => page.keyboard.press('Escape')), -1);
         }
+        // Selecting a cell opens the inspector; Escape closes it and focus returns to the cell.
+        monotonic(await sample(page, hooks.inspector, () => ui.selectCell(page, 'Test groceries', 'Jan')), 1);
+        await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-cell`);
+        monotonic(await sample(page, hooks.inspector, () => page.keyboard.press('Escape')), -1);
+        assert.equal(await ui.cell(page, 'Test groceries', 'Jan').evaluate(node => node === document.activeElement), true);
         assert.deepEqual(errors, [], 'No uncaught browser errors');
       } finally {
         await browser.close();
@@ -395,12 +402,17 @@ for (const mobile of [false, true]) {
         await page.getByText('Demo groceries', { exact: true }).waitFor();
         assert.equal(await ui.demoBanner(page).count(), 1);
         assert.equal(await ui.newButton(page).count() + await ui.editMenu(page).count(), 0);
-        await ui.cell(page, 'Demo groceries', 'Jan').click();
+        // Demo: the inspector opens read-only, without any input or remove action.
+        await ui.selectCell(page, 'Demo groceries', 'Jan');
+        await ui.details(page).getByText('Demo data is read only.', { exact: true }).waitFor();
+        await ui.editCell(page, 'Demo groceries', 'Jan');
         assert.equal(await page.getByRole('textbox').count(), 0, 'Demo values cannot be edited');
+        await ui.closeDetails(page).click();
+        await ui.details(page).waitFor({ state: 'detached' });
         await ui.openDetails(page, 'Demo groceries');
-        await ui.details(page).waitFor();
-        assert.equal(await ui.details(page).getByRole('textbox', { name: 'Name' }).evaluate(node => node.readOnly), true);
-        assert.equal(await page.getByRole('button', { name: 'Save changes', exact: true }).count(), 0);
+        await ui.details(page).getByText('Demo data is read only.', { exact: true }).waitFor();
+        assert.equal(await ui.details(page).getByRole('textbox').count() + await ui.details(page).getByRole('combobox').count(), 0);
+        assert.equal(await ui.details(page).getByRole('button', { name: /^Remove/ }).count(), 0);
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-demo-details`);
         await ui.closeDetails(page).click();
         await ui.details(page).waitFor({ state: 'detached' });

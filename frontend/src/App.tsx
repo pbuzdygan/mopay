@@ -15,7 +15,6 @@ import { PinGuard } from "./components/PinGuard";
 import { InitiateYearModal } from "./components/modals/InitiateYearModal";
 import { AddEntryModal } from "./components/modals/AddEntryModal";
 import { AddGroupModal } from "./components/modals/AddGroupModal";
-import { CommentModal } from "./components/modals/CommentModal";
 import { YearOperationsModal } from "./components/modals/YearOperationsModal";
 import { ExportModal } from "./components/modals/ExportModal";
 import { ImportModal } from "./components/modals/ImportModal";
@@ -158,7 +157,7 @@ export default function App() {
         </main>
       </div>
 
-      {!demo && <><InitiateYearModal /><AddEntryModal /><AddGroupModal /><CommentModal /><YearOperationsModal /></>}
+      {!demo && <><InitiateYearModal /><AddEntryModal /><AddGroupModal /><YearOperationsModal /></>}
       <ExportModal />
       {!demo && <ImportModal />}
       <SettingsModal />

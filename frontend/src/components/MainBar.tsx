@@ -170,8 +170,6 @@ export function MainBar() {
       ? 'Arrange'
       : editMode === 'remove'
       ? 'Remove'
-      : editMode === 'tag'
-      ? 'Tags'
       : null;
   const searchDisabled = tab === 'reports';
   const searchActive = Boolean(searchQuery.trim());
@@ -219,9 +217,6 @@ export function MainBar() {
             </DropdownItem>
             <DropdownItem onSelect={() => { selectAction('remove'); close(); }}>
               {menuItemLabel('/icons/ui/trash.svg', 'Remove')}
-            </DropdownItem>
-            <DropdownItem onSelect={() => { selectAction('tag'); close(); }}>
-              {menuItemLabel('/icons/ui/tag.svg', 'Tags')}
             </DropdownItem>
           </>
         )}

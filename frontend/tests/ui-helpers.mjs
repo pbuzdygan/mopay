@@ -31,7 +31,7 @@ export const hooks = {
   table: '[data-testid="entry-table"]',
   dialog: '[role="dialog"]',
   dialogBackdrop: '[data-testid="dialog-backdrop"]',
-  detailsBackdrop: '[data-testid="details-backdrop"]',
+  inspector: '[data-testid="inspector"]',
   pinCard: '[data-testid="pin-card"]',
   expandedGroup: 'button[aria-label="Collapse group"]',
 };
@@ -87,11 +87,22 @@ export const ui = {
   removeSelected: (page) => page.getByRole('button', { name: /^Remove (selected|\d+ (group|entr).*)$/ }),
   dialog: (page, name) => page.getByRole('dialog', name ? { name, exact: true } : undefined),
   closeDialog: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close dialog', exact: true }),
-  details: (page) => page.getByRole('dialog', { name: /^(Entry|Group) details$/ }),
+  // Non-modal inspector drawer (plan Phase 4) for a selected cell, entry or group.
+  details: (page) => page.getByTestId('inspector'),
   closeDetails: (page) => ui.details(page).getByRole('button', { name: 'Close details', exact: true }),
-  // Clicking an entry or group name opens its details.
-  openDetails: (page, name) => page.getByText(name, { exact: true }).click(),
+  // Entry or group name button in the grid (the inspector repeats the name as its title).
+  rowName: (page, name) => page.getByTestId('entry-table').getByRole('button', { name, exact: true }),
+  // Clicking an entry or group name opens its details in the inspector.
+  openDetails: (page, name) => ui.rowName(page, name).click(),
   cell: (page, entry, month) => page.getByRole('button', { name: new RegExp(`^${escapeRegExp(entry)}, ${month}: `) }),
+  // A single click selects the cell and opens the inspector (plan D4).
+  selectCell: (page, entry, month) => ui.cell(page, entry, month).click(),
+  // Enter on a focused cell edits in place without the inspector (plan D4).
+  async editCell(page, entry, month) {
+    await ui.cell(page, entry, month).focus();
+    await page.keyboard.press('Enter');
+  },
+  inspectorValue: (page) => ui.details(page).getByRole('textbox', { name: / value$/ }),
   // Tag note announced with the month cell (aria-describedby); null without a note.
   cellNote: (page, entry, month) => ui.cell(page, entry, month)
     .evaluate(node => document.getElementById(node.getAttribute('aria-describedby') ?? '')?.textContent ?? null),

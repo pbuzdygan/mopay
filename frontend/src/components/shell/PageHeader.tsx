@@ -4,7 +4,7 @@ import { useAppStore } from '../../store';
 import { Button, Icon, Menu, type MenuItem } from '../ui';
 import { SECTIONS, useShellActions, type EditMode } from './useShell';
 
-const MODE_LABELS: Record<EditMode, string> = { order: 'Arrange', remove: 'Remove', tag: 'Tags' };
+const MODE_LABELS: Record<EditMode, string> = { order: 'Arrange', remove: 'Remove' };
 
 function SearchField() {
   const { searchQuery, changeSearch, setSearchQuery, searchPlaceholder } = useShellActions();
@@ -73,7 +73,6 @@ export function PageHeader() {
   const editItems: MenuItem[] = [
     { label: 'Arrange', icon: 'arrows-sort', onSelect: () => selectEditMode('order') },
     { label: 'Remove', icon: 'trash', onSelect: () => selectEditMode('remove') },
-    { label: 'Tags', icon: 'tag', onSelect: () => selectEditMode('tag') },
     { label: 'New group', icon: 'folder', onSelect: () => openModal('addGroup'), separatorBefore: true },
   ];
 

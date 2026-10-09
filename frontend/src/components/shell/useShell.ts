@@ -4,7 +4,7 @@ import { Api } from '../../api';
 import { useAppStore } from '../../store';
 
 export type Section = 'expenses' | 'incomes' | 'savings' | 'reports';
-export type EditMode = 'order' | 'remove' | 'tag';
+export type EditMode = 'order' | 'remove';
 
 // 'reports' stays the internal key of Overview (plan D2).
 export const SECTIONS: Array<{ id: Section; label: string; icon: string; maskIcon: string }> = [

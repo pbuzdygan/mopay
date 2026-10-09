@@ -83,7 +83,7 @@ type State = {
   viewMode: ViewMode;
   searchQuery: string;
   showGroupTotals: boolean;
-  editMode: null | 'order' | 'remove' | 'tag';
+  editMode: null | 'order' | 'remove';
   addEntryGroupId: number | null;
   pinSession: boolean;
   financialReady: boolean;
@@ -92,7 +92,6 @@ type State = {
   groupRemoveSelection: Set<number>;
   modals: {
     add: boolean;
-    comment: { open: boolean; id: number | null; text: string };
     yearOps: boolean;
     export: boolean;
     import: boolean;
@@ -121,7 +120,6 @@ type State = {
   openModal: (k: keyof State['modals']) => void;
   openAddEntry: (groupId?: number | null) => void;
   closeModal: (k: keyof State['modals']) => void;
-  setComment: (id: number | null, text: string) => void;
   openGoalModal: (goalId?: number | null) => void;
   closeGoalModal: () => void;
   setMigrationNotice: (open: boolean, message?: string) => void;
@@ -153,7 +151,6 @@ export const useAppStore = create<State>((set, get) => ({
   groupRemoveSelection: new Set<number>(),
   modals: {
     add: false,
-    comment: { open: false, id: null, text: '' },
     yearOps: false,
     export: false,
     import: false,
@@ -223,11 +220,8 @@ export const useAppStore = create<State>((set, get) => ({
     set({
       modals: {
         ...get().modals,
-        [k]:
-          k === 'comment'
-            ? { ...get().modals.comment, open: true }
-            : true,
-      } as any,
+        [k]: true,
+      },
     }),
 
   openAddEntry: (groupId = null) =>
@@ -241,16 +235,8 @@ export const useAppStore = create<State>((set, get) => ({
       ...(k === 'add' ? { addEntryGroupId: null } : {}),
       modals: {
         ...get().modals,
-        [k]:
-          k === 'comment'
-            ? { open: false, id: null, text: '' }
-            : false,
-      } as any,
-    }),
-
-  setComment: (id, text) =>
-    set({
-      modals: { ...get().modals, comment: { open: true, id, text } },
+        [k]: false,
+      },
     }),
 
   openGoalModal: (goalId = null) =>

@@ -22,6 +22,8 @@ function createApi({ encryption = { encryptionEnabled: false, keyMismatch: false
       ],
       income: [{ id: 20, name: 'Salary', groupId: null, sort_index: 1, Jan: 5000, comment: '' }],
     },
+    // Previous year: only incomes, for the same-month comparison (plan D5).
+    previous: { expense: [], income: [{ id: 120, name: 'Salary', groupId: null, sort_index: 1, Jan: 4600, comment: '' }] },
     tags: [{ entryId: 1, month: 'Feb', color: 'green', text: 'Synthetic note' }],
     savings: [
       { id: 200, name: 'Emergency fund', targetValue: 1000, sortIndex: 1, items: [
@@ -57,7 +59,7 @@ function createApi({ encryption = { encryptionEnabled: false, keyMismatch: false
       if (path === '/api/meta') return ok({ version: '1.6.3', channel: 'main', demo: false });
       if (path === '/api/encryption/status') return ok(encryption);
       if (path === '/api/years') return ok({ years: state.years });
-      if (path === '/api/entries') return ok({ entries: year === 2026 ? state.entries[type] : [] });
+      if (path === '/api/entries') return ok({ entries: year === 2026 ? state.entries[type] : year === 2025 ? state.previous[type] : [] });
       if (path === '/api/entry-groups') return ok({ groups: year === 2026 ? state.groups[type] : [] });
       if (path === '/api/tags') return ok({ tags: year === 2026 ? state.tags : [] });
       if (path === '/api/savings') return ok({ goals: year === 2026 ? state.savings : [] });
@@ -291,7 +293,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await page.getByText('Gifts', { exact: true }).waitFor();
 
     // F07: decimal filter and Enter save.
-    await ui.cell(page, 'Groceries', 'Jan').click();
+    await ui.editCell(page, 'Groceries', 'Jan');
     const jan = ui.cellInput(page, 'Groceries', 'Jan');
     assert.equal(await jan.inputValue(), '100,00');
     await jan.fill('2a5,5');
@@ -300,43 +302,55 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Jan: 25.5 });
     assert.equal(await cellText(page, 'Groceries', 'Jan'), '25,50');
     // Escape reverts without saving.
-    await ui.cell(page, 'Groceries', 'Jan').click();
+    await ui.editCell(page, 'Groceries', 'Jan');
     await ui.cellInput(page, 'Groceries', 'Jan').fill('999');
     await ui.cellInput(page, 'Groceries', 'Jan').press('Escape');
     await expectNoWrite(api, w);
     assert.equal(await cellText(page, 'Groceries', 'Jan'), '25,50');
     // Blur saves; '-' clears the value (null).
-    await ui.cell(page, 'Groceries', 'Feb').click();
+    await ui.editCell(page, 'Groceries', 'Feb');
     await ui.cellInput(page, 'Groceries', 'Feb').fill('-');
     await ui.cellInput(page, 'Groceries', 'Feb').evaluate(node => node.blur());
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Feb: null });
     assert.equal(await cellText(page, 'Groceries', 'Feb'), '-');
     // An empty field saves 0; '.' is a thousands separator and ',' the decimal separator.
-    await ui.cell(page, 'Groceries', 'Mar').click();
+    await ui.editCell(page, 'Groceries', 'Mar');
     await ui.cellInput(page, 'Groceries', 'Mar').fill('');
     await ui.cellInput(page, 'Groceries', 'Mar').press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Mar: 0 });
     assert.equal(await cellText(page, 'Groceries', 'Mar'), '0,00');
-    await ui.cell(page, 'Groceries', 'Dec').click();
+    await ui.editCell(page, 'Groceries', 'Dec');
     await ui.cellInput(page, 'Groceries', 'Dec').fill('1.234,5');
     await ui.cellInput(page, 'Groceries', 'Dec').press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Dec: 1234.5 });
     assert.equal(await cellText(page, 'Groceries', 'Dec'), '1 234,50');
     await page.getByText('2 340,00', { exact: true }).waitFor(); // total of the year
 
-    // Known gap (plan F07, fixed in Phase 4): a failed month save keeps the
-    // optimistic value and is not shown to the user; it only surfaces as an
-    // unhandled rejection. Phase 4 replaces this with a visible error and retry.
+    // Phase 4 fix (F07): a failed month save keeps the typed value, shows an
+    // error with Retry, and Undo restores the previous value without a request.
     api.failNext('PATCH', /^\/api\/entries\/1$/);
-    await ui.cell(page, 'Groceries', 'Apr').click();
+    await ui.editCell(page, 'Groceries', 'Apr');
     await ui.cellInput(page, 'Groceries', 'Apr').fill('7');
     await ui.cellInput(page, 'Groceries', 'Apr').press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Apr: 7 });
     assert.equal(api.writes.at(-1).failed, true);
     assert.equal(await cellText(page, 'Groceries', 'Apr'), '7,00');
-    await page.waitForTimeout(200);
-    assert.equal(await page.getByRole('alert').count(), 0);
-    assert.deepEqual(errors, ['Synthetic failure']);
+    const saveError = page.getByRole('alert').filter({ hasText: 'Could not save Groceries, Apr. Synthetic failure' });
+    await saveError.waitFor();
+    await saveError.getByRole('button', { name: 'Retry', exact: true }).click();
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Apr: 7 });
+    await saveError.waitFor({ state: 'detached' });
+    api.failNext('PATCH', /^\/api\/entries\/1$/);
+    await ui.editCell(page, 'Groceries', 'May');
+    await ui.cellInput(page, 'Groceries', 'May').fill('8');
+    await ui.cellInput(page, 'Groceries', 'May').press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { May: 8 });
+    const undoError = page.getByRole('alert').filter({ hasText: 'Could not save Groceries, May.' });
+    await undoError.getByRole('button', { name: 'Undo change', exact: true }).click();
+    await undoError.waitFor({ state: 'detached' });
+    assert.equal(await cellText(page, 'Groceries', 'May'), '-');
+    await expectNoWrite(api, w);
+    assert.deepEqual(errors, []);
     await screenshot(page, `${label.replace(' ', '-')}-values`);
     // F19: a year without entries explains the empty grid.
     await ui.selectYear(page, 2025);
@@ -344,91 +358,235 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await screenshot(page, `${label.replace(' ', '-')}-empty`);
   }));
 
-  test(`${label}: entry and group details (F05, F12, F13, F41)`, () => openApp(context, async ({ page, api, errors }) => {
+  test(`${label}: entry and group details in the inspector (F05, F12, F13, F41)`, () => openApp(context, async ({ page, api, errors }) => {
     let w = 0;
-    // F13: group details.
+    // F13: group details. Phase 4: fields save on Enter/blur, one field per request.
     await ui.openDetails(page, 'Household');
-    let details = ui.dialog(page, 'Group details');
+    let details = ui.details(page);
     await details.getByText('2 entries in this group.', { exact: true }).waitFor();
     await details.getByRole('textbox', { name: 'Name' }).fill('Home');
-    await details.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await details.getByRole('textbox', { name: 'Name' }).press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entry-groups/10', { name: 'Home' });
+    await ui.rowName(page, 'Home').waitFor();
+    await details.getByRole('status').filter({ hasText: /^Saved \d\d:\d\d$/ }).waitFor();
+    // Escape closes the inspector and returns focus to the group name.
+    await page.keyboard.press('Escape');
     await details.waitFor({ state: 'detached' });
-    await page.getByText('Home', { exact: true }).waitFor();
+    await expectFocused(ui.rowName(page, 'Home'));
     // Add entry to this group: New entry opens with the group preselected (F05).
     await ui.openDetails(page, 'Home');
-    await ui.dialog(page, 'Group details').getByRole('button', { name: '+ Add entry here', exact: true }).click();
+    await details.getByRole('button', { name: 'Add entry to group', exact: true }).click();
     const addEntry = ui.dialog(page, 'Add expense entry');
     await addEntry.waitFor();
     await expectValue(addEntry.getByRole('combobox', { name: 'Place entry in' }), '10');
     await addEntry.getByRole('textbox', { name: 'Name' }).fill('Water');
     await addEntry.getByRole('button', { name: 'Add entry', exact: true }).click();
     w = await expectWrite(api, w, 'POST', '/api/entries', { type: 'expense', year: 2026, name: 'Water', groupId: 10 });
-    await page.getByText('Water', { exact: true }).waitFor();
+    await ui.rowName(page, 'Water').waitFor();
     await ui.dialog(page).waitFor({ state: 'detached' });
     // Arrange from group details enters arrange mode.
     await ui.openDetails(page, 'Home');
-    await ui.dialog(page, 'Group details').getByRole('button', { name: 'Arrange', exact: true }).click();
+    await details.getByRole('button', { name: 'Arrange', exact: true }).click();
     await page.getByRole('button', { name: 'Reorder group Home', exact: true }).waitFor();
     assert.match(await ui.editMenu(page).textContent(), /Arrange/);
     await ui.exitEditMode(page);
     await page.getByRole('button', { name: 'Reorder group Home', exact: true }).waitFor({ state: 'detached' });
     // Remove group with confirmation; its entries become ungrouped.
     await ui.openDetails(page, 'Transport');
-    details = ui.dialog(page, 'Group details');
     await details.getByRole('button', { name: 'Remove group', exact: true }).click();
     await expectNoWrite(api, w);
     await details.getByRole('button', { name: 'Confirm', exact: true }).click();
     w = await expectWrite(api, w, 'DELETE', '/api/entry-groups', { ids: [11] });
     await details.waitFor({ state: 'detached' });
-    await page.getByText('Transport', { exact: true }).waitFor({ state: 'detached' });
-    await page.getByText('Fuel', { exact: true }).waitFor();
+    await ui.rowName(page, 'Transport').waitFor({ state: 'detached' });
+    await ui.rowName(page, 'Fuel').waitFor();
 
     // F12/F41: rename, move to another group, comment.
     await ui.openDetails(page, 'Groceries');
-    details = ui.dialog(page, 'Entry details');
     await details.getByRole('textbox', { name: 'Name' }).fill('Food');
+    await details.getByRole('textbox', { name: 'Name' }).press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { name: 'Food' });
     await details.getByRole('combobox', { name: 'Group' }).selectOption({ label: 'Ungrouped' });
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { groupId: null });
     await details.getByRole('textbox', { name: 'Comment' }).fill('Weekly shop');
     await screenshot(page, `${label.replace(' ', '-')}-entry-details`);
-    await details.getByRole('button', { name: 'Save changes', exact: true }).click();
-    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { name: 'Food', groupId: null, comment: 'Weekly shop' });
+    await details.getByRole('textbox', { name: 'Comment' }).press('Tab');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { comment: 'Weekly shop' });
+    await expectNoWrite(api, w);
+    await ui.rowName(page, 'Food').waitFor();
+    await ui.closeDetails(page).click();
     await details.waitFor({ state: 'detached' });
-    await page.getByText('Food', { exact: true }).waitFor();
     await ui.openDetails(page, 'Food');
     assert.equal(await details.getByRole('textbox', { name: 'Comment' }).inputValue(), 'Weekly shop');
     await details.getByRole('combobox', { name: 'Group' }).selectOption({ label: 'Home' });
-    await details.getByRole('button', { name: 'Save changes', exact: true }).click();
-    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { name: 'Food', groupId: 10, comment: 'Weekly shop' });
-    await details.waitFor({ state: 'detached' });
-    // Save errors are shown and keep the panel open with the draft.
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { groupId: 10 });
+    // An empty name is not saved; Escape restores the saved name.
+    await details.getByRole('textbox', { name: 'Name' }).fill(' ');
+    await details.getByRole('textbox', { name: 'Name' }).press('Enter');
+    await details.getByText('Enter a name.', { exact: true }).waitFor();
+    await details.getByRole('textbox', { name: 'Name' }).press('Escape');
+    assert.equal(await details.getByRole('textbox', { name: 'Name' }).inputValue(), 'Food');
+    await expectNoWrite(api, w);
+    // Save errors are shown with Retry and keep the draft.
     api.failNext('PATCH', /^\/api\/entries\/1$/);
-    await ui.openDetails(page, 'Food');
     await details.getByRole('textbox', { name: 'Name' }).fill('Food 2');
-    await details.getByRole('button', { name: 'Save changes', exact: true }).click();
-    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { name: 'Food 2', groupId: 10, comment: 'Weekly shop' });
-    await details.getByRole('alert').filter({ hasText: 'Synthetic failure' }).waitFor();
+    await details.getByRole('textbox', { name: 'Name' }).press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { name: 'Food 2' });
+    const failure = details.getByRole('alert').filter({ hasText: 'Could not save the details of Food. Synthetic failure' });
+    await failure.waitFor();
     assert.equal(await details.getByRole('textbox', { name: 'Name' }).inputValue(), 'Food 2');
-    await details.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await failure.getByRole('button', { name: 'Retry', exact: true }).click();
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { name: 'Food 2' });
+    await failure.waitFor({ state: 'detached' });
+    await ui.rowName(page, 'Food 2').waitFor();
+    await ui.closeDetails(page).click();
     await details.waitFor({ state: 'detached' });
-    assert.equal(await page.getByText('Food 2', { exact: true }).count(), 0);
     // Remove entry with confirmation.
     await ui.openDetails(page, 'Fuel');
     await details.getByRole('button', { name: 'Remove entry', exact: true }).click();
     await expectNoWrite(api, w);
     await details.getByRole('button', { name: 'Confirm', exact: true }).click();
     w = await expectWrite(api, w, 'DELETE', '/api/entries', { ids: [3] });
-    await page.getByText('Fuel', { exact: true }).waitFor({ state: 'detached' });
+    await ui.rowName(page, 'Fuel').waitFor({ state: 'detached' });
+    await details.waitFor({ state: 'detached' });
     assert.deepEqual(errors, []);
   }));
 
-  test(`${label}: arrange, remove and tag modes (F08, F09, F10, F11)`, () => openApp(context, async ({ page, api, errors }) => {
+  test(`${label}: cell inspector, keyboard and tags (D4, D5, F07, F10, F11, F42)`, () => openApp(context, async ({ page, api, errors }) => {
+    let w = 0;
+    const details = ui.details(page);
+    // D4: a single click selects the cell and opens the inspector, no in-place editor.
+    await ui.selectCell(page, 'Rent', 'Mar');
+    await details.waitFor();
+    assert.equal(await ui.cellInput(page, 'Rent', 'Mar').count(), 0);
+    assert.equal(await ui.cell(page, 'Rent', 'Mar').getAttribute('aria-current'), 'true');
+    assert.equal(await details.getByRole('heading', { level: 2 }).textContent(), 'March 2026');
+    // Value: saves on Enter; quick fill uses the previous month or the average; Clear sets no value.
+    await ui.inspectorValue(page).fill('12,5');
+    await ui.inspectorValue(page).press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/2', { Mar: 12.5 });
+    assert.equal(await cellText(page, 'Rent', 'Mar'), '12,50');
+    await details.getByRole('button', { name: 'Use average 506,25', exact: true }).click();
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/2', { Mar: 506.25 });
+    await details.getByRole('button', { name: 'Clear value', exact: true }).click();
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/2', { Mar: null });
+    assert.equal(await cellText(page, 'Rent', 'Mar'), '-');
+    await ui.inspectorValue(page).press('Escape');
+    await details.waitFor({ state: 'detached' });
+    await expectFocused(ui.cell(page, 'Rent', 'Mar'));
+    // Keyboard (F42): arrows move between month cells; typing a digit edits in place.
+    await page.keyboard.press('ArrowLeft');
+    await expectFocused(ui.cell(page, 'Rent', 'Feb'));
+    await page.keyboard.press('ArrowUp');
+    await expectFocused(ui.cell(page, 'Groceries', 'Feb'));
+    await page.keyboard.press('End');
+    await expectFocused(ui.cell(page, 'Groceries', 'Dec'));
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowDown');
+    await expectFocused(ui.cell(page, 'Rent', 'Jan'));
+    await page.keyboard.press('9');
+    assert.equal(await ui.cellInput(page, 'Rent', 'Jan').inputValue(), '9');
+    await page.keyboard.press('5');
+    // Tab saves and moves to the next month.
+    await page.keyboard.press('Tab');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/2', { Jan: 95 });
+    await expectFocused(ui.cell(page, 'Rent', 'Feb'));
+    await expectNoWrite(api, w);
+    // Only the active month cell is in the Tab order (roving tabindex).
+    assert.deepEqual(await page.getByTestId('entry-table').locator('button[tabindex="0"][data-month]').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))), ['Rent, Feb: -']);
+    // Double-click edits in place too (desktop; the narrow layout's sheet opens on the first tap).
+    if (context.mobile) {
+      await ui.selectCell(page, 'Gifts', 'Feb');
+      await ui.editCell(page, 'Gifts', 'Feb');
+    } else {
+      await ui.cell(page, 'Gifts', 'Feb').dblclick();
+    }
+    await ui.cellInput(page, 'Gifts', 'Feb').fill('3');
+    await ui.cellInput(page, 'Gifts', 'Feb').press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/4', { Feb: 3 });
+    // Escape in the editor cancels the edit first and keeps the inspector open.
+    await ui.editCell(page, 'Gifts', 'Feb');
+    await ui.cellInput(page, 'Gifts', 'Feb').press('Escape');
+    await details.waitFor();
+    await expectNoWrite(api, w);
+    // With the inspector open the selection follows the arrow keys; Shift+Enter moves into it.
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await details.getByRole('heading', { level: 2 }).textContent(), 'January 2026');
+    await page.keyboard.press('Shift+Enter');
+    await expectFocused(ui.inspectorValue(page));
+    await page.keyboard.press('Escape');
+    await details.waitFor({ state: 'detached' });
+
+    // F10/F11: tags are edited in the inspector (Tags mode removed, D3).
+    assert.equal(await page.getByText('Synthetic note', { exact: true }).count(), 1);
+    assert.equal(await ui.cellNote(page, 'Groceries', 'Feb'), 'Synthetic note');
+    assert.equal(await ui.cellNote(page, 'Groceries', 'Jan'), null);
+    await ui.selectCell(page, 'Rent', 'Mar');
+    const colour = (name) => details.getByRole('group', { name: 'Tag colour' }).getByRole('button', { name, exact: true });
+    assert.equal(await colour('No tag').getAttribute('aria-pressed'), 'true');
+    await colour('Orange').click();
+    w = await expectWrite(api, w, 'POST', '/api/tags', { entryId: 2, month: 'Mar', color: 'orange', text: '' });
+    await details.getByRole('textbox', { name: 'Note' }).fill('Check invoice');
+    await screenshot(page, `${label.replace(' ', '-')}-tag`);
+    await details.getByRole('textbox', { name: 'Note' }).press('Enter');
+    w = await expectWrite(api, w, 'POST', '/api/tags', { entryId: 2, month: 'Mar', color: 'orange', text: 'Check invoice' });
+    await page.getByText('Check invoice', { exact: true }).waitFor({ state: 'attached' });
+    await details.getByRole('textbox', { name: 'Note' }).press('Tab');
+    await expectNoWrite(api, w);
+    // Escape reverts a changed note without saving.
+    await details.getByRole('textbox', { name: 'Note' }).fill('Draft');
+    await details.getByRole('textbox', { name: 'Note' }).press('Escape');
+    assert.equal(await details.getByRole('textbox', { name: 'Note' }).inputValue(), 'Check invoice');
+    await expectNoWrite(api, w);
+    // Clear tag removes it.
+    await details.getByRole('button', { name: 'Clear tag', exact: true }).click();
+    w = await expectWrite(api, w, 'DELETE', '/api/tags?entryId=2&month=Mar', null);
+    await page.getByText('Check invoice', { exact: true }).waitFor({ state: 'detached' });
+    await ui.closeDetails(page).click();
+    await details.waitFor({ state: 'detached' });
+    // No colour and an empty note also remove the tag.
+    await ui.selectCell(page, 'Groceries', 'Feb');
+    assert.equal(await colour('Green').getAttribute('aria-pressed'), 'true');
+    // Entry facts: change against the previous month; no entry of that name in 2025 (D5).
+    const facts = details.getByRole('region', { name: 'Entry 2026' });
+    const fact = (term) => facts.getByText(term, { exact: true }).locator('xpath=following-sibling::dd[1]');
+    await facts.getByText('February 2025', { exact: true }).waitFor();
+    assert.equal(await fact('vs January').textContent(), '▲ 100% (100,00)');
+    assert.equal(await fact('February 2025').textContent(), '—');
+    await details.getByRole('textbox', { name: 'Note' }).fill('');
+    await details.getByRole('textbox', { name: 'Note' }).press('Enter');
+    w = await expectWrite(api, w, 'POST', '/api/tags', { entryId: 1, month: 'Feb', color: 'green', text: '' });
+    await colour('No tag').click();
+    w = await expectWrite(api, w, 'DELETE', '/api/tags?entryId=1&month=Feb', null);
+    await ui.closeDetails(page).click();
+    await details.waitFor({ state: 'detached' });
+    // Colour first, then a note saved with Enter.
+    await ui.selectCell(page, 'Gifts', 'Jan');
+    await colour('Grey').click();
+    w = await expectWrite(api, w, 'POST', '/api/tags', { entryId: 4, month: 'Jan', color: 'grey', text: '' });
+    await details.getByRole('textbox', { name: 'Note' }).fill('Birthday');
+    await details.getByRole('textbox', { name: 'Note' }).press('Enter');
+    w = await expectWrite(api, w, 'POST', '/api/tags', { entryId: 4, month: 'Jan', color: 'grey', text: 'Birthday' });
+    await ui.closeDetails(page).click();
+    await details.waitFor({ state: 'detached' });
+
+    // D5: Incomes compare with the entry of the same name in the previous year.
+    await ui.openSection(page, 'Incomes');
+    await ui.selectCell(page, 'Salary', 'Jan');
+    await facts.getByText('January 2025', { exact: true }).waitFor();
+    assert.equal(await fact('January 2025').textContent(), '4 600,00');
+    await screenshot(page, `${label.replace(' ', '-')}-cell-inspector`);
+    assert.deepEqual(errors, []);
+  }));
+
+  test(`${label}: arrange and remove modes (F08, F09)`, () => openApp(context, async ({ page, api, errors }) => {
     let w = 0;
     // F08: arrange mode shows handles, blocks value editing and details.
     await ui.enterEditMode(page, 'Arrange');
     await page.getByRole('button', { name: 'Reorder Rent', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: /^Reorder group / }).count(), 2);
     await ui.cell(page, 'Rent', 'Jan').click();
+    await ui.cell(page, 'Rent', 'Jan').press('Enter');
     assert.equal(await page.getByRole('textbox').count(), 0);
     await ui.openDetails(page, 'Rent');
     assert.equal(await ui.details(page).count(), 0);
@@ -449,55 +607,18 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'POST', '/api/entries/reorder', { orderedIds: [2, 1] });
     await drag('Reorder group Transport', 'Reorder group Household');
     w = await expectWrite(api, w, 'PATCH', '/api/entry-groups/order', { type: 'expense', year: 2026, orderedIds: [11, 10] });
+    // Keyboard reordering: Space picks the row up, arrows move it, Space drops it.
+    // dnd-kit updates the drop target on the next frames, so keys are paced.
+    await page.getByRole('button', { name: 'Reorder Rent', exact: true }).focus();
+    for (const key of ['Space', 'ArrowDown', 'Space']) {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(100);
+    }
+    w = await expectWrite(api, w, 'POST', '/api/entries/reorder', { orderedIds: [1, 2] });
+    await page.waitForTimeout(100);
     await screenshot(page, `${label.replace(' ', '-')}-arrange`);
     await ui.exitEditMode(page);
     await page.getByRole('button', { name: 'Reorder Rent', exact: true }).waitFor({ state: 'detached' });
-
-    // F10/F11: tag mode edits month tags; existing notes are rendered.
-    assert.equal(await page.getByText('Synthetic note', { exact: true }).count(), 1);
-    assert.equal(await ui.cellNote(page, 'Groceries', 'Feb'), 'Synthetic note');
-    assert.equal(await ui.cellNote(page, 'Groceries', 'Jan'), null);
-    await ui.enterEditMode(page, 'Tags');
-    await ui.cell(page, 'Rent', 'Mar').click();
-    let tag = ui.dialog(page, 'Mar details');
-    assert.equal(await tag.getByRole('button', { name: 'None', exact: true }).getAttribute('aria-pressed'), 'true');
-    await tag.getByRole('button', { name: 'Orange', exact: true }).click();
-    await tag.getByRole('textbox', { name: 'Note' }).fill('Check invoice');
-    await screenshot(page, `${label.replace(' ', '-')}-tag`);
-    await tag.getByRole('button', { name: 'Save', exact: true }).click();
-    w = await expectWrite(api, w, 'POST', '/api/tags', { entryId: 2, month: 'Mar', color: 'orange', text: 'Check invoice' });
-    await tag.waitFor({ state: 'detached' });
-    await page.getByText('Check invoice', { exact: true }).waitFor({ state: 'attached' });
-    // Reopen: saved values are prefilled; Cancel and Escape do not save.
-    await ui.cell(page, 'Rent', 'Mar').click();
-    assert.equal(await tag.getByRole('button', { name: 'Orange', exact: true }).getAttribute('aria-pressed'), 'true');
-    assert.equal(await tag.getByRole('textbox', { name: 'Note' }).inputValue(), 'Check invoice');
-    await tag.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await ui.cell(page, 'Rent', 'Mar').click();
-    await page.keyboard.press('Escape');
-    await tag.waitFor({ state: 'detached' });
-    await expectNoWrite(api, w);
-    // Clear removes the tag.
-    await ui.cell(page, 'Rent', 'Mar').click();
-    await tag.getByRole('button', { name: 'Clear', exact: true }).click();
-    w = await expectWrite(api, w, 'DELETE', '/api/tags?entryId=2&month=Mar', null);
-    await page.getByText('Check invoice', { exact: true }).waitFor({ state: 'detached' });
-    // No colour and an empty note also remove the tag.
-    await ui.cell(page, 'Groceries', 'Feb').click();
-    tag = ui.dialog(page, 'Feb details');
-    assert.equal(await tag.getByRole('button', { name: 'Green', exact: true }).getAttribute('aria-pressed'), 'true');
-    await tag.getByRole('button', { name: 'None', exact: true }).click();
-    await tag.getByRole('textbox', { name: 'Note' }).fill('');
-    await tag.getByRole('button', { name: 'Save', exact: true }).click();
-    w = await expectWrite(api, w, 'DELETE', '/api/tags?entryId=1&month=Feb', null);
-    // Enter in the note saves.
-    await ui.cell(page, 'Gifts', 'Jan').click();
-    tag = ui.dialog(page, 'Jan details');
-    await tag.getByRole('button', { name: 'Grey', exact: true }).click();
-    await tag.getByRole('textbox', { name: 'Note' }).fill('Birthday');
-    await tag.getByRole('textbox', { name: 'Note' }).press('Enter');
-    w = await expectWrite(api, w, 'POST', '/api/tags', { entryId: 4, month: 'Jan', color: 'grey', text: 'Birthday' });
-    await ui.exitEditMode(page);
 
     // F09: remove mode selects entries and groups; selection clears on exit.
     await ui.enterEditMode(page, 'Remove');
@@ -855,7 +976,7 @@ for (const theme of ['light', 'dark']) {
     assert.equal(await page.locator('#sidebar-meta-savings').textContent(), '2 goals');
     await ui.openSection(page, 'Expenses');
     assert.equal(await ui.currentSection(page), 'Expenses');
-    await ui.cell(page, 'Groceries', 'Jan').click();
+    await ui.editCell(page, 'Groceries', 'Jan');
     await ui.cellInput(page, 'Groceries', 'Jan').fill('25,5');
     await ui.cellInput(page, 'Groceries', 'Jan').press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Jan: 25.5 });
@@ -914,6 +1035,8 @@ for (const theme of ['light', 'dark']) {
     const menu = page.getByRole('menu', { name: 'Edit' });
     await menu.waitFor();
     const focused = () => page.evaluate(() => document.activeElement?.textContent);
+    // D3: Tags mode is gone; tagging lives in the inspector.
+    assert.deepEqual(await menu.getByRole('menuitem').allTextContents(), ['Arrange', 'Remove', 'New group']);
     assert.equal(await focused(), 'Arrange');
     await page.keyboard.press('ArrowDown');
     assert.equal(await focused(), 'Remove');

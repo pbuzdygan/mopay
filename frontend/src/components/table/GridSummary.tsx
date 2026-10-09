@@ -1,7 +1,5 @@
-import { MONTHS, type MonthKey } from '../../utils/months';
+import { MONTHS, MONTH_NAMES, type MonthKey } from '../../utils/months';
 import { formatCurrencyWhole } from '../../utils/currency';
-
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 type Totals = { sums: number[]; totalSum: number; totalAvg: number };
 
