@@ -38,10 +38,18 @@ export const hooks = {
 
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// In-page selector for section controls: sidebar navigation on desktop, tabs on
+// the narrow toolbar. Hidden variants are filtered by visibility in the page.
+export const sectionControlsSelector = 'nav[aria-label="Primary"] button, [role="tab"]';
+
 export const ui = {
-  // Sections are tabs today; 'Reports' stays the internal name of Overview (plan D2).
-  section: (page, name) => page.getByRole('tab', { name, exact: true }),
+  // Sidebar navigation (>=960px) or the narrow toolbar tabs; getByRole skips the hidden one.
+  section: (page, name) => page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name, exact: true })
+    .or(page.getByRole('tab', { name, exact: true })),
   openSection: (page, name) => ui.section(page, name).click(),
+  // Name of the current section (aria-current in the sidebar, aria-selected tab otherwise).
+  currentSection: (page) => page.locator('nav[aria-label="Primary"] [aria-current="page"], [role="tab"][aria-selected="true"]')
+    .filter({ visible: true }).evaluate(node => (node.getAttribute('aria-label') ?? node.textContent).trim()),
   search: (page) => page.getByRole('searchbox'),
   yearSwitch: (page) => page.getByRole('button', { name: /^(Working year|Select working year)/ }),
   async selectYear(page, year) {
@@ -49,23 +57,31 @@ export const ui = {
     await page.getByRole('option', { name: String(year), exact: true }).click();
   },
   appMenu: (page) => page.getByRole('button', { name: 'Menu', exact: true }),
+  // Year operations, Import, Export and Settings: sidebar items on desktop, Menu on the narrow toolbar.
   async openAppMenuItem(page, item) {
-    await ui.appMenu(page).click();
+    if (await ui.appMenu(page).count()) await ui.appMenu(page).click();
     await page.getByRole('button', { name: item, exact: true }).click();
   },
   lock: (page) => page.getByRole('button', { name: 'Lock session', exact: true }),
   themeToggle: (page) => page.getByRole('button', { name: 'Toggle theme', exact: true }),
-  newButton: (page) => page.getByRole('button', { name: 'New', exact: true }),
+  newButton: (page) => page.getByRole('button', { name: /^New( entry)?$/ }),
+  // kind: 'Entry' or 'Group'. Desktop: "New entry" split button; narrow toolbar: New menu.
   async openNew(page, kind) {
-    await ui.newButton(page).click();
+    const newEntry = page.getByRole('button', { name: 'New entry', exact: true });
+    if (await newEntry.count()) {
+      if (kind === 'Entry') return newEntry.click();
+      await page.getByRole('button', { name: 'More create options', exact: true }).click();
+      return page.getByRole('menuitem', { name: 'New group', exact: true }).click();
+    }
+    await page.getByRole('button', { name: 'New', exact: true }).click();
     await page.getByRole('button', { name: kind, exact: true }).click();
   },
-  editMenu: (page) => page.getByRole('button', { name: /^Actions/ }),
+  editMenu: (page) => page.getByRole('button', { name: /^(Actions|Edit)( · .+)?$/ }),
   async enterEditMode(page, mode) {
     await ui.editMenu(page).click();
-    await page.getByRole('button', { name: mode, exact: true }).click();
+    await page.getByRole('menuitem', { name: mode, exact: true }).or(page.getByRole('button', { name: mode, exact: true })).click();
   },
-  exitEditMode: (page) => page.getByRole('button', { name: 'Close', exact: true }).click(),
+  exitEditMode: (page) => page.getByRole('button', { name: /^(Close|Done)$/ }).click(),
   removeSelected: (page) => page.getByRole('button', { name: 'Remove selected', exact: true }),
   dialog: (page, name) => page.getByRole('dialog', name ? { name, exact: true } : undefined),
   closeDialog: (page) => page.getByRole('dialog').getByRole('button', { name: 'Close dialog', exact: true }),

@@ -5,6 +5,10 @@
 Final Ledger UI migration in progress on `dev`. No data, API or configuration migration is planned.
 
 ### Changes
+- new desktop layout (960 px and wider): sidebar with working year, Overview, Expenses, Incomes and Savings (with yearly totals), data actions, Settings, Lock session, theme switch and version/update link, plus a page header with search, an Edit menu and a *New entry* split button
+- Reports is renamed **Overview**, is listed first and is always the start page after loading or unlocking; the selected year is still remembered
+- search is no longer shown on Overview; `/` and Ctrl/Cmd+K focus the search field of the current page
+- menus and the year selector can be operated with the keyboard (arrow keys, Home/End, Enter, Escape)
 - introduced Final Ledger design tokens (colours per theme meeting WCAG AA text contrast, spacing, radii, type scale, motion, z-index) and applied the new palette to the existing screens
 - redesigned the PIN screen, first-run year dialog, encryption dialogs and the application-mode error page with the new base components (buttons, fields with visible labels and inline errors, callouts)
 - dialogs use a new shared frame; Escape closes dismissible dialogs, keyboard focus stays inside the open dialog and returns to the control that opened it; required dialogs (first-run year, encryption key mismatch) cannot be dismissed

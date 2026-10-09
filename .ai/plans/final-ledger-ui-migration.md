@@ -104,7 +104,7 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 #### Phase 0 results
 
 - Selectors in `ui-transitions.mjs`, `browser-security.mjs` and `demo-runtime.mjs` moved to `frontend/tests/ui-helpers.mjs` (roles, accessible names, `data-testid` hooks). Later phases change the helpers, not each assertion. Supporting attributes only, no visual change: dialog semantics and a labelled close button in `ModalBase`, PIN overlay as a labelled dialog, names for year switch, month cells/inputs, remove checkboxes, reorder handles, tag popover controls, savings item fields, Settings toggles and the Reports totals group; aria-hidden dropdown carets. No added attribute is referenced by CSS.
-- New `ui-parity.mjs` (18 tests in Phase 0, 20 after Phase 1) covers the former † rows except the manual parts of F32; new `grid-render-baseline.mjs` measures the grid.
+- New `ui-parity.mjs` (18 tests in Phase 0, 20 after Phase 1, 25 after Phase 2) covers the former † rows except the manual parts of F32; new `grid-render-baseline.mjs` measures the grid.
 - Baseline (ignored, local): `.cache/ui-baseline/` holds the build (`dist/`, use with `MOPAY_UI_DIST`), 98 screenshots of all views and dialogs in both themes, `layout-metrics.json` and `grid-render.json`. Grid baseline on this host, 200 entries: first load 400 ms, cached switch from Savings 218 ms and from Incomes 182 ms (medians of 7).
 - Findings to decide deliberately in their phase (not changed in Phase 0): adding a year in Year operations does not switch the working year because the year guard in `MainBar` runs before the year list refreshes (F29; user decided 2026-10-09 to fix it in Phase 7 with the Settings page, not as a separate 1.6.x fix); all years can be deleted (F29); the first-run dialog opens underneath Year operations (F30); bulk removal has no confirmation (F09); month save failures are not surfaced (F07). A newly added savings item intermittently did not open in edit mode because `GoalItemsLedger` cleared `editingRowId` before the refreshed items rendered (F22); confirmed and fixed in Phase 1 because it made the parity suite flaky.
 - The frontend has no `tsconfig.json`, so the `npx tsc --noEmit -p frontend` signal below is unavailable without a separate task.
@@ -125,13 +125,24 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 - Bug fix (F22): savings items keep the edit state while the refreshed list loads. New characterised defect (F21, Phase 6): Escape in the goal target field should restore the saved target, but the following blur reformats the typed draft.
 - Checks: build; ui-transitions 12/12, ui-parity 20/20 (twice; savings/keyboard tests 30× without failure), browser-security 2/2, demo-runtime 1/1, backend 29/29; renders of PIN, dialog and error state at 1024, 390, 320 and 900×400 in both themes without horizontal overflow; grid render unchanged (Savings→Expenses median 231 ms, Incomes→Expenses 183 ms vs. 218/182 ms baseline; this phase does not touch the grid).
 
-### Phase 2 – Application shell
+### Phase 2 – Application shell – done 2026-10-09
 
 - Desktop (≥960 px): sidebar with brand, working year, Overview / Expenses / Incomes / Savings with totals, Settings, Lock, theme, version + update dot. Page header component (title, subtitle, toolbar slot).
 - Overview first in navigation and start view (D1, D2).
 - `MainBar` responsibilities move: tabs → sidebar, year → sidebar, search/New/Edit → page header. Until Phase 7 lands, Year operations, Import, Export and Settings stay reachable through a temporary sidebar "Data" group opening the existing modals (parity gate: no unreachable function).
 - Mobile (<960 px) temporarily keeps the current mobile toolbar until Phase 8.
 - Demo banner placed in the shell.
+
+#### Phase 2 results
+
+- Desktop (≥960 px): `components/shell` adds the sidebar (brand, working-year listbox, Overview/Expenses/Incomes/Savings with yearly totals or goal count, temporary **Data** group with Year operations, Import data and Export data, Settings, Lock session, Light/Dark segment, version with update link) and the page header (title + year, subtitle with counts, search, Edit menu with Arrange/Remove/Tags/New group, *New entry* split button with *New group*, *New goal* on Savings). In an edit mode the header shows a mode badge, *Remove selected* and *Done* until Phase 3 adds the mode banner and bulk bar. Demo status sits above the header; demo hides editing actions, Year operations and Import as before.
+- Below 960 px the previous toolbar (`MainBar`) stays, now with Overview as the first tab; it shares navigation, edit-mode, search and lock logic with the sidebar through `shell/useShell.ts`. App-wide effects (first-run year dialog, year guard, mode reset, `/` and Ctrl/Cmd+K) moved from `MainBar` into `useShellEffects`, so they no longer depend on which toolbar is visible.
+- D1/D2 implemented: the app always starts on Overview (internal key `reports`), also after unlocking; the year selection stays persisted per mode. The `tab` key is still written for rollback compatibility but no longer read.
+- F03 change: Overview has no search field on desktop (it was disabled on Reports); the narrow toolbar keeps the disabled field until Phase 8.
+- Sidebar totals reuse the views' query keys; inline month edits now also update the shared entries query data so the totals follow edits without a refetch.
+- New base components: Menu (menu-button keyboard pattern) and Segmented.
+- Known interim limitation until Phase 3: the legacy grid needs about 1 420 px, so next to the sidebar at 1440 px Dec/Sum/Avg are reached by horizontal scrolling inside the table (the page itself does not overflow). Phase 3 replaces the grid with a table that has a sticky name column.
+- Checks: build; ui-transitions 12/12, ui-parity 25/25 (new: sidebar shell, D1 start/unlock, totals after edit, year listbox and Edit menu keyboard, theme segment, split button, update link F44, narrow toolbar tabs), browser-security 2/2, demo-runtime 1/1 (desktop sidebar and mobile toolbar), backend 29/29; renders at 1440, 1024, 960 and 959 px in both themes without page overflow; grid timing unchanged (217/188 ms medians).
 
 ### Phase 3 – Expenses / Incomes grid
 

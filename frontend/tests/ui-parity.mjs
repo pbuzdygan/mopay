@@ -69,6 +69,11 @@ function createApi({ encryption = { encryptionEnabled: false, keyMismatch: false
       state.groups[body.type].push(group);
       return ok({ id: group.id });
     }
+    if (method === 'POST' && path === '/api/pin/logout') return ok();
+    if (method === 'POST' && path === '/api/pin/verify') {
+      const valid = body.pin === '24681357';
+      return route.fulfill({ status: valid ? 200 : 401, json: valid ? { ok: true, sessionToken: 'synthetic-session-token' } : { ok: false } });
+    }
     if (method === 'POST' && (path === '/api/encryption/notice-ack' || path === '/api/encryption/reset')) return ok();
     if (method === 'POST' && path === '/api/years') { state.years = [...state.years, body.year].sort(); return ok(); }
     if (method === 'DELETE' && path === '/api/years') { state.years = state.years.filter(item => !body.years.includes(item)); return ok(); }
@@ -193,7 +198,7 @@ async function expectNoWrite(api, from) {
   assert.deepEqual(api.writes.slice(from), []);
 }
 
-async function openApp({ mobile, theme, encryption }, scenario) {
+async function openApp({ mobile, theme, encryption, section = 'Expenses', releases = [] }, scenario) {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({
@@ -221,11 +226,18 @@ async function openApp({ mobile, theme, encryption }, scenario) {
     }, { theme });
     await page.route('**/*', route => {
       const url = new URL(route.request().url());
+      if (url.hostname === 'api.github.com') return route.fulfill({ json: releases });
       if (url.hostname !== 'mopay.test') return route.fulfill({ json: [] });
       return url.pathname.startsWith('/api/') ? api.handle(route, url) : serveAsset(route, url);
     });
     await page.goto('http://mopay.test/');
-    await page.getByText('Groceries', { exact: true }).waitFor();
+    // The app always starts on Overview (plan D1); most scenarios then open a section.
+    await ui.annualTotals(page).waitFor();
+    assert.equal(await ui.currentSection(page), 'Overview');
+    if (section) {
+      await ui.openSection(page, section);
+      if (section === 'Expenses') await page.getByText('Groceries', { exact: true }).waitFor();
+    }
     await scenario({ page, api, errors });
     assert.deepEqual(await page.evaluate(() => window.cspViolations), [], 'No CSP violations');
   } finally {
@@ -503,7 +515,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await screenshot(page, `${label.replace(' ', '-')}-savings`);
     await ui.goal(page, 'Holiday').filter({ hasText: 'No target' }).waitFor();
     // F20: add goal.
-    await page.getByRole('button', { name: 'Add goal', exact: true }).click();
+    await page.getByRole('button', { name: /^(Add goal|New goal)$/ }).click();
     let goalDialog = ui.dialog(page, 'Add savings goal');
     await goalDialog.waitFor();
     await settleGoalDialog(page);
@@ -708,7 +720,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
   const label = `${context.mobile ? 'mobile' : 'desktop'} ${context.theme}`;
   const name = label.replace(' ', '-');
 
-  test(`${label}: encryption notice is acknowledged (F38)`, () => openApp({ ...context, encryption: { encryptionEnabled: true, showNotice: true, keyMismatch: false } }, async ({ page, api, errors }) => {
+  test(`${label}: encryption notice is acknowledged (F38)`, () => openApp({ ...context, encryption: { encryptionEnabled: true, showNotice: true, keyMismatch: false }, section: null }, async ({ page, api, errors }) => {
     const notice = ui.dialog(page, 'Your data has been encrypted');
     await notice.waitFor();
     await screenshot(page, `${name}-encryption-notice`);
@@ -718,7 +730,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     assert.deepEqual(errors, []);
   }));
 
-  test(`${label}: encryption key mismatch blocks the app until reset (F38)`, () => openApp({ ...context, encryption: { encryptionEnabled: true, keyMismatch: true } }, async ({ page, api, errors }) => {
+  test(`${label}: encryption key mismatch blocks the app until reset (F38)`, () => openApp({ ...context, encryption: { encryptionEnabled: true, keyMismatch: true }, section: null }, async ({ page, api, errors }) => {
     let w = 0;
     const mismatch = ui.dialog(page, 'Encryption key mismatch');
     await mismatch.waitFor();
@@ -787,3 +799,118 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     assert.deepEqual(errors, []);
   }));
 }
+
+for (const theme of ['light', 'dark']) {
+  const desktop = { mobile: false, theme };
+
+  test(`desktop ${theme}: sidebar shell, Overview start and session (F01, F02, F34, F35, D1)`, () => openApp({ ...desktop, section: null }, async ({ page, api, errors }) => {
+    let w = 0;
+    const nav = page.getByRole('navigation', { name: 'Primary' });
+    assert.deepEqual(await nav.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))),
+      ['Overview', 'Expenses', 'Incomes', 'Savings']);
+    assert.equal(await ui.search(page).count(), 0, 'Overview has no search field');
+    // Section totals follow the data and inline edits (whole units).
+    assert.equal(await page.locator('#sidebar-meta-expenses').textContent(), '1 380');
+    assert.equal(await page.locator('#sidebar-meta-incomes').textContent(), '5 000');
+    assert.equal(await page.locator('#sidebar-meta-savings').textContent(), '2 goals');
+    await ui.openSection(page, 'Expenses');
+    assert.equal(await ui.currentSection(page), 'Expenses');
+    await ui.cell(page, 'Groceries', 'Jan').click();
+    await ui.cellInput(page, 'Groceries', 'Jan').fill('25,5');
+    await ui.cellInput(page, 'Groceries', 'Jan').press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Jan: 25.5 });
+    await expectText(page.locator('#sidebar-meta-expenses'), /^1 306$/);
+
+    // Working year: keyboard listbox, persisted per mode.
+    const yearSwitch = ui.yearSwitch(page);
+    await yearSwitch.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.getByRole('listbox', { name: 'Available years' }).waitFor();
+    assert.equal(await page.getByRole('option', { name: '2026' }).evaluate(node => node === document.activeElement), true);
+    await page.keyboard.press('Escape');
+    await page.getByRole('listbox').waitFor({ state: 'detached' });
+    await expectFocused(yearSwitch);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expectText(page.getByRole('heading', { level: 1 }), /^Expenses 2025$/);
+    assert.equal(await yearSwitch.getAttribute('aria-label'), 'Working year 2025');
+    assert.equal(await page.evaluate(() => localStorage.getItem('year')), '2025');
+
+    // Theme segment.
+    const other = theme === 'light' ? 'Dark theme' : 'Light theme';
+    await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: other }).click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), theme === 'light' ? 'dark' : 'light');
+    assert.equal(await page.getByRole('button', { name: other }).getAttribute('aria-pressed'), 'true');
+    await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: theme === 'light' ? 'Light theme' : 'Dark theme' }).click();
+    await screenshot(page, `desktop-${theme}-shell`);
+
+    // Lock and unlock: always back to Overview, year selection kept (D1).
+    await page.getByRole('button', { name: 'Lock session', exact: true }).click();
+    w = await expectWrite(api, w, 'POST', '/api/pin/logout', {});
+    await ui.pinDialog(page).waitFor();
+    await ui.unlock(page, '24681357');
+    w = await expectWrite(api, w, 'POST', '/api/pin/verify', { pin: '24681357' });
+    await ui.pinDialog(page).waitFor({ state: 'detached' });
+    await expectText(page.getByRole('heading', { level: 1 }), /^Overview 2025$/);
+    assert.equal(await ui.currentSection(page), 'Overview');
+    assert.deepEqual(errors, []);
+  }));
+
+  test(`desktop ${theme}: page header menus and update indicator (F05, F06, F42, F44)`, () => openApp({
+    ...desktop,
+    releases: [{ tag_name: 'v9.0.0', name: 'v9.0.0', html_url: 'https://github.com/pbuzdygan/mopay/releases/tag/v9.0.0', target_commitish: 'main' }],
+  }, async ({ page, api, errors }) => {
+    // F44: a newer release on the app's channel shows a link in the sidebar.
+    const update = page.getByRole('link', { name: 'Update available · v9.0.0' });
+    await update.waitFor();
+    assert.equal(await update.getAttribute('href'), 'https://github.com/pbuzdygan/mopay/releases/tag/v9.0.0');
+    assert.equal(await page.getByRole('heading', { level: 1 }).textContent(), 'Expenses 2026');
+    assert.equal(await page.getByText('4 entries in 2 groups', { exact: true }).count(), 1);
+    // Edit menu: menu button keyboard pattern.
+    const edit = ui.editMenu(page);
+    await edit.focus();
+    await page.keyboard.press('ArrowDown');
+    const menu = page.getByRole('menu', { name: 'Edit' });
+    await menu.waitFor();
+    const focused = () => page.evaluate(() => document.activeElement?.textContent);
+    assert.equal(await focused(), 'Arrange');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'Remove');
+    await page.keyboard.press('End');
+    assert.equal(await focused(), 'New group');
+    await page.keyboard.press('Home');
+    assert.equal(await focused(), 'Arrange');
+    await page.keyboard.press('Escape');
+    await menu.waitFor({ state: 'detached' });
+    await expectFocused(edit);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.getByText('Remove mode', { exact: true }).waitFor();
+    assert.equal(await ui.editMenu(page).textContent(), 'Edit · Remove');
+    await page.getByRole('checkbox', { name: 'Select Rent', exact: true }).waitFor();
+    await screenshot(page, `desktop-${theme}-header-remove`);
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Select Rent', exact: true }).waitFor({ state: 'detached' });
+    // New entry split button: primary action and the group option.
+    await page.getByRole('button', { name: 'New entry', exact: true }).click();
+    await ui.dialog(page, 'Add expense entry').waitFor();
+    await page.keyboard.press('Escape');
+    await ui.dialog(page).waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'More create options', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'New group', exact: true }).click();
+    await ui.dialog(page, 'Add expense group').waitFor();
+    await page.keyboard.press('Escape');
+    await ui.dialog(page).waitFor({ state: 'detached' });
+    assert.deepEqual(api.writes, []);
+    assert.deepEqual(errors, []);
+  }));
+}
+
+test('mobile light: narrow toolbar keeps tabs with Overview first (F01)', () => openApp({ mobile: true, theme: 'light', section: null }, async ({ page, errors }) => {
+  assert.equal(await page.getByRole('navigation', { name: 'Primary' }).count(), 0, 'Sidebar is hidden below 960px');
+  assert.deepEqual(await page.getByRole('tab').allTextContents(), ['Overview', 'Expenses', 'Incomes', 'Savings']);
+  assert.equal(await ui.search(page).isDisabled(), true);
+  assert.deepEqual(errors, []);
+}));

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { randomInt, randomBytes } from 'node:crypto';
-import { chromium, hooks, serveAsset, ui } from './ui-helpers.mjs';
+import { chromium, hooks, sectionControlsSelector, serveAsset, ui } from './ui-helpers.mjs';
 
 const layouts = {};
 
@@ -148,6 +148,10 @@ for (const mobile of [false, true]) {
         await ui.pinDialog(page).waitFor({ state: 'detached' });
         await page.waitForTimeout(400);
         assert.equal(await ui.pinDialog(page).count(), 0, 'Successful login does not reinsert PIN overlay');
+        // Unlocking always opens Overview (plan D1).
+        await ui.annualTotals(page).waitFor();
+        assert.equal(await ui.currentSection(page), 'Overview');
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Test groceries', { exact: true }).waitFor();
         assert.deepEqual(errors, []);
         assert.deepEqual(await page.evaluate(() => window.cspViolations), [], 'Existing UI produces no CSP violations');
@@ -187,6 +191,9 @@ for (const mobile of [false, true]) {
           sessionStorage.setItem('pin-token', 'synthetic-ui-test');
         }, { theme, viewMode });
         await page.goto('http://mopay.test/');
+        await ui.annualTotals(page).waitFor();
+        assert.equal(await ui.currentSection(page), 'Overview', 'App starts on Overview (plan D1)');
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Test groceries', { exact: true }).waitFor();
         await page.waitForTimeout(500);
 
@@ -196,12 +203,12 @@ for (const mobile of [false, true]) {
           assert.ok(frames.every(value => value === 1), 'Table must stay fully opaque');
           await page.getByText(tab === 'Incomes' ? 'Test salary' : 'Test groceries', { exact: true }).waitFor();
         }
-        const rapidFrames = await sample(page, hooks.table, () => page.evaluate(async () => {
+        const rapidFrames = await sample(page, hooks.table, () => page.evaluate(async (selector) => {
           for (const label of ['Incomes', 'Expenses', 'Incomes', 'Expenses']) {
-            [...document.querySelectorAll('[role="tab"]')].find(node => node.textContent.trim() === label).click();
+            [...document.querySelectorAll(selector)].find(node => node.getClientRects().length && node.textContent.trim().startsWith(label)).click();
             await new Promise(resolve => setTimeout(resolve, 30));
           }
-        }), true);
+        }, sectionControlsSelector), true);
         assert.ok(rapidFrames.every(value => value === 1), 'Rapid switches must not dim the table');
 
         // Persist both tables as collapsed, then sample what the browser actually paints.
@@ -253,10 +260,10 @@ for (const mobile of [false, true]) {
           assert.equal(await search.evaluate(node => node === document.activeElement), false);
           await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-search-${section.toLowerCase()}`);
         }
-        await ui.openSection(page, 'Reports');
-        // Search is disabled on Reports today; Overview may hide it instead (plan F03).
-        const disabledSearch = ui.search(page);
-        assert.equal(await disabledSearch.isDisabled(), true);
+        await ui.openSection(page, 'Overview');
+        // Overview hides search in the desktop header; the narrow toolbar still disables it (plan F03).
+        if (mobile) assert.equal(await ui.search(page).isDisabled(), true);
+        else assert.equal(await ui.search(page).count(), 0);
         await page.keyboard.press('Control+k');
         assert.equal(await page.locator('input[type="search"]:focus').count(), 0);
         await ui.openSection(page, 'Expenses');
@@ -286,7 +293,7 @@ for (const mobile of [false, true]) {
           await page.setViewportSize({ width: 390, height: 844 });
         }
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-table`);
-        for (const section of ['Savings', 'Reports']) {
+        for (const section of ['Savings', 'Overview']) {
           await ui.openSection(page, section);
           if (section === 'Savings') await page.getByText('Synthetic savings', { exact: true }).waitFor();
           else await ui.annualTotals(page).waitFor();
@@ -384,6 +391,7 @@ for (const mobile of [false, true]) {
         assert.equal(await page.getByText('Private groceries', { exact: true }).count(), 0);
         await ui.unlock(page, '1234');
         await ui.pinDialog(page).waitFor({ state: 'detached' });
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Demo groceries', { exact: true }).waitFor();
         assert.equal(await ui.demoBanner(page).count(), 1);
         assert.equal(await ui.newButton(page).count() + await ui.editMenu(page).count(), 0);
@@ -396,7 +404,7 @@ for (const mobile of [false, true]) {
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-demo-details`);
         await ui.closeDetails(page).click();
         await ui.details(page).waitFor({ state: 'detached' });
-        for (const name of ['Incomes', 'Savings', 'Reports', 'Expenses']) {
+        for (const name of ['Incomes', 'Savings', 'Overview', 'Expenses']) {
           await ui.openSection(page, name);
           if (name === 'Savings') {
             await page.getByText('Synthetic savings', { exact: true }).click();
@@ -418,6 +426,7 @@ for (const mobile of [false, true]) {
         assert.equal(await ui.demoBanner(page).count(), 0);
         assert.equal(await page.getByText('Demo groceries', { exact: true }).count(), 0);
         await ui.unlock(page, '87654321');
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Private groceries', { exact: true }).waitFor();
         assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2025');
         demo = true; validToken = '';

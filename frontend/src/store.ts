@@ -139,7 +139,8 @@ export const useAppStore = create<State>((set, get) => ({
   demo: null,
   demoPin: null,
   setRuntimeMode: (demo, demoPin) => set({ demo, demoPin, year: load<number | null>(demo ? 'demo-year' : 'year', null) }),
-  tab: load<Tab>('tab', 'expenses'),
+  // D1: always start on Overview ('reports'); the saved tab is kept only for older builds.
+  tab: 'reports',
   year: load<number | null>('year', null),
   theme: load<'light' | 'dark'>('theme', 'light'),
   viewMode: load<ViewMode>('viewMode', 'normal'),
@@ -201,7 +202,11 @@ export const useAppStore = create<State>((set, get) => ({
 
   setEditMode: (editMode) => set({ editMode }),
 
-  setPinSession: (pinSession) => set(pinSession ? { pinSession } : { pinSession, financialReady: false }),
+  // Unlocking (including a restored session) always opens Overview (plan D1).
+  setPinSession: (pinSession) => set((state) => {
+    if (!pinSession) return { pinSession, financialReady: false };
+    return state.pinSession ? { pinSession } : { pinSession, tab: 'reports', searchQuery: '', editMode: null };
+  }),
 
   toggleRemoveId: (id) => {
     const s = new Set(get().removeSelection);

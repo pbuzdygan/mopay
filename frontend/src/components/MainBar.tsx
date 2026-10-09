@@ -1,88 +1,41 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
-import { Api } from '../api';
 import { useAppStore } from '../store';
 import { YearDropdown } from './YearDropdown';
 import { DropdownMenu, DropdownItem } from './DropdownMenu';
 import { SoftButton } from './SoftButton';
 import { Surface } from './Surface';
 import { VersionIndicator } from './VersionIndicator';
+import { SECTIONS, useShellActions, useYears } from './shell/useShell';
 
-const TABS: Array<{
-  id: 'expenses' | 'incomes' | 'savings' | 'reports';
-  label: string;
-  icon?: string;
-}> = [
-  { id: 'expenses', label: 'Expenses', icon: '/icons/ui/credit-card-pay.svg' },
-  { id: 'incomes', label: 'Incomes', icon: '/icons/ui/wallet.svg' },
-  { id: 'savings', label: 'Savings', icon: '/icons/ui/pig-money.svg' },
-  { id: 'reports', label: 'Reports', icon: '/icons/ui/report-analytics.svg' },
-];
-
+// Mobile toolbar (<960 px) until the mobile layout replaces it (plan Phase 8).
+// App-wide effects and the search shortcut live in shell/useShell.
 export function MainBar() {
   const {
-    tab,
-    setTab,
     year,
     setYear,
     theme,
     setTheme,
-    searchQuery,
-    setSearchQuery,
-    editMode,
-    setEditMode,
     removeSelection,
     groupRemoveSelection,
-    clearRemove,
     requestBulkRemove,
-    setPinSession,
     openGoalModal,
     openAddEntry,
   } = useAppStore();
+  const {
+    tab,
+    editMode,
+    exitEditMode,
+    selectEditMode: selectAction,
+    goTo,
+    searchQuery,
+    changeSearch,
+    setSearchQuery,
+    lockSession,
+    searchPlaceholder,
+  } = useShellActions();
 
   const demo = useAppStore((s) => s.demo);
-  const pinSession = useAppStore((s) => s.pinSession);
-  const desktopSearchRef = useRef<HTMLInputElement>(null);
-  const mobileSearchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const focusSearch = (event: KeyboardEvent) => {
-      const shortcut = (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key === '/')
-        || ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k');
-      if (!shortcut || event.defaultPrevented || event.isComposing || event.repeat) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
-      // Dialogs, entry details and the PIN overlay are all aria-modal.
-      if (!useAppStore.getState().pinSession || document.querySelector('[aria-modal="true"]')) return;
-      const input = [mobileSearchRef.current, desktopSearchRef.current].find(node => node && node.getClientRects().length);
-      if (!input || input.disabled || !input.getClientRects().length) return;
-      event.preventDefault();
-      input.focus();
-      input.select();
-    };
-    document.addEventListener('keydown', focusSearch);
-    return () => document.removeEventListener('keydown', focusSearch);
-  }, []);
-
-  const yearsQ = useQuery({ queryKey: ['years'], queryFn: Api.years.list, enabled: pinSession });
-  const years = (yearsQ.data?.years ?? []) as number[];
-
+  const { years } = useYears();
   const openModal = useAppStore((s) => s.openModal);
-  const closeModal = useAppStore((s) => s.closeModal);
-  const initiateYear = useAppStore((s) => s.modals.initiateYear);
-
-  useEffect(() => {
-    if (!yearsQ.isSuccess) return;
-    if (years.length === 0 && !initiateYear) openModal('initiateYear');
-    if (years.length > 0 && initiateYear) closeModal('initiateYear');
-  }, [yearsQ.isSuccess, years, initiateYear, openModal, closeModal]);
-
-  useEffect(() => {
-    if (!years.length) return;
-    if (!year || !years.includes(year)) {
-      setYear(years[years.length - 1]);
-    }
-  }, [years, year, setYear]);
 
   const viewTitle =
     tab === 'incomes'
@@ -90,18 +43,11 @@ export function MainBar() {
       : tab === 'savings'
       ? 'Savings goals'
       : tab === 'reports'
-      ? 'Financial story'
+      ? 'Overview'
       : 'Expense overview';
   const scopeCaption = year
     ? `Working on year ${year}`
     : 'Pick a year to unlock entries.';
-
-  const lockSession = () => {
-    void Api.logoutPin().catch(() => {});
-    sessionStorage.removeItem('pin-token');
-    sessionStorage.removeItem('pin-ok');
-    setPinSession(false);
-  };
 
   const nextThemeIcon = theme === 'light' ? '/icons/ui/moon-stars.svg' : '/icons/ui/sun.svg';
 
@@ -222,23 +168,6 @@ export function MainBar() {
     );
   };
 
-  const exitEditMode = () => {
-    if (editMode === 'remove') {
-      clearRemove();
-    }
-    setEditMode(null);
-  };
-
-  const selectAction = (nextMode: 'order' | 'remove' | 'tag') => {
-    if (searchQuery) setSearchQuery('');
-    if (editMode === nextMode) {
-      exitEditMode();
-      return;
-    }
-    if (editMode === 'remove') clearRemove();
-    setEditMode(nextMode);
-  };
-
   const actionLabel =
     editMode === 'order'
       ? 'Arrange'
@@ -249,13 +178,6 @@ export function MainBar() {
       : null;
   const searchDisabled = tab === 'reports';
   const searchActive = Boolean(searchQuery.trim());
-  const searchPlaceholder = tab === 'expenses'
-    ? 'Search expenses'
-    : tab === 'incomes'
-    ? 'Search incomes'
-    : tab === 'savings'
-    ? 'Search savings'
-    : 'Search';
 
   const primaryActions = (
     <>
@@ -321,10 +243,6 @@ export function MainBar() {
     </>
   );
 
-  useEffect(() => {
-    if ((tab === 'reports' || tab === 'savings') && editMode) setEditMode(null);
-  }, [tab, editMode, setEditMode]);
-
   const savingsActions = (
     <button
       type="button"
@@ -350,7 +268,7 @@ export function MainBar() {
       <span className="mainbar-search-icon" aria-hidden="true" />
       <input
         id={`mainbar-search-${location}`}
-        ref={location === 'mobile' ? mobileSearchRef : desktopSearchRef}
+        data-app-search
         aria-keyshortcuts="/ Control+k Meta+k"
         title="Search (/ or Ctrl/Cmd+K)"
         type="search"
@@ -361,10 +279,7 @@ export function MainBar() {
         autoComplete="off"
         spellCheck={false}
         maxLength={80}
-        onChange={(event) => {
-          if (editMode) exitEditMode();
-          setSearchQuery(event.target.value);
-        }}
+        onChange={(event) => changeSearch(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault();
@@ -414,28 +329,23 @@ export function MainBar() {
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 mainbar-tabs-row">
           <div className="chip-group mainbar-tabs" role="tablist" aria-label="Entries view">
-            {TABS.map((item) => (
+            {SECTIONS.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 role="tab"
                 aria-selected={tab === item.id}
                 className={`chip-button ${tab === item.id ? 'active' : ''}`}
-                onClick={() => {
-                  if (item.id !== tab && editMode) exitEditMode();
-                  setTab(item.id);
-                }}
+                onClick={() => goTo(item.id)}
               >
-                {item.icon && (
-                  <span
-                    className="chip-button-icon"
-                    aria-hidden="true"
-                    style={{
-                      WebkitMaskImage: `url("${item.icon}")`,
-                      maskImage: `url("${item.icon}")`,
-                    }}
-                  />
-                )}
+                <span
+                  className="chip-button-icon"
+                  aria-hidden="true"
+                  style={{
+                    WebkitMaskImage: `url("${item.maskIcon}")`,
+                    maskImage: `url("${item.maskIcon}")`,
+                  }}
+                />
                 <span>{item.label}</span>
               </button>
             ))}

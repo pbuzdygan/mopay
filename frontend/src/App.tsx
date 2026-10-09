@@ -5,6 +5,9 @@ import { Api } from "./api";
 
 // komponenty
 import { MainBar } from "./components/MainBar";
+import { Sidebar } from "./components/shell/Sidebar";
+import { PageHeader } from "./components/shell/PageHeader";
+import { useShellEffects } from "./components/shell/useShell";
 import { TableView } from "./components/TableView";
 import { ReportsView } from "./components/ReportsView";
 import { SavingsView } from "./components/SavingsView";
@@ -56,6 +59,8 @@ export default function App() {
   }, [attempt, qc]);
   const setMigrationNotice = useAppStore((s) => s.setMigrationNotice);
   const setKeyMismatch = useAppStore((s) => s.setKeyMismatch);
+
+  useShellEffects();
 
   // Sticky header scroll effect
   useEffect(() => {
@@ -118,27 +123,40 @@ export default function App() {
     </div>
   </main>;
 
+  const demoBanner = demo && (
+    <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Sample data — read only</span></div>
+  );
+
+  // Desktop (>=960px): sidebar + page header. Below that the previous toolbar
+  // stays until the mobile layout (plan Phase 8); CSS shows one of them.
   return (
-    <div className="min-h-screen">
+    <div className="app-shell">
       <ReleaseStatusProvider />
       <PinGuard />
+      <Sidebar />
 
-      <header className="sticky-glass">
-        <div className="app-container">
-          {demo && <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Sample data — read only</span></div>}
-          <MainBar />
-        </div>
-      </header>
+      <div className="app-shell-main">
+        <header className="sticky-glass app-mobile-header">
+          <div className="app-container">
+            {demoBanner}
+            <MainBar />
+          </div>
+        </header>
 
-      <main className="app-main py-4 lg:py-6">
-        <div className="app-container">
-          {pinSession && financialReady && (tab === 'reports'
-            ? <ReportsView />
-            : tab === 'savings'
-            ? <SavingsView />
-            : <TableView />)}
-        </div>
-      </main>
+        <main className="app-main">
+          <div className="app-container">
+            <div className="app-desktop-header">
+              {demoBanner}
+              <PageHeader />
+            </div>
+            {pinSession && financialReady && (tab === 'reports'
+              ? <ReportsView />
+              : tab === 'savings'
+              ? <SavingsView />
+              : <TableView />)}
+          </div>
+        </main>
+      </div>
 
       {!demo && <><InitiateYearModal /><AddEntryModal /><AddGroupModal /><CommentModal /><YearOperationsModal /></>}
       <ExportModal />

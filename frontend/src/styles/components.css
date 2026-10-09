@@ -254,3 +254,65 @@ select.ui-input {
 .encryption-copy code { font-size: var(--fs-small); color: var(--text-1); }
 .encryption-note { margin: 0; font-size: var(--fs-small); color: var(--text-3); }
 .ui-status-text { margin: 0; color: var(--text-2); }
+
+/* Menu */
+.ui-menu-root { position: relative; display: inline-flex; }
+.ui-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--z-menu);
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font);
+}
+.ui-menu-start { left: 0; right: auto; }
+.ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-1);
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+.ui-menu-item .ui-icon { color: var(--text-2); }
+.ui-menu-item:hover:not(:disabled),
+.ui-menu-item:focus-visible { background: var(--surface-3); outline: none; }
+.ui-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+.ui-menu-item.is-danger,
+.ui-menu-item.is-danger .ui-icon { color: var(--danger); }
+.ui-menu-separator { margin: 6px 0; border: 0; border-top: 1px solid var(--border); }
+
+/* Segmented control */
+.ui-segmented { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-sm); background: var(--surface-3); }
+.ui-segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-2);
+  font-family: var(--font);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.ui-segmented button:hover { color: var(--text-1); }
+.ui-segmented button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ui-segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow-xs); }

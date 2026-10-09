@@ -7,6 +7,12 @@ export function formatCurrency(value: number) {
   return `${negative}${grouped},${decimals}`;
 }
 
+// Whole units with grouped thousands, for compact totals (e.g. the sidebar).
+export function formatCurrencyWhole(value: number) {
+  const negative = value < 0 ? '-' : '';
+  return `${negative}${Math.round(Math.abs(value)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`;
+}
+
 export function formatCurrencyPlain(value: number) {
   const negative = value < 0 ? '-' : '';
   const [intPart, decimals = '00'] = Math.abs(value).toFixed(2).split('.');

@@ -35,6 +35,9 @@ test('real demo dataset renders desktop/mobile Expenses, Incomes, Savings and Re
       await page.getByText('Demo PIN: 1234', { exact: false }).waitFor();
       await ui.unlock(page, '1234');
       await ui.pinDialog(page).waitFor({ state: 'detached' });
+      await ui.annualTotals(page).waitFor();
+      assert.equal(await ui.currentSection(page), 'Overview');
+      await ui.openSection(page, 'Expenses');
       await page.getByText('Rent', { exact: true }).waitFor();
       // Every group row, including Ungrouped, has exactly one collapse control.
       assert.equal(await ui.collapseGroup(page).count(), 8);
@@ -45,13 +48,13 @@ test('real demo dataset renders desktop/mobile Expenses, Incomes, Savings and Re
       await ui.openSection(page, 'Savings');
       await page.getByText('Emergency fund', { exact: true }).click();
       await page.getByText('Contribution 1', { exact: true }).waitFor();
-      await ui.openSection(page, 'Reports');
+      await ui.openSection(page, 'Overview');
       await ui.annualTotals(page).waitFor();
       if (process.env.MOPAY_SCREENSHOTS) await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/real-demo-${mobile ? 'mobile' : 'desktop'}-reports.png` });
       await ui.openSection(page, 'Expenses');
       await page.getByText('Groceries', { exact: true }).waitFor();
       if (process.env.MOPAY_SCREENSHOTS) await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/real-demo-${mobile ? 'mobile' : 'desktop'}-expenses.png` });
-      await ui.appMenu(page).click();
+      if (await ui.appMenu(page).count()) await ui.appMenu(page).click();
       assert.equal(await page.getByRole('button', { name: 'Year operations', exact: true }).count(), 0);
       assert.equal(await page.getByRole('button', { name: 'Import data', exact: true }).count(), 0);
       await page.getByRole('button', { name: 'Export data', exact: true }).click();

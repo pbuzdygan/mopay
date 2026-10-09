@@ -3,10 +3,12 @@
 // baseline before the grid is rebuilt and compares builds via MOPAY_UI_DIST;
 // timings depend on the host, so only compare runs from the same machine.
 // Set MOPAY_GRID_METRICS to a temporary JSON path to keep the results.
+// Since Phase 2 the app starts on Overview and the sidebar loads the entries
+// for its totals, so "first load" no longer includes the entries request.
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import { chromium, serveAsset, ui } from './ui-helpers.mjs';
+import { chromium, sectionControlsSelector, serveAsset, ui } from './ui-helpers.mjs';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const groups = Array.from({ length: 10 }, (_, index) => ({ id: 100 + index, name: `Group ${index + 1}`, sortIndex: index }));
@@ -30,7 +32,6 @@ test('Expenses grid render time with 200 entries', { timeout: 120000 }, async ()
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
       localStorage.setItem('year', '2026');
-      localStorage.setItem('tab', JSON.stringify('savings'));
       sessionStorage.setItem('pin-ok', '1');
       sessionStorage.setItem('pin-token', 'synthetic-ui-test');
     });
@@ -56,8 +57,8 @@ test('Expenses grid render time with 200 entries', { timeout: 120000 }, async ()
 
     // Time from the tab click to the second frame after all 200 rows exist,
     // so layout and paint of the complete grid are included.
-    const measure = (fromTab, toTab) => page.evaluate(({ fromTab, toTab }) => new Promise(resolve => {
-      const tab = label => [...document.querySelectorAll('[role="tab"]')].find(node => node.textContent.trim() === label);
+    const measure = (fromTab, toTab) => page.evaluate(({ fromTab, toTab, selector }) => new Promise(resolve => {
+      const tab = label => [...document.querySelectorAll(selector)].find(node => node.getClientRects().length && node.textContent.trim().startsWith(label));
       tab(fromTab).click();
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const start = performance.now();
@@ -69,7 +70,7 @@ test('Expenses grid render time with 200 entries', { timeout: 120000 }, async ()
         };
         requestAnimationFrame(poll);
       }));
-    }), { fromTab, toTab });
+    }), { fromTab, toTab, selector: sectionControlsSelector });
 
     const first = await measure('Savings', 'Expenses');
     const cached = [];

@@ -471,8 +471,15 @@ export function TableView() {
     return makeGroupTotals(visibleRows);
   }, [visibleRows]);
 
-  const handleRowMonthUpdate = (entryId: number, month: string, value: number | null) =>
-    patchEntryLocal(entryId, { [normalizeEntryMonthKey(month)]: value } as EntryPatch);
+  const handleRowMonthUpdate = (entryId: number, month: string, value: number | null) => {
+    const patch = { [normalizeEntryMonthKey(month)]: value } as EntryPatch;
+    patchEntryLocal(entryId, patch);
+    // Keep the shared query data current too, so the sidebar totals follow edits.
+    qc.setQueryData(queryKey, (old: { entries?: EntryRowData[] } | undefined) => old && ({
+      ...old,
+      entries: (old.entries ?? []).map((row) => (row.id === entryId ? { ...row, ...patch } : row)),
+    }));
+  };
 
   const handleTagRequest = (entryId: number, month: string, target: HTMLButtonElement, tag?: EntryTag) => {
     if (editMode !== 'tag') return;
