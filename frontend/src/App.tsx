@@ -9,7 +9,7 @@ import { Sidebar } from "./components/shell/Sidebar";
 import { PageHeader } from "./components/shell/PageHeader";
 import { useShellEffects } from "./components/shell/useShell";
 import { TableView } from "./components/TableView";
-import { ReportsView } from "./components/ReportsView";
+import { OverviewView } from "./components/OverviewView";
 import { SavingsView } from "./components/SavingsView";
 import { PinGuard } from "./components/PinGuard";
 import { InitiateYearModal } from "./components/modals/InitiateYearModal";
@@ -149,7 +149,7 @@ export default function App() {
               <PageHeader />
             </div>
             {pinSession && financialReady && (tab === 'reports'
-              ? <ReportsView />
+              ? <OverviewView />
               : tab === 'savings'
               ? <SavingsView />
               : <TableView />)}

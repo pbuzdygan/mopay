@@ -113,6 +113,13 @@ export const ui = {
   collapseGroup: (page) => page.getByRole('button', { name: 'Collapse group', exact: true }),
   expandGroup: (page) => page.getByRole('button', { name: 'Expand group', exact: true }),
   annualTotals: (page) => page.getByRole('group', { name: 'Annual totals', exact: true }),
+  // Overview KPI: term, value and comparison note as one text (e.g. "Income5 000,00↑ +8,7% vs 2025").
+  overviewKpi: (page, term) => ui.annualTotals(page).locator('div')
+    .filter({ has: page.getByRole('term').filter({ hasText: new RegExp(`^${escapeRegExp(term)}$`) }) }),
+  // Overview cards are regions named by their heading.
+  overviewCard: (page, name) => page.getByRole('region', { name, exact: true }),
+  // Month card button; its name starts with the short month ("Jan: net …", "Oct: no activity").
+  overviewMonth: (page, month) => ui.overviewCard(page, 'Month by month').getByRole('button', { name: new RegExp(`^${month}: `) }),
   demoBanner: (page) => page.getByRole('status').filter({ hasText: 'Demo mode' }),
   pinDialog: (page) => page.getByRole('dialog', { name: 'Enter PIN', exact: true }),
   pinInput: (page) => page.getByLabel('PIN', { exact: true }),

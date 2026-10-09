@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { MonthKey } from './utils/months';
 
 function normalizeVersion(value: string | null | undefined) {
   if (!value) return null;
@@ -84,6 +85,8 @@ type State = {
   searchQuery: string;
   showGroupTotals: boolean;
   editMode: null | 'order' | 'remove';
+  // Month picked on Overview; the Expenses grid focuses that column once, then clears it.
+  gridMonthRequest: MonthKey | null;
   addEntryGroupId: number | null;
   pinSession: boolean;
   financialReady: boolean;
@@ -108,6 +111,8 @@ type State = {
   releaseChannel: string;
   updateAvailable: boolean;
   setTab: (t: Tab) => void;
+  openExpensesMonth: (month: MonthKey) => void;
+  clearGridMonthRequest: () => void;
   setYear: (y: number | null) => void;
   setTheme: (m: 'light' | 'dark') => void;
   setViewMode: (mode: ViewMode) => void;
@@ -143,6 +148,7 @@ export const useAppStore = create<State>((set, get) => ({
   searchQuery: '',
   showGroupTotals: load<boolean>('showGroupTotals', false),
   editMode: null,
+  gridMonthRequest: null,
   addEntryGroupId: null,
   pinSession: false,
   financialReady: false,
@@ -169,8 +175,15 @@ export const useAppStore = create<State>((set, get) => ({
 
   setTab: (tab) => {
     save('tab', tab);
-    set((state) => state.tab === tab ? { tab } : { tab, searchQuery: '' });
+    set((state) => state.tab === tab ? { tab } : { tab, searchQuery: '', gridMonthRequest: null });
   },
+
+  openExpensesMonth: (month) => {
+    save('tab', 'expenses');
+    set({ tab: 'expenses', searchQuery: '', editMode: null, gridMonthRequest: month });
+  },
+
+  clearGridMonthRequest: () => set({ gridMonthRequest: null }),
 
   setYear: (year) => {
     save(get().demo ? 'demo-year' : 'year', year);
@@ -199,7 +212,7 @@ export const useAppStore = create<State>((set, get) => ({
   // Unlocking (including a restored session) always opens Overview (plan D1).
   setPinSession: (pinSession) => set((state) => {
     if (!pinSession) return { pinSession, financialReady: false };
-    return state.pinSession ? { pinSession } : { pinSession, tab: 'reports', searchQuery: '', editMode: null };
+    return state.pinSession ? { pinSession } : { pinSession, tab: 'reports', searchQuery: '', editMode: null, gridMonthRequest: null };
   }),
 
   toggleRemoveId: (id) => {

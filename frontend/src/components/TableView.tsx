@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store';
 import { Api } from '../api';
-import { getCurrentMonthForYear, MONTHS } from '../utils/months';
+import { getCurrentMonthForYear, MONTHS, type MonthKey } from '../utils/months';
 import { includesSearch, normalizeSearchText } from '../utils/search';
 import { KeyboardSensor, PointerSensor, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
@@ -55,6 +55,11 @@ export function TableView() {
   const [selection, setSelection] = useState<GridSelection | null>(null);
   const [focusCell, setFocusCell] = useState<{ entryId: number; month: string } | null>(null);
   const [focusRequest, setFocusRequest] = useState(0);
+  // Month column opened from Overview (plan Phase 5): its header is highlighted
+  // and the first visible cell focused, without selecting it or opening the inspector.
+  const gridMonthRequest = useAppStore((s) => s.gridMonthRequest);
+  const clearGridMonthRequest = useAppStore((s) => s.clearGridMonthRequest);
+  const [pickedMonth, setPickedMonth] = useState<MonthKey | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const selectionRef = useRef(selection);
@@ -105,7 +110,17 @@ export function TableView() {
     setGroupOrder(null);
     setSelection(null);
     setFocusCell(null);
+    setPickedMonth(null);
   }, [type, year]);
+
+  useEffect(() => {
+    if (!gridMonthRequest || type !== 'expense' || !loaded) return;
+    clearGridMonthRequest();
+    setPickedMonth(gridMonthRequest);
+    const cell = tableRef.current?.querySelector<HTMLButtonElement>(`tr.ledger-entry button[data-month="${gridMonthRequest}"]`);
+    // focusVisible shows the ring after a mouse click where supported; the header highlight covers the rest.
+    cell?.focus({ focusVisible: true } as FocusOptions);
+  }, [gridMonthRequest, type, loaded, clearGridMonthRequest]);
 
   // Filtering or an edit mode closes the inspector (Arrange/Remove block details, as before).
   useEffect(() => {
@@ -410,9 +425,11 @@ export function TableView() {
   const onMoveFrom = useCallback((entryId: number, month: string, key: string) => latest.current.moveFrom(entryId, month, key), []);
   const onFocusCell = useCallback((entryId: number, month: string) => {
     setFocusCell((prev) => (prev?.entryId === entryId && prev.month === month ? prev : { entryId, month }));
+    setPickedMonth((prev) => (prev === month ? prev : null));
   }, []);
   const onSelectCell = useCallback((entryId: number, month: string, options?: { focusInspector?: boolean }) => {
     openerRef.current = null;
+    setPickedMonth(null);
     setSelection({ kind: 'cell', entryId, month });
     setFocusCell({ entryId, month });
     if (options?.focusInspector) setFocusRequest((value) => value + 1);
@@ -491,9 +508,16 @@ export function TableView() {
         <div className="ledger-save-bar"><SaveStatusLine state={saveState} /></div>
       )}
       <div className="ledger-wrap" data-testid="entry-table">
-        <table className="ledger" ref={tableRef} onKeyDown={onGridKeyDown}>
+        <table
+          className={`ledger ${pickedMonth ? 'is-picked' : ''}`}
+          ref={tableRef}
+          onKeyDown={onGridKeyDown}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPickedMonth(null);
+          }}
+        >
           <caption className="sr-only">{type === 'income' ? 'Incomes' : 'Expenses'} {year} by month</caption>
-          <TableHeaderRow currentMonth={currentMonth} />
+          <TableHeaderRow currentMonth={currentMonth} pickedMonth={pickedMonth} />
           <SortableScope
             enabled={ordering}
             sensors={sensors}

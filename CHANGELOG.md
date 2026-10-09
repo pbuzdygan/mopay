@@ -22,6 +22,10 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - inspector fields save on their own (name and tag note on Enter or when leaving the field, group and tag colour on change, comment when leaving the field) and show *Saving…*/*Saved hh:mm*; *Save changes* and *Cancel* are gone, and Escape reverts a changed field
 - **Tags mode is removed**; tags are set in the inspector
 - Arrange mode can also be used with the keyboard (Space picks up a row, arrow keys move it, Space drops it)
+- Overview has a new layout: income, expenses, net result (each compared with the previous year) and savings in goals at the top, then the year month by month, where money went next to the savings overview, and predictability
+- clicking a month on Overview opens Expenses with that month's column highlighted and its first cell focused; *Open savings* goes to Savings
+- Where money went shows expense groups as horizontal bars instead of a donut chart; groups and top entries use the same scale (share of expenses)
+- Overview month cards mark the current month, show the net result in whole units (exact values in the tooltip) and label months without data
 
 ### Bug fix
 - a newly added savings item now reliably opens for editing; previously it could stay closed when the refreshed list arrived late

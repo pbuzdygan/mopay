@@ -817,6 +817,72 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'POST', '/api/years', { year: 2030 });
     await initiate.waitFor({ state: 'detached' });
     assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2030');
+    // A year without values or goals shows the Overview empty state (F19).
+    await ui.openSection(page, 'Overview');
+    await page.getByText('Add income or expense values, or create a Savings goal, to build your financial story.', { exact: true }).waitFor();
+    assert.equal(await ui.annualTotals(page).count(), 0);
+    assert.deepEqual(errors, []);
+  }));
+
+  // Fixture: 2026 incomes Jan 5 000; expenses Jan 1 180 and Feb 200; 2025 incomes
+  // Jan 4 600 and no expenses; goals 250 of a 1 000 target plus one without target.
+  // The clock is fixed to 9 October 2026, so October is the current month.
+  test(`${label}: Overview KPIs, months, spending, savings and predictability (F24–F28)`, () => openApp({ ...context, section: null }, async ({ page, api, errors }) => {
+    const kpi = (term) => ui.overviewKpi(page, term).textContent();
+    assert.equal(await kpi('Income'), 'Income5 000,00↑ +8,7% vs 2025');
+    assert.equal(await kpi('Expenses'), 'Expenses1 380,00No baseline vs 2025');
+    assert.equal(await kpi('Net result'), 'Net result+3 620,00↓ -21,3% vs 2025');
+    assert.equal(await kpi('Saved in goals'), 'Saved in goals250,0025% of targets covered');
+
+    // Best and weakest months are named in text; the current month is marked; months without data say so.
+    assert.equal(await ui.overviewMonth(page, 'Jan').getAttribute('aria-label'), 'Jan: net +3 820,00, income 5 000,00, expenses 1 180,00, best month');
+    assert.equal(await ui.overviewMonth(page, 'Jan').textContent(), 'JanBest+3 820');
+    assert.equal(await ui.overviewMonth(page, 'Feb').getAttribute('aria-label'), 'Feb: net -200,00, income 0,00, expenses 200,00, weakest month');
+    assert.equal(await ui.overviewMonth(page, 'Feb').textContent(), 'FebWeakest-200');
+    assert.equal(await ui.overviewMonth(page, 'Oct').getAttribute('aria-label'), 'Oct: no activity, current month');
+    assert.equal(await ui.overviewMonth(page, 'Oct').getAttribute('aria-current'), 'date');
+    assert.equal(await ui.overviewMonth(page, 'Oct').textContent(), 'OctNo data');
+    assert.equal(await ui.overviewMonth(page, 'Mar').getAttribute('aria-current'), null);
+
+    // Groups and the top entries as bars with amount and share of expenses.
+    const spending = ui.overviewCard(page, 'Where money went');
+    assert.deepEqual(await spending.getByRole('list').first().getByRole('listitem').allTextContents(),
+      ['Household1 300,0094,2%', 'Transport50,003,6%', 'Ungrouped30,002,2%']);
+    assert.deepEqual(await spending.getByRole('list').nth(1).getByRole('listitem').allTextContents(),
+      ['1Rent1 000,0072,5%', '2Groceries300,0021,7%', '3Fuel50,003,6%', '4Gifts30,002,2%']);
+
+    const savings = ui.overviewCard(page, 'Savings overview');
+    assert.equal(await savings.getByRole('progressbar', { name: 'Overall savings target progress' }).getAttribute('aria-valuenow'), '25');
+    await savings.getByText('250,00 of 1 000,00 covered', { exact: true }).waitFor();
+    assert.deepEqual(await savings.getByRole('definition').allTextContents(), ['750,00', '0 of 1', '0,00']);
+
+    const predictability = ui.overviewCard(page, 'Predictability');
+    assert.equal(await predictability.getByRole('progressbar', { name: 'Expenses stability' }).getAttribute('aria-valuenow'), '29');
+    assert.equal(await predictability.getByRole('progressbar', { name: 'Income stability' }).count(), 0);
+    await predictability.getByText('Not enough data', { exact: true }).waitFor();
+    await predictability.getByText('Groceries varied most month to month', { exact: true }).waitFor();
+    await screenshot(page, `${label.replace(' ', '-')}-overview`);
+
+    // A month opens Expenses with that month's first visible cell focused, without the inspector.
+    await ui.overviewMonth(page, 'Feb').click();
+    await ui.cell(page, 'Groceries', 'Feb').waitFor();
+    assert.equal(await ui.currentSection(page), 'Expenses');
+    await expectFocused(ui.cell(page, 'Groceries', 'Feb'));
+    assert.equal(await ui.cell(page, 'Groceries', 'Feb').getAttribute('tabindex'), '0');
+    assert.equal(await ui.details(page).count(), 0, 'No inspector opens');
+    await screenshot(page, `${label.replace(' ', '-')}-overview-month`);
+    // Arrow keys continue from there; a month without data works the same way.
+    await page.keyboard.press('ArrowDown');
+    await expectFocused(ui.cell(page, 'Rent', 'Feb'));
+    await ui.openSection(page, 'Overview');
+    await ui.overviewMonth(page, 'Oct').click();
+    await expectFocused(ui.cell(page, 'Groceries', 'Oct'));
+    assert.equal(await ui.details(page).count(), 0);
+
+    await ui.openSection(page, 'Overview');
+    await ui.overviewCard(page, 'Savings overview').getByRole('button', { name: 'Open savings', exact: true }).click();
+    assert.equal(await ui.currentSection(page), 'Savings');
+    await expectNoWrite(api, 0);
     assert.deepEqual(errors, []);
   }));
 }

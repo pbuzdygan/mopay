@@ -63,16 +63,16 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 | F16 | Show group totals setting | Settings → Display; group rows | 3, 7 | Test |
 | F17 | Normal / Compact density (`data-view`) | Settings → Display | 3, 7 | Render |
 | F18 | Ungrouped entries section (collapsible, persisted) | Grid "Ungrouped" group | 3 | Test |
-| F19 | Empty states (no year, no entries, no goals, no report data) | Each view; grid: "No expenses in <year> yet." instead of an empty Ungrouped row | 3, 5, 6 | Render; grid also Test |
+| F19 | Empty states (no year, no entries, no goals, no report data) | Each view; grid: "No expenses in <year> yet." instead of an empty Ungrouped row; Overview keeps the Reports messages | 3, 5, 6 | Render; grid and Overview (year without data) also Test |
 | F20 | Savings: add goal (name, optional target) | *New goal* → dialog (SavingsGoalModal restyled) | 6 | Test |
 | F21 | Savings: edit goal (prefilled; clearing target = no target), remove goal with confirmation (outside click cancels) | Goal detail header / ⋯ menu | 6 | Test |
 | F22 | Savings items: add (blank item opens in edit, Esc removes it), inline edit name/value, remove (no confirmation), temporary withdrawal (negative), balance | Quick add form + item rows | 6 | Test |
 | F23 | Savings progress %, "No target" goals | Goal list + detail | 6 | Render |
-| F24 | Reports KPIs income/expenses/net with previous-year comparison | Overview KPI row | 5 | Test (`.reports-story-hero` replaced) |
-| F25 | Month by month with best/weakest | Overview month cards | 5 | Render + Test |
-| F26 | Savings overview (saved, target progress, remaining, reached, without target) | Overview Savings card | 5 | Render |
-| F27 | Where money went (groups) + top 5 entries | Overview horizontal bars | 5 | Render |
-| F28 | Predictability (income/expense stability, steadiest, most variable) | Overview Predictability card | 5 | Render |
+| F24 | Reports KPIs income/expenses/net with previous-year comparison | Overview KPI row (`Annual totals` group). **Phase 5 change:** a fourth KPI *Saved in goals* repeats the savings total with target coverage (existing savings metrics, no comparison, D8); percentages use a decimal comma like the grid summary | 5 | Test |
+| F25 | Month by month with best/weakest | Overview month cards. **Phase 5 change:** each month is a button that opens Expenses with that month's column picked (header outlined, first visible cell focused, no inspector); the current month is outlined and named in the label; the card shows the net in whole units, the exact values stay in the name and tooltip; months without data are dashed "No data" and also open Expenses | 5 | Render + Test |
+| F26 | Savings overview (saved, target progress, remaining, reached, without target) | Overview Savings card with *Open savings* | 5 | Render + Test |
+| F27 | Where money went (groups) + top 5 entries | Overview horizontal bars. **Phase 5 change:** the donut and its colour legend become bars; group and entry bars share one scale (share of expenses) instead of entries scaled to the largest entry | 5 | Render + Test |
+| F28 | Predictability (income/expense stability, steadiest, most variable) | Overview Predictability card | 5 | Render + Test |
 | F29 | Year operations: create year (4 digits, duplicate message), delete years with second-click confirmation. Today **all** years can be deleted (the subtitle only advises keeping one); after deletion the working year becomes the latest remaining year even if it was not deleted; adding a year does **not** switch to it (defect, see Phase 0 results) | Settings → Years / Danger zone | 7 | Test (characterises current behaviour; Phase 7 changes are deliberate and recorded) |
 | F30 | Initiate year on first run (not dismissible; opens underneath Year operations after deleting all years) | InitiateYearModal restyled | 1 | Test |
 | F31 | Export: choose years, XLSX download | Settings → Import & export (dialog) | 7 | Test (`ui-parity`, demo-runtime download) |
@@ -184,11 +184,22 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 - Checks: build; ad hoc strict `tsc --noUnusedLocals` over all 51 sources clean; ui-transitions 12/12, ui-parity 27/27, browser-security 2/2, demo-runtime 1/1, backend not touched; renders at 1440, 1024, 767, 390, 320 and 900×400 in both themes (cell, save error, group, entry): the drawer stays inside the viewport, no page overflow, editable inspector text 16 px on mobile.
 - Remaining: on the narrow layout the bottom sheet covers most of the grid while open (non-modal, closed with ✕ or Escape) until the Phase 8 sheet; screen-reader testing is still a documented gap.
 
-### Phase 5 – Overview (former Reports)
+### Phase 5 – Overview (former Reports) – done 2026-10-09
 
 - Rebuild `ReportsView` layout as Overview: KPI row → month by month (best/weakest labelled, current month outlined, no-data dashed) → where money went (groups + top 5 as horizontal bars) beside Savings → Predictability.
 - Reuse `reports/analytics.ts` unchanged; no new metrics. Keep existing empty/partial-data messages.
 - Month card click opens Expenses with that month's column selected (no inspector auto-open).
+
+#### Phase 5 results
+
+- `components/OverviewView.tsx` (renamed from `ReportsView.tsx`, styles in `styles/overview.css`) keeps the queries and `reports/analytics.ts` unchanged. Order as in the mockup: KPI row (Income, Expenses, Net result with the previous-year comparison, plus *Saved in goals*) → Month by month → Where money went beside Savings overview and Predictability. Loading, error and empty messages are the Reports texts. Cards are regions named by their headings (`h2`, subheadings `h3`).
+- **Not taken from the mockup** (no new metrics, plan Phase 5): "% of income kept" under Net result and the "updated today" subtitle; the subtitle stays "Your year at a glance, compared with <year − 1>."
+- Month click (F25): the store gets a non-persisted `gridMonthRequest` set by `openExpensesMonth`; the Expenses grid consumes it once after loading, outlines the month header and focuses the first visible cell of that month (`focusVisible` where supported, plus a `:focus` ring while the column is picked). Neither selection nor inspector change. The highlight clears when a cell is selected, focus moves to another month or leaves the grid. Changing section or unlocking discards a pending request.
+- Layout follows the view width through a container query: 12 month cards and two columns from 1 100 px of content width, 6 cards below, one column with two KPI columns below 900 px, 4 cards below 560 px, 3 cards, one KPI column and stacked savings figures below 400 px. The existing narrow toolbar stays until Phase 8.
+- The legacy `reports-*` rules in `global.css` are no longer used; they are removed with the other unused CSS in Phase 9 (the `MOPAY_UI_METRICS` capture still names `.reports-story-hero` to measure the previous design).
+- Tests: `ui-parity` 29/29 (new: Overview KPIs and comparisons, month labels, best/weakest/current/no data, spending bars and shares, savings figures, predictability, month click to a focused Expenses cell without the inspector and arrow keys from there, *Open savings*; the year test also checks the Overview empty state for a year without data). The new test passed 5 of 5 repeated runs.
+- Checks: build; ad hoc strict `tsc --noUnusedLocals` over all sources clean; ui-transitions 12/12, ui-parity 29/29, browser-security 2/2, demo-runtime 1/1; renders at 1440, 1024, 767, 390, 320 and 900×400 in both themes (Overview with a full synthetic year, and Expenses after a month click) without page overflow or content spilling out of cards; grid timing with 200 entries unchanged (cached 167/150 ms, first load 383 ms).
+- Remaining: Overview on the narrow layout is the stacked desktop view; the dedicated mobile Overview from the mockup belongs to Phase 8. Screen-reader testing is still a documented gap.
 
 ### Phase 6 – Savings list + detail
 
@@ -240,5 +251,5 @@ git diff --check
 ## References
 
 - Design: [final-ledger.html](../../docs/mockup_UI/final-ledger.html), [mockup README](../../docs/mockup_UI/README.md), [UI design guidelines](../UI_DESIGN_GUIDELINES.md)
-- Code: [App.tsx](../../frontend/src/App.tsx), [store.ts](../../frontend/src/store.ts), [api.ts](../../frontend/src/api.ts), [MainBar](../../frontend/src/components/MainBar.tsx), [TableView](../../frontend/src/components/TableView.tsx), [TableContextPanel](../../frontend/src/components/table/TableContextPanel.tsx), [ReportsView](../../frontend/src/components/ReportsView.tsx), [analytics](../../frontend/src/reports/analytics.ts), [SavingsView](../../frontend/src/components/SavingsView.tsx), [global.css](../../frontend/src/styles/global.css)
+- Code: [App.tsx](../../frontend/src/App.tsx), [store.ts](../../frontend/src/store.ts), [api.ts](../../frontend/src/api.ts), [MainBar](../../frontend/src/components/MainBar.tsx), [TableView](../../frontend/src/components/TableView.tsx), [TableContextPanel](../../frontend/src/components/table/TableContextPanel.tsx), [OverviewView](../../frontend/src/components/OverviewView.tsx), [analytics](../../frontend/src/reports/analytics.ts), [SavingsView](../../frontend/src/components/SavingsView.tsx), [global.css](../../frontend/src/styles/global.css)
 - Constraints: [project profile](../PROJECT.md), [browser security policy](../../backend/browserSecurity.js), prior UI tasks [T-003](T-003-ui-flicker.md), [T-009](T-009-pin-tailwind.md), [T-013](T-013-mobile-search.md), [T-016](T-016-readme-screenshots.md)

@@ -55,7 +55,7 @@ Key repository areas:
   - [`store.ts`](.../frontend/src/store.ts): Zustand UI state
   - [`components/TableView.tsx`](.../frontend/src/components/TableView.tsx): income/expense table, DnD, groups, tags
   - [`components/SavingsView.tsx`](.../frontend/src/components/SavingsView.tsx): savings goals/items UI
-  - [`components/ReportsView.tsx`](.../frontend/src/components/ReportsView.tsx): reports UI
+  - [`components/OverviewView.tsx`](.../frontend/src/components/OverviewView.tsx): Overview (former Reports) UI
   - [`components/PinGuard.tsx`](.../frontend/src/components/PinGuard.tsx): PIN unlock overlay
   - [`components/ReleaseStatusProvider.tsx`](.../frontend/src/components/ReleaseStatusProvider.tsx): release metadata polling
   - [`components/modals/`](.../frontend/src/components/modals): add/edit/import/export/settings flows

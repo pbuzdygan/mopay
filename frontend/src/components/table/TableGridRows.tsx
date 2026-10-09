@@ -3,7 +3,8 @@ import { formatCurrency } from '../../utils/currency';
 
 type Totals = { sums: number[]; totalSum: number; totalAvg: number };
 
-export function TableHeaderRow({ currentMonth }: { currentMonth: MonthKey | null }) {
+// pickedMonth: the column chosen on Overview, highlighted until the user moves on.
+export function TableHeaderRow({ currentMonth, pickedMonth = null }: { currentMonth: MonthKey | null; pickedMonth?: MonthKey | null }) {
   return (
     <thead>
       <tr>
@@ -14,7 +15,7 @@ export function TableHeaderRow({ currentMonth }: { currentMonth: MonthKey | null
             <th
               key={month}
               scope="col"
-              className={isCurrent ? 'is-current' : undefined}
+              className={[isCurrent && 'is-current', month === pickedMonth && 'is-picked'].filter(Boolean).join(' ') || undefined}
               aria-current={isCurrent ? 'date' : undefined}
             >
               <span>{month}</span>
