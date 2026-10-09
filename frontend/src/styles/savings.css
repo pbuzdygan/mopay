@@ -1,0 +1,161 @@
+/* Savings: goal list + goal detail (plan Phase 6, docs/mockup_UI/final-ledger.html).
+   Columns follow the width of the view through a container query. */
+.goals-view {
+  container: goals / inline-size;
+  font-family: var(--font);
+  color: var(--text-1);
+}
+.goals-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-20);
+  align-items: start;
+}
+.goals-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-16);
+  padding: var(--sp-32) var(--sp-24);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--font);
+  text-align: center;
+}
+.goals-state p { max-width: 52ch; margin: 0; }
+
+/* Goal list */
+.goals-list { overflow: hidden; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.goals-list ul { margin: 0; padding: 0; list-style: none; }
+.goals-list li + li { border-top: 1px solid var(--border); }
+.goals-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: var(--sp-12) var(--sp-16);
+  border: 0;
+  background: none;
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.goals-list-item:hover { background: var(--surface-2); }
+.goals-list-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.goals-list-item[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.goals-list-name { display: flex; justify-content: space-between; gap: var(--sp-8); font-weight: var(--fw-semibold); }
+.goals-list-name > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.goals-list-pct { flex: none; font-size: var(--fs-small); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.goals-list-item small { font-size: var(--fs-caption); color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.goals-bar { display: block; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.goals-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.goals-bar.is-empty { visibility: hidden; }
+.goals-bar.is-large { height: 8px; border-radius: 4px; margin: var(--sp-12) 0 10px; }
+
+/* Goal detail */
+.goals-detail { min-width: 0; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.goals-detail-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-12); padding: var(--sp-20) var(--sp-24) var(--sp-16); border-bottom: 1px solid var(--border); }
+.goals-detail-head > div:first-child { min-width: 0; flex: 1 1 200px; }
+.goals-detail-head h2 { margin: 0; font-size: var(--fs-h2); font-weight: var(--fw-bold); overflow-wrap: anywhere; }
+.goals-detail-head p { margin: 2px 0 0; font-size: var(--fs-small); color: var(--text-3); }
+.goals-detail-actions { display: flex; align-items: center; gap: 6px; }
+.goals-detail-message { padding: var(--sp-12) var(--sp-24) 0; }
+
+.goals-progress { padding: 18px var(--sp-24); border-bottom: 1px solid var(--border); }
+.goals-progress-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) 10px; color: var(--text-3); }
+.goals-big-num { margin: 0; font-size: var(--fs-h1); font-weight: var(--fw-bold); letter-spacing: -.01em; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.goals-big-num.is-negative { color: var(--danger); }
+.goals-progress-pct { margin-left: auto; font-size: 18px; font-weight: var(--fw-bold); color: var(--text-1); }
+.goals-facts { display: flex; flex-wrap: wrap; gap: var(--sp-8) 28px; margin: var(--sp-12) 0 0; font-size: var(--fs-small); color: var(--text-2); }
+.goals-facts > div { display: flex; gap: 6px; }
+.goals-facts dd { margin: 0; font-weight: var(--fw-semibold); color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+/* Quick add */
+.goals-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px auto;
+  align-items: end;
+  gap: 10px;
+  padding: var(--sp-16) var(--sp-24);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.goals-add-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.goals-add-field label { font-size: var(--fs-caption); font-weight: var(--fw-semibold); color: var(--text-2); }
+.goals-amount { text-align: right; font-variant-numeric: tabular-nums; }
+.goals-add-kind { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-8) var(--sp-16); font-size: var(--fs-small); color: var(--text-2); }
+.goals-add-kind label { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; cursor: pointer; }
+.goals-add-kind input { margin: 0; accent-color: var(--accent); }
+.goals-add-error { grid-column: 1 / -1; }
+.goals-readonly { margin: 0; padding: var(--sp-12) var(--sp-24); border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: var(--fs-small); color: var(--text-2); }
+
+/* Items */
+/* No scroll container: the hidden tooltips of the row buttons would make it scroll. */
+.goals-items-wrap { min-width: 0; }
+.goals-items .ui-badge { white-space: normal; }
+.goals-items { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+.goals-items th { padding: 10px var(--sp-24) var(--sp-8); border-bottom: 1px solid var(--border); font-size: var(--fs-caption); font-weight: var(--fw-semibold); color: var(--text-3); text-align: left; }
+.goals-items td { padding: var(--sp-8) var(--sp-24); border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; vertical-align: middle; }
+.goals-items td:last-child,
+.goals-items th:last-child { width: 1%; padding-left: 0; white-space: nowrap; }
+.goals-items .is-editing td { width: auto; padding-left: var(--sp-24); white-space: normal; }
+.goals-items .is-num { text-align: right; white-space: nowrap; }
+.goals-items .is-negative { color: var(--danger); }
+.goals-items tbody tr:hover td { background: var(--surface-2); }
+.goals-items tfoot th,
+.goals-items tfoot td { padding: 10px var(--sp-24); border-bottom: 0; background: var(--surface-2); font-size: var(--fs-body); font-weight: var(--fw-bold); color: var(--text-1); }
+.goals-items tfoot th { border-bottom-left-radius: var(--r-lg); }
+.goals-items tfoot td:last-child { border-bottom-right-radius: var(--r-lg); }
+.goals-item-name { overflow-wrap: break-word; }
+.goals-item-name .ui-badge { margin-left: var(--sp-8); }
+.goals-items-empty { color: var(--text-2); }
+.goals-item-actions { display: flex; justify-content: flex-end; gap: 2px; }
+/* Tooltips name the item and sit at the right edge of the card: align them to
+   the button's right side and wrap long names so they never widen the page. */
+.goals-item-actions .ui-tip::after { left: auto; right: 0; width: max-content; max-width: 220px; white-space: normal; text-align: right; transform: translateY(-2px); }
+.goals-item-actions .ui-tip:hover::after,
+.goals-item-actions .ui-tip:focus-visible::after { transform: none; }
+/* Row actions appear on hover or focus where a pointer can hover; touch keeps them visible. */
+@media (hover: hover) {
+  .goals-items tbody tr .goals-item-actions:not(.is-visible) { opacity: 0; transition: opacity var(--dur-fast); }
+  .goals-items tbody tr:hover .goals-item-actions,
+  .goals-items tbody tr:focus-within .goals-item-actions { opacity: 1; }
+}
+.goals-item-editor { display: grid; grid-template-columns: minmax(0, 1fr) 160px auto; align-items: start; gap: var(--sp-8); }
+.goals-note-input { min-height: var(--control-h); resize: vertical; }
+textarea.goals-note-input { min-height: var(--control-h); }
+.goals-item-value { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-4); }
+
+.goals-confirm-text { margin: 0; color: var(--text-2); }
+.goals-dialog-form { display: flex; flex-direction: column; gap: var(--sp-16); }
+
+@container goals (min-width: 760px) {
+  .goals-layout { grid-template-columns: 300px minmax(0, 1fr); }
+}
+@container goals (max-width: 559px) {
+  .goals-detail-head,
+  .goals-progress,
+  .goals-add,
+  .goals-readonly { padding-left: var(--sp-16); padding-right: var(--sp-16); }
+  .goals-add { grid-template-columns: minmax(0, 1fr); }
+  .goals-items th,
+  .goals-items td,
+  .goals-items tfoot th,
+  .goals-items tfoot td { padding-left: var(--sp-16); padding-right: var(--sp-16); }
+  .goals-items td:last-child { padding-right: var(--sp-8); }
+  .goals-items .is-num { padding-left: var(--sp-8); }
+  .goals-item-name .ui-badge { display: table; margin: var(--sp-4) 0 0; }
+  .goals-items .is-editing td { padding-left: var(--sp-16); }
+  .goals-item-editor { grid-template-columns: minmax(0, 1fr) auto; }
+  .goals-item-editor .goals-note-input { grid-column: 1 / -1; }
+}
+
+/* Editable text stays at 16px where mobile browsers zoom on focus (T-013). */
+@media (max-width: 959px) {
+  .goals-view .ui-input,
+  .goals-dialog-form .ui-input { font-size: 16px; }
+}

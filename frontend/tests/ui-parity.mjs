@@ -671,23 +671,41 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
   test(`${label}: savings goals and items (F20, F21, F22, F23)`, () => openApp(context, async ({ page, api, errors }) => {
     let w = 0;
     await ui.openSection(page, 'Savings');
-    // F23: progress and goals without target.
-    await ui.goal(page, 'Emergency fund').filter({ hasText: '250,00 / 1 000,00' }).filter({ hasText: '25%' }).waitFor();
+    // F23: progress and goals without target in the list; the first goal is selected.
+    await ui.goal(page, 'Emergency fund').filter({ hasText: '250,00 of 1 000,00' }).filter({ hasText: '25%' }).waitFor();
+    await ui.goal(page, 'Holiday').filter({ hasText: '0,00 · No target' }).waitFor();
+    assert.equal(await ui.goal(page, 'Emergency fund').getAttribute('aria-current'), 'true');
+    let detail = ui.goalDetail(page, 'Emergency fund');
+    await detail.getByText('Target 1 000,00 · 2026', { exact: true }).waitFor();
+    assert.equal(await detail.getByRole('progressbar', { name: 'Progress toward target' }).getAttribute('aria-valuenow'), '25');
+    // Remaining, contributions and withdrawals.
+    assert.deepEqual(await detail.getByRole('definition').allTextContents(), ['750,00', '300,00', '-50,00']);
     await screenshot(page, `${label.replace(' ', '-')}-savings`);
-    await ui.goal(page, 'Holiday').filter({ hasText: 'No target' }).waitFor();
-    // F20: add goal.
+    await ui.openGoal(page, 'Holiday');
+    assert.equal(await ui.goal(page, 'Holiday').getAttribute('aria-current'), 'true');
+    await ui.goalDetail(page, 'Holiday').getByText('No target · 2026', { exact: true }).waitFor();
+    assert.equal(await ui.goalDetail(page, 'Holiday').getByRole('progressbar').count(), 0);
+
+    // F20: add goal; a failed save keeps the dialog and its values.
     await page.getByRole('button', { name: /^(Add goal|New goal)$/ }).click();
     let goalDialog = ui.dialog(page, 'Add savings goal');
     await goalDialog.waitFor();
     await settleGoalDialog(page);
     await goalDialog.getByRole('textbox', { name: 'Name' }).fill('Car');
     await goalDialog.getByRole('textbox', { name: 'Target amount' }).fill('2000');
+    api.failNext('POST', /^\/api\/savings$/);
+    await goalDialog.getByRole('button', { name: 'Add goal', exact: true }).click();
+    w = await expectWrite(api, w, 'POST', '/api/savings', { year: 2026, name: 'Car', targetValue: 2000 });
+    await goalDialog.getByText('Could not save the goal. Try again.', { exact: true }).waitFor();
+    await expectValue(goalDialog.getByRole('textbox', { name: 'Name' }), 'Car');
     await goalDialog.getByRole('button', { name: 'Add goal', exact: true }).click();
     w = await expectWrite(api, w, 'POST', '/api/savings', { year: 2026, name: 'Car', targetValue: 2000 });
     await goalDialog.waitFor({ state: 'detached' });
     await ui.goal(page, 'Car').waitFor();
     // F21: edit goal (prefilled), then clear the target.
-    await page.getByRole('button', { name: 'Edit Emergency fund', exact: true }).click();
+    await ui.openGoal(page, 'Emergency fund');
+    detail = ui.goalDetail(page, 'Emergency fund');
+    await detail.getByRole('button', { name: 'Edit goal', exact: true }).click();
     goalDialog = ui.dialog(page, 'Edit savings goal');
     await expectValue(goalDialog.getByRole('textbox', { name: 'Name' }), 'Emergency fund');
     await settleGoalDialog(page);
@@ -697,62 +715,136 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await goalDialog.getByRole('button', { name: 'Save changes', exact: true }).click();
     w = await expectWrite(api, w, 'PATCH', '/api/savings/200', { name: 'Safety fund', targetValue: 1500 });
     await goalDialog.waitFor({ state: 'detached' });
-    await ui.goal(page, 'Safety fund').filter({ hasText: '250,00 / 1 500,00' }).waitFor();
-    await page.getByRole('button', { name: 'Edit Safety fund', exact: true }).click();
+    await ui.goal(page, 'Safety fund').filter({ hasText: '250,00 of 1 500,00' }).waitFor();
+    detail = ui.goalDetail(page, 'Safety fund');
+    await detail.getByRole('button', { name: 'Edit goal', exact: true }).click();
     await expectValue(goalDialog.getByRole('textbox', { name: 'Target amount' }), '1 500,00');
     await settleGoalDialog(page);
     await goalDialog.getByRole('textbox', { name: 'Target amount' }).fill('');
     await goalDialog.getByRole('button', { name: 'Save changes', exact: true }).click();
     w = await expectWrite(api, w, 'PATCH', '/api/savings/200', { name: 'Safety fund', targetValue: null });
     await goalDialog.waitFor({ state: 'detached' });
-    await ui.goal(page, 'Safety fund').filter({ hasText: 'No target' }).waitFor();
-    // Remove goal needs confirmation; clicking elsewhere cancels it.
-    await page.getByRole('button', { name: 'Remove Holiday', exact: true }).click();
-    await page.getByRole('button', { name: 'Confirm removal of Holiday', exact: true }).waitFor();
-    await ui.search(page).click();
-    await ui.search(page).press('Escape');
-    await page.getByRole('button', { name: 'Remove Holiday', exact: true }).click();
+    await ui.goal(page, 'Safety fund').filter({ hasText: '250,00 · No target' }).waitFor();
+    // Remove goal needs confirmation in a dialog; an outside click and Cancel keep it,
+    // a failure is shown and the goal stays.
+    await ui.openGoal(page, 'Holiday');
+    await ui.openGoalRemoval(page);
+    const removeDialog = ui.dialog(page, 'Remove Holiday?');
+    await removeDialog.getByText('The goal has no items.', { exact: true }).waitFor();
+    await page.mouse.click(4, 4);
+    await removeDialog.waitFor({ state: 'detached' });
+    await ui.openGoalRemoval(page);
+    await removeDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await removeDialog.waitFor({ state: 'detached' });
     await expectNoWrite(api, w);
-    await page.getByRole('button', { name: 'Confirm removal of Holiday', exact: true }).click();
+    api.failNext('DELETE', /^\/api\/savings\/210$/);
+    await ui.openGoalRemoval(page);
+    await removeDialog.getByRole('button', { name: 'Remove goal', exact: true }).click();
+    w = await expectWrite(api, w, 'DELETE', '/api/savings/210', null);
+    await ui.goalDetail(page, 'Holiday').getByText('Could not remove the goal. Try again.', { exact: true }).waitFor();
+    await ui.openGoalRemoval(page);
+    await removeDialog.getByRole('button', { name: 'Remove goal', exact: true }).click();
     w = await expectWrite(api, w, 'DELETE', '/api/savings/210', null);
     await ui.goal(page, 'Holiday').waitFor({ state: 'detached' });
+    // The first remaining goal is selected afterwards.
+    await ui.goalDetail(page, 'Safety fund').waitFor();
+    assert.equal(await ui.goal(page, 'Safety fund').getAttribute('aria-current'), 'true');
 
-    // F22: items, temporary withdrawal and balance.
-    await ui.goal(page, 'Safety fund').click();
-    await page.getByText('Temporary withdrawal', { exact: true }).waitFor();
-    const balance = page.getByText('Current balance', { exact: true }).locator('..');
+    // F22: the quick add form creates an item with two calls; the type sets the sign.
+    detail = ui.goalDetail(page, 'Safety fund');
+    await ui.itemRow(page, 'Repair').getByText('Temporary withdrawal', { exact: true }).waitFor();
+    const balance = ui.goalBalance(page);
     await expectText(balance, /250,00$/);
-    await page.getByRole('button', { name: '+ Add item', exact: true }).click();
+    const form = ui.addItemForm(page);
+    const formNote = form.getByRole('textbox', { name: 'Source or note' });
+    const formAmount = form.getByRole('textbox', { name: 'Amount' });
+    const addItem = form.getByRole('button', { name: 'Add item', exact: true });
+    assert.equal(await addItem.isDisabled(), true, 'Nothing to add yet');
+    await formNote.fill('Bonus');
+    await formAmount.fill('-1.200,5');
+    assert.equal(await formAmount.inputValue(), '1.200,5', 'The sign comes from the type');
+    await formAmount.press('Enter');
     w = await expectWrite(api, w, 'POST', '/api/savings/200/items', {});
-    const note = page.getByRole('textbox', { name: 'Source or note' });
-    const amount = page.getByRole('textbox', { name: 'Amount' });
+    w = await expectWrite(api, w, 'PATCH', '/api/savings/items/1001', { name: 'Bonus', value: 1200.5 });
+    await ui.itemRow(page, 'Bonus').waitFor();
+    await expectValue(formNote, '');
+    await expectFocused(formNote);
+    await expectText(balance, /1 450,50$/);
+    await formNote.fill('Car repair');
+    await formAmount.fill('20');
+    await form.getByRole('radio', { name: 'Temporary withdrawal' }).check();
+    await addItem.click();
+    w = await expectWrite(api, w, 'POST', '/api/savings/200/items', {});
+    w = await expectWrite(api, w, 'PATCH', '/api/savings/items/1002', { name: 'Car repair', value: -20 });
+    await ui.itemRow(page, 'Car repair').getByText('Temporary withdrawal', { exact: true }).waitFor();
+    assert.equal(await form.getByRole('radio', { name: 'Contribution' }).isChecked(), true);
+    await expectText(balance, /1 430,50$/);
+    // A failed second call removes the empty item again and keeps the typed values.
+    await formNote.fill('Lost');
+    await formAmount.fill('5');
+    api.failNext('PATCH', /^\/api\/savings\/items\//);
+    await addItem.click();
+    w = await expectWrite(api, w, 'POST', '/api/savings/200/items', {});
+    w = await expectWrite(api, w, 'PATCH', '/api/savings/items/1003', { name: 'Lost', value: 5 });
+    w = await expectWrite(api, w, 'DELETE', '/api/savings/items/1003', null);
+    await form.getByText('Could not save the item, so it was not added. Try again.', { exact: true }).waitFor();
+    await expectValue(formNote, 'Lost');
+    assert.equal(await ui.itemRow(page, 'Untitled item').count(), 0, 'No silent empty item');
+    await screenshot(page, `${label.replace(' ', '-')}-savings-add-error`);
+    // If removing it fails too, the empty item stays visible with an explanation;
+    // Escape in its editor removes a blank item.
+    api.failNext('PATCH', /^\/api\/savings\/items\//);
+    api.failNext('DELETE', /^\/api\/savings\/items\//);
+    await addItem.click();
+    w = await expectWrite(api, w, 'POST', '/api/savings/200/items', {});
+    w = await expectWrite(api, w, 'PATCH', '/api/savings/items/1004', { name: 'Lost', value: 5 });
+    w = await expectWrite(api, w, 'DELETE', '/api/savings/items/1004', null);
+    await form.getByText('Could not save the item. An empty item was left in the list; edit or remove it.', { exact: true }).waitFor();
+    await ui.itemRow(page, 'Untitled item').getByRole('button', { name: 'Edit item', exact: true }).click();
+    const editor = ui.itemEditor(page);
+    const note = editor.getByRole('textbox', { name: 'Source or note' });
+    const amount = editor.getByRole('textbox', { name: 'Amount' });
     await expectFocused(note);
-    await note.fill('Car repair');
-    await amount.fill('abc-20');
-    assert.equal(await amount.inputValue(), '-20');
-    assert.equal(await page.getByText('Temporary withdrawal', { exact: true }).count(), 2);
-    await screenshot(page, `${label.replace(' ', '-')}-savings-edit`);
-    await amount.press('Enter');
-    w = await expectWrite(api, w, 'PATCH', '/api/savings/items/1001', { name: 'Car repair', value: -20 });
-    await page.getByText('Car repair', { exact: true }).waitFor();
-    await expectText(balance, /230,00$/);
+    await note.press('Escape');
+    w = await expectWrite(api, w, 'DELETE', '/api/savings/items/1004', null);
+    await ui.itemRow(page, 'Untitled item').waitFor({ state: 'detached' });
+
+    // Inline edit: save with the button, Enter after a failure, Escape reverts.
     await page.getByRole('button', { name: 'Edit Contribution', exact: true }).click();
     await expectFocused(note);
     await amount.fill('400');
-    await page.getByRole('button', { name: 'Save item', exact: true }).click();
+    await editor.getByRole('button', { name: 'Save item', exact: true }).click();
     w = await expectWrite(api, w, 'PATCH', '/api/savings/items/201', { name: 'Contribution', value: 400 });
     await page.getByText('+400,00', { exact: true }).waitFor();
-    await expectText(balance, /330,00$/);
-    // Escape on a new blank item removes it.
-    await page.getByRole('button', { name: '+ Add item', exact: true }).click();
-    w = await expectWrite(api, w, 'POST', '/api/savings/200/items', {});
-    await note.press('Escape');
-    w = await expectWrite(api, w, 'DELETE', '/api/savings/items/1002', null);
-    await note.waitFor({ state: 'detached' });
+    await expectText(balance, /1 530,50$/);
+    await page.getByRole('button', { name: 'Edit Bonus', exact: true }).click();
+    await expectFocused(note);
+    await amount.fill('1300');
+    api.failNext('PATCH', /^\/api\/savings\/items\/1001$/);
+    await amount.press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/savings/items/1001', { name: 'Bonus', value: 1300 });
+    await detail.getByText('Could not save the item. Try again.', { exact: true }).waitFor();
+    await expectValue(amount, '1300');
+    await amount.press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/savings/items/1001', { name: 'Bonus', value: 1300 });
+    await editor.waitFor({ state: 'detached' });
+    await expectText(balance, /1 630,00$/);
+    assert.equal(await detail.getByText('Could not save the item. Try again.', { exact: true }).count(), 0);
+    await page.getByRole('button', { name: 'Edit Car repair', exact: true }).click();
+    await expectFocused(note);
+    await amount.fill('abc-30');
+    assert.equal(await amount.inputValue(), '-30');
+    await editor.getByText('Temporary withdrawal', { exact: true }).waitFor();
+    await screenshot(page, `${label.replace(' ', '-')}-savings-edit`);
+    await amount.press('Escape');
+    await editor.waitFor({ state: 'detached' });
+    await expectNoWrite(api, w);
+    await ui.itemRow(page, 'Car repair').getByText('-20,00', { exact: true }).waitFor();
+    // Removing an item needs no confirmation.
     await page.getByRole('button', { name: 'Remove Repair', exact: true }).click();
     w = await expectWrite(api, w, 'DELETE', '/api/savings/items/202', null);
-    await page.getByText('Repair', { exact: true }).waitFor({ state: 'detached' });
-    await expectText(balance, /380,00$/);
+    await ui.itemRow(page, 'Repair').waitFor({ state: 'detached' });
+    await expectText(balance, /1 680,00$/);
     assert.deepEqual(errors, []);
   }));
 
@@ -1005,19 +1097,20 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await addEntry.waitFor({ state: 'detached' });
     // Focus returns to the control that opened the dialog.
     await ui.openSection(page, 'Savings');
-    const edit = page.getByRole('button', { name: 'Edit Emergency fund', exact: true });
+    const edit = ui.goalDetail(page, 'Emergency fund').getByRole('button', { name: 'Edit goal', exact: true });
     await edit.click();
     const goal = ui.dialog(page, 'Edit savings goal');
     await goal.waitFor();
     await expectFocused(goal.getByRole('textbox', { name: 'Name' }));
     await settleGoalDialog(page);
-    // Escape in the target field is handled by the field and keeps the dialog open.
-    // Known defect (F21, Phase 6): it should restore 1 000,00, but the blur that
-    // follows reformats the stale draft, so the typed value stays.
+    // Escape in the target field restores the saved target and keeps the dialog
+    // open (F21 defect fixed in Phase 6: the following blur reformatted the draft).
     const target = goal.getByRole('textbox', { name: 'Target amount' });
     await target.fill('5');
     await target.press('Escape');
-    await expectValue(target, '5,00');
+    await expectValue(target, '1 000,00');
+    await page.waitForTimeout(100);
+    await expectValue(target, '1 000,00');
     assert.equal(await goal.isVisible(), true);
     await goal.getByRole('textbox', { name: 'Name' }).press('Escape');
     await goal.waitFor({ state: 'detached' });

@@ -127,5 +127,21 @@ export const ui = {
     await ui.pinInput(page).fill(pin);
     await page.getByRole('button', { name: 'Enter', exact: true }).click();
   },
-  goal: (page, name) => page.getByRole('button', { name: new RegExp(`^${escapeRegExp(name)} `) }),
+  // Goal in the Savings goal list; its name continues with progress and balance.
+  goal: (page, name) => page.getByRole('navigation', { name: 'Goals', exact: true })
+    .getByRole('button', { name: new RegExp(`^${escapeRegExp(name)} `) }),
+  openGoal: (page, name) => ui.goal(page, name).click(),
+  // Detail of the selected goal, a region named by the goal.
+  goalDetail: (page, name) => page.getByRole('region', { name, exact: true }),
+  async openGoalRemoval(page) {
+    await page.getByRole('button', { name: 'Goal actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Remove goal', exact: true }).click();
+  },
+  addItemForm: (page) => page.getByRole('form', { name: 'Add item', exact: true }),
+  itemEditor: (page) => page.getByRole('group', { name: 'Edit item', exact: true }),
+  // Item row by its note (the cell may also hold the withdrawal badge).
+  itemRow: (page, name) => page.getByRole('row').filter({ has: page.getByText(name, { exact: true }) }),
+  goalBalance: (page) => page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Current balance', exact: true }) }),
+  // A visible item of a view: entry names in the grid, goals in the Savings list.
+  viewItem: (page, section, name) => section === 'Savings' ? ui.goal(page, name) : page.getByText(name, { exact: true }),
 };

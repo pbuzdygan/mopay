@@ -241,7 +241,7 @@ for (const mobile of [false, true]) {
 
         for (const [section, item] of [['Expenses', 'Test groceries'], ['Incomes', 'Test salary'], ['Savings', 'Synthetic savings']]) {
           await ui.openSection(page, section);
-          await page.getByText(item, { exact: true }).waitFor();
+          await ui.viewItem(page, section, item).waitFor();
           const search = ui.search(page);
           assert.equal(await search.count(), 1);
           for (const key of ['/', 'Control+k', 'Meta+k']) {
@@ -250,9 +250,9 @@ for (const mobile of [false, true]) {
             assert.equal(await search.evaluate(node => node === document.activeElement), true);
           }
           await search.fill('No matching synthetic fixture');
-          await page.getByText(item, { exact: true }).waitFor({ state: 'hidden' });
+          await ui.viewItem(page, section, item).waitFor({ state: 'hidden' });
           await search.fill(item);
-          await page.getByText(item, { exact: true }).waitFor();
+          await ui.viewItem(page, section, item).waitFor();
           await search.press('/');
           assert.equal(await search.inputValue(), item + '/');
           await search.press('Escape');
@@ -295,7 +295,7 @@ for (const mobile of [false, true]) {
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-table`);
         for (const section of ['Savings', 'Overview']) {
           await ui.openSection(page, section);
-          if (section === 'Savings') await page.getByText('Synthetic savings', { exact: true }).waitFor();
+          if (section === 'Savings') await ui.goal(page, 'Synthetic savings').waitFor();
           else await ui.annualTotals(page).waitFor();
           await page.waitForTimeout(500);
           await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-${section.toLowerCase()}`);
@@ -419,10 +419,13 @@ for (const mobile of [false, true]) {
         for (const name of ['Incomes', 'Savings', 'Overview', 'Expenses']) {
           await ui.openSection(page, name);
           if (name === 'Savings') {
-            await page.getByText('Synthetic savings', { exact: true }).click();
+            await ui.openGoal(page, 'Synthetic savings');
             await page.getByText('Synthetic contribution', { exact: true }).waitFor();
             assert.equal(await page.getByRole('button', { name: /^Edit |^Remove / }).count(), 0);
-            assert.equal(await page.getByRole('button', { name: '+ Add item', exact: true }).isDisabled(), true);
+            assert.equal(await page.getByRole('button', { name: 'Goal actions', exact: true }).count(), 0);
+            // Demo: no quick add form, only an explanation (previously a disabled "+ Add item").
+            assert.equal(await ui.addItemForm(page).count(), 0);
+            await ui.goalDetail(page, 'Synthetic savings').getByText('Demo data is read only.', { exact: true }).waitFor();
           }
         }
         await ui.search(page).fill('Demo groceries');

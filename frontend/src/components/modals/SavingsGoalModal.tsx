@@ -3,8 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Api } from '../../api';
 import { useAppStore } from '../../store';
 import { ModalBase } from './ModalBase';
-import { FormSection } from '../FormSection';
-import { SoftButton } from '../SoftButton';
+import { Button, Callout, Input } from '../ui';
 import { formatCurrency, parseCurrencyInput } from '../../utils/currency';
 
 export function SavingsGoalModal() {
@@ -19,7 +18,12 @@ export function SavingsGoalModal() {
 
   const [name, setName] = useState('');
   const [targetDraft, setTargetDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  // Escape restores the saved target and blurs the field; the blur must not
+  // reformat the draft typed before Escape (F21 defect characterised in Phase 0).
+  const revertingTargetRef = useRef(false);
 
   const editingGoal = (() => {
     if (!open || !year || editingId == null) return null;
@@ -32,6 +36,7 @@ export function SavingsGoalModal() {
 
   useEffect(() => {
     if (!open) return;
+    setError(null);
     if (editingGoal) {
       setName(editingGoal.name);
       setTargetDraft(
@@ -59,25 +64,40 @@ export function SavingsGoalModal() {
     closeGoalModal();
     setName('');
     setTargetDraft('');
+    setError(null);
   };
 
   const sanitizeValue = (value: string) => value.replace(/[^\d\s,.\-]/g, '');
 
   const handleTargetBlur = () => {
+    if (revertingTargetRef.current) {
+      revertingTargetRef.current = false;
+      return;
+    }
     if (!targetDraft.trim()) return;
     const value = parseCurrencyInput(targetDraft);
     setTargetDraft(formatCurrency(value));
   };
 
   async function submit() {
-    if (!year || !name.trim()) return;
+    if (!year || !name.trim() || saving) return;
     const trimmedName = name.trim();
     const targetValue = targetDraft.trim() ? parseCurrencyInput(targetDraft) : null;
 
-    if (editingId) {
-      await Api.savings.updateGoal(editingId, { name: trimmedName, targetValue });
-    } else {
-      await Api.savings.addGoal({ year, name: trimmedName, targetValue });
+    setSaving(true);
+    setError(null);
+    try {
+      if (editingId) {
+        await Api.savings.updateGoal(editingId, { name: trimmedName, targetValue });
+      } else {
+        await Api.savings.addGoal({ year, name: trimmedName, targetValue });
+      }
+    } catch {
+      // The dialog stays open with the typed values so the user can retry.
+      setError('Could not save the goal. Try again.');
+      return;
+    } finally {
+      setSaving(false);
     }
 
     qc.invalidateQueries({ queryKey: ['savings', year] });
@@ -92,67 +112,55 @@ export function SavingsGoalModal() {
       size="sm"
       mobileAlign="top"
     >
-      <div className="space-y-3 sm:space-y-4 modal-compact-mobile">
-        <FormSection title="Goal basics">
-          <div className="field-stack">
-            <label className="field-label" htmlFor="goal-name-input">
-              Name
-            </label>
-            <input
-              id="goal-name-input"
-              ref={nameInputRef}
-              type="text"
-              className="input"
-              maxLength={80}
-              autoFocus={open}
-              value={name}
-              onChange={(ev) => setName(ev.target.value)}
-              onKeyDown={(ev) => {
-                if (ev.key === 'Enter') submit();
-              }}
-            />
-          </div>
-
-          <div className="field-stack">
-            <label className="field-label" htmlFor="goal-target-input">
-              Target amount
-            </label>
-            <input
-              id="goal-target-input"
-              type="text"
-              className="input"
-              inputMode="decimal"
-              value={targetDraft}
-              placeholder="Optional"
-              onChange={(ev) => setTargetDraft(sanitizeValue(ev.target.value))}
-              onBlur={handleTargetBlur}
-              onKeyDown={(ev) => {
-                if (ev.key === 'Enter') submit();
-                if (ev.key === 'Escape') {
-                  // Escape reverts the target here instead of closing the dialog.
-                  ev.preventDefault();
-                  if (editingGoal && typeof editingGoal.targetValue === 'number') {
-                    setTargetDraft(formatCurrency(editingGoal.targetValue));
-                  } else {
-                    setTargetDraft('');
-                  }
-                  (ev.currentTarget as HTMLInputElement).blur();
-                }
-              }}
-            />
-            <p className="field-helper">Leave blank to hide the progress indicator.</p>
-          </div>
-        </FormSection>
-
-        <div className="modal-footer-premium flex justify-end gap-2">
-          <SoftButton type="button" variant="ghost" onClick={handleClose}>
+      <form
+        className="goals-dialog-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <Input
+          id="goal-name-input"
+          ref={nameInputRef}
+          label="Name"
+          maxLength={80}
+          autoFocus={open}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <Input
+          id="goal-target-input"
+          label="Target amount"
+          hint="Optional. Leave blank to hide the progress indicator."
+          inputMode="decimal"
+          value={targetDraft}
+          placeholder="Optional"
+          onChange={(event) => setTargetDraft(sanitizeValue(event.target.value))}
+          onBlur={handleTargetBlur}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              // Escape reverts the target here instead of closing the dialog.
+              event.preventDefault();
+              setTargetDraft(
+                editingGoal && typeof editingGoal.targetValue === 'number'
+                  ? formatCurrency(editingGoal.targetValue)
+                  : ''
+              );
+              revertingTargetRef.current = true;
+              event.currentTarget.blur();
+            }
+          }}
+        />
+        {error && <Callout tone="danger" role="alert">{error}</Callout>}
+        <div className="ui-dialog-actions">
+          <Button variant="ghost" onClick={handleClose}>
             Cancel
-          </SoftButton>
-          <button type="button" className="btn" disabled={!name.trim() || !year} onClick={submit}>
+          </Button>
+          <Button type="submit" variant="primary" disabled={!name.trim() || !year} loading={saving}>
             {editingId ? 'Save changes' : 'Add goal'}
-          </button>
+          </Button>
         </div>
-      </div>
+      </form>
     </ModalBase>
   );
 }

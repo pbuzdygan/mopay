@@ -26,11 +26,16 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - clicking a month on Overview opens Expenses with that month's column highlighted and its first cell focused; *Open savings* goes to Savings
 - Where money went shows expense groups as horizontal bars instead of a donut chart; groups and top entries use the same scale (share of expenses)
 - Overview month cards mark the current month, show the net result in whole units (exact values in the tooltip) and label months without data
+- Savings shows a list of goals with progress next to the selected goal's details: balance against the target, remaining amount, contributions, withdrawals and the items
+- savings items are added with a form (note, amount and *Contribution* or *Temporary withdrawal*) instead of an empty row; a withdrawal is marked next to its note
+- removing a savings goal now asks for confirmation in a dialog that says how many items are removed; the goal menu (⋯) holds *Remove goal*
 
 ### Bug fix
 - a newly added savings item now reliably opens for editing; previously it could stay closed when the refreshed list arrived late
 - a failed removal of selected entries or groups is now shown in the Remove bar and can be retried; previously it failed silently
 - a failed save of a month value is now shown with *Retry* and *Undo change*; previously the value looked saved although the server had rejected it
+- Escape in the savings goal target field now restores the saved target; previously the typed value stayed
+- failed savings changes (adding or editing a goal, adding, saving or removing an item, removing a goal) are now shown and can be retried; a failed item add no longer leaves an empty item behind
 
 ### Improvements
 - added accessible names and dialog semantics to existing controls (dialogs and their close button, PIN overlay, year selector, month cells, remove checkboxes, reorder handles, tag editor, savings item fields and Settings toggles) without changing their appearance

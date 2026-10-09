@@ -46,7 +46,7 @@ test('real demo dataset renders desktop/mobile Expenses, Incomes, Savings and Re
       await ui.openSection(page, 'Incomes');
       await page.getByText('Main salary', { exact: true }).waitFor();
       await ui.openSection(page, 'Savings');
-      await page.getByText('Emergency fund', { exact: true }).click();
+      await ui.openGoal(page, 'Emergency fund');
       await page.getByText('Contribution 1', { exact: true }).waitFor();
       await ui.openSection(page, 'Overview');
       await ui.annualTotals(page).waitFor();
