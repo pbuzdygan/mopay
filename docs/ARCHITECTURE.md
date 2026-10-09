@@ -241,6 +241,7 @@ Main screens:
 - savings view
 - Overview (former reports view)
 - Settings page (display, security, years, import/export, about, year deletion)
+- below 960 px a mobile layout: top bar, bottom tab bar with a More sheet, and Expenses/Incomes as a month list with a bottom-sheet inspector
 
 Global modal flows include:
 

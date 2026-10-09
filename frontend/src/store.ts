@@ -104,6 +104,9 @@ type State = {
   editMode: null | 'order' | 'remove';
   // Month picked on Overview; the Expenses grid focuses that column once, then clears it.
   gridMonthRequest: MonthKey | null;
+  // Month shown by the month list below 960 px (plan Phase 8); null = current month. Not persisted.
+  listMonth: MonthKey | null;
+  setListMonth: (month: MonthKey | null) => void;
   addEntryGroupId: number | null;
   pinSession: boolean;
   financialReady: boolean;
@@ -165,7 +168,7 @@ const initialThemeMode: ThemeMode = isThemeMode(storedThemeMode)
 export const useAppStore = create<State>((set, get) => ({
   demo: null,
   demoPin: null,
-  setRuntimeMode: (demo, demoPin) => set({ demo, demoPin, year: load<number | null>(demo ? 'demo-year' : 'year', null) }),
+  setRuntimeMode: (demo, demoPin) => set({ demo, demoPin, year: load<number | null>(demo ? 'demo-year' : 'year', null), listMonth: null }),
   // D1: always start on Overview ('reports'); the saved tab is kept only for older builds.
   tab: 'reports',
   year: load<number | null>('year', null),
@@ -178,6 +181,7 @@ export const useAppStore = create<State>((set, get) => ({
   showGroupTotals: load<boolean>('showGroupTotals', false),
   editMode: null,
   gridMonthRequest: null,
+  listMonth: null,
   addEntryGroupId: null,
   pinSession: false,
   financialReady: false,
@@ -214,8 +218,10 @@ export const useAppStore = create<State>((set, get) => ({
 
   setYear: (year) => {
     save(get().demo ? 'demo-year' : 'year', year);
-    set({ year });
+    set((state) => (state.year === year ? { year } : { year, listMonth: null }));
   },
+
+  setListMonth: (listMonth) => set({ listMonth }),
 
   setTheme: (theme) => get().setThemeMode(theme),
 

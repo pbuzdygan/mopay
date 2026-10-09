@@ -213,9 +213,22 @@ select.ui-input {
 .ui-dialog-body { padding: var(--sp-16) var(--sp-20) var(--sp-20); overflow-y: auto; }
 .ui-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-8); margin-top: var(--sp-20); }
 
+/* Bottom sheet below 960 px (More menu, plan Phase 8). */
+@media (max-width: 959px) {
+  .ui-dialog-backdrop-bottom { align-items: flex-end; padding: 0; }
+  .ui-dialog-backdrop-bottom > .ui-dialog {
+    max-width: none;
+    max-height: 92dvh;
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 @media (max-width: 640px) {
   .ui-dialog-backdrop { padding: var(--sp-12); }
   .ui-dialog-backdrop-top { align-items: flex-start; padding-top: calc(env(safe-area-inset-top, 0px) + var(--sp-12)); }
+  .ui-dialog-backdrop-bottom { padding: 0; }
   .ui-dialog { max-height: calc(100dvh - 2 * var(--sp-12)); }
   .ui-dialog-head { padding: var(--sp-16) var(--sp-16) var(--sp-12); }
   .ui-dialog-body { padding: var(--sp-12) var(--sp-16) var(--sp-16); }

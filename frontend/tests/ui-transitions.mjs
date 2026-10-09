@@ -226,7 +226,7 @@ for (const mobile of [false, true]) {
           localStorage.setItem('group-collapsed:expense:2025', JSON.stringify({ 'g:10': true, ungrouped: true }));
         });
         for (const year of ['2025', '2026']) {
-          await ui.yearSwitch(page).click();
+          await ui.openYearSwitch(page);
           const frames = await sample(page, hooks.expandedGroup, () =>
             page.getByRole('option', { name: year, exact: true }).click());
           assert.ok(frames.length > 5 && frames.every(value => value === 0),
@@ -243,6 +243,11 @@ for (const mobile of [false, true]) {
           await ui.openSection(page, section);
           await ui.viewItem(page, section, item).waitFor();
           const search = ui.search(page);
+          // Below 960 px the field is behind an icon (D13); the first shortcut opens it.
+          if (mobile) {
+            assert.equal(await search.count(), 0);
+            await page.keyboard.press('/');
+          }
           assert.equal(await search.count(), 1);
           for (const key of ['/', 'Control+k', 'Meta+k']) {
             await search.evaluate(node => node.blur());
@@ -256,14 +261,20 @@ for (const mobile of [false, true]) {
           await search.press('/');
           assert.equal(await search.inputValue(), item + '/');
           await search.press('Escape');
-          assert.equal(await search.inputValue(), '');
-          assert.equal(await search.evaluate(node => node === document.activeElement), false);
+          if (mobile) {
+            // Escape clears the search and closes the field.
+            await search.waitFor({ state: 'detached' });
+            await ui.viewItem(page, section, item).waitFor();
+          } else {
+            assert.equal(await search.inputValue(), '');
+            assert.equal(await search.evaluate(node => node === document.activeElement), false);
+          }
           await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-search-${section.toLowerCase()}`);
         }
         await ui.openSection(page, 'Overview');
-        // Overview hides search in the desktop header; the narrow toolbar still disables it (plan F03).
-        if (mobile) assert.equal(await ui.search(page).isDisabled(), true);
-        else assert.equal(await ui.search(page).count(), 0);
+        // Overview has no search on either layout (plan F03).
+        assert.equal(await ui.search(page).count(), 0);
+        assert.equal(await page.getByRole('button', { name: 'Search', exact: true }).count(), 0);
         await page.keyboard.press('Control+k');
         assert.equal(await page.locator('input[type="search"]:focus').count(), 0);
         await ui.openSection(page, 'Expenses');
@@ -273,22 +284,24 @@ for (const mobile of [false, true]) {
           for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }, { width: 767, height: 844 }, { width: 900, height: 400 }]) {
             await page.setViewportSize(viewport);
             await page.waitForTimeout(200);
-            // Each toolbar control must be present exactly once (boundingBox is strict).
-            const year = await ui.yearSwitch(page).boundingBox();
-            // The Settings button took the place of the former menu (plan Phase 7).
-            const menu = await ui.settingsButton(page).boundingBox();
-            const search = await ui.search(page).boundingBox();
-            const lock = await ui.lock(page).boundingBox();
-            const themeButton = await ui.themeToggle(page).boundingBox();
-            await capture(page, `mobile-${theme}-${viewport.width}-search-row`);
-            const layout = JSON.stringify({ viewport, year, menu, search, lock, themeButton });
-            assert.ok(year.x + year.width <= menu.x && menu.x + menu.width <= search.x && search.x + search.width <= lock.x && lock.x + lock.width <= themeButton.x, layout);
-            assert.ok(search.width >= 60 && themeButton.x + themeButton.width <= viewport.width, 'Search fits between menu and lock without toolbar overflow: ' + layout);
-            assert.ok(Math.abs(menu.y - search.y) < 7 && Math.abs(lock.y - search.y) < 7, 'Controls share one row');
-            assert.equal(await ui.search(page).count(), 1);
+            // Mobile layout (plan Phase 8): top bar and bottom tab bar fit every
+            // width, have 44 px targets and no page overflow; / opens the search.
+            // (Replaces the former toolbar row check of T-013.)
+            const nav = page.getByRole('navigation', { name: 'Primary' });
+            const tabs = await nav.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()).map(({ x, y, width, height }) => ({ x, y, width, height })));
+            const actions = await page.getByRole('banner').getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()).map(({ x, y, width, height }) => ({ x, y, width, height })));
+            const layout = JSON.stringify({ viewport, tabs, actions });
+            assert.equal(tabs.length, 5, layout);
+            assert.ok(tabs.every(box => box.height >= 44 && box.width >= 44 && box.y === tabs[0].y && box.x >= 0 && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height), 'Tab bar fits in one row: ' + layout);
+            assert.ok(actions.length >= 2 && actions.every(box => box.height >= 44 && box.x + box.width <= viewport.width && Math.abs(box.y - actions[0].y) < 2), 'Top bar actions share one row: ' + layout);
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), 0, 'No horizontal page overflow');
+            await capture(page, `mobile-${theme}-${viewport.width}-bars`);
             await page.keyboard.press('/');
             assert.equal(await ui.search(page).evaluate(node => node === document.activeElement), true);
+            const searchBox = await ui.search(page).boundingBox();
+            assert.ok(searchBox.width >= 120 && searchBox.x + searchBox.width <= viewport.width, 'Search field fits: ' + JSON.stringify(searchBox));
             await page.keyboard.press('Escape');
+            await ui.search(page).waitFor({ state: 'detached' });
             await capture(page, `mobile-${theme}-${viewport.width}-search-row`);
           }
           await page.setViewportSize({ width: 390, height: 844 });
@@ -429,7 +442,7 @@ for (const mobile of [false, true]) {
             await ui.goalDetail(page, 'Synthetic savings').getByText('Demo data is read only.', { exact: true }).waitFor();
           }
         }
-        await ui.search(page).fill('Demo groceries');
+        await (await ui.openSearch(page)).fill('Demo groceries');
         await page.getByText('Demo groceries', { exact: true }).waitFor();
         await ui.search(page).press('Escape');
         await ui.collapseGroup(page).click();
@@ -444,7 +457,7 @@ for (const mobile of [false, true]) {
         await ui.unlock(page, '87654321');
         await ui.openSection(page, 'Expenses');
         await page.getByText('Private groceries', { exact: true }).waitFor();
-        assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2025');
+        assert.equal(await ui.workingYear(page), 'Working year 2025');
         demo = true; validToken = '';
         await page.reload();
         await page.getByText('Demo PIN: 1234', { exact: false }).waitFor();

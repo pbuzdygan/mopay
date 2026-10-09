@@ -37,6 +37,8 @@ export const hooks = {
 };
 
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 // In-page selector for section controls: sidebar navigation on desktop, tabs on
 // the narrow toolbar. Hidden variants are filtered by visibility in the page.
@@ -47,18 +49,48 @@ export const ui = {
   section: (page, name) => page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name, exact: true })
     .or(page.getByRole('tab', { name, exact: true })),
   openSection: (page, name) => ui.section(page, name).click(),
-  // Name of the current section (aria-current in the sidebar, aria-selected tab otherwise).
+  // True below 960 px, where the mobile layout (plan Phase 8) is rendered.
+  narrow: (page) => page.evaluate(() => matchMedia('(max-width: 959px)').matches),
+  // Bottom tab bar item that opens the More sheet (mobile layout).
+  moreButton: (page) => page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'More', exact: true }),
+  more: (page) => page.getByRole('dialog', { name: 'More', exact: true }),
+  async openMore(page) {
+    await ui.moreButton(page).click();
+    await ui.more(page).waitFor();
+  },
+  // Name of the current section (aria-current in the sidebar or tab bar).
   currentSection: (page) => page.locator('nav[aria-label="Primary"] [aria-current="page"], [role="tab"][aria-selected="true"]')
     .filter({ visible: true }).evaluate(node => (node.getAttribute('aria-label') ?? node.textContent).trim()),
   search: (page) => page.getByRole('searchbox'),
-  yearSwitch: (page) => page.getByRole('button', { name: /^(Working year|Select working year)/ }),
-  async selectYear(page, year) {
-    await ui.yearSwitch(page).click();
-    await page.getByRole('option', { name: String(year), exact: true }).click();
+  // Below 960 px search sits behind an icon in the top bar (plan D13).
+  async openSearch(page) {
+    if (!await ui.search(page).isVisible()) await page.getByRole('button', { name: 'Search', exact: true }).click();
+    return ui.search(page);
   },
-  // Settings page (plan Phase 7): sidebar item on desktop, toolbar icon below 960 px.
+  yearSwitch: (page) => page.getByRole('button', { name: /^(Working year|Select working year)/ }),
+  // The year selector is in the sidebar, or in the More sheet below 960 px.
+  async openYearSwitch(page) {
+    if (await ui.narrow(page) && !await ui.more(page).isVisible()) await ui.openMore(page);
+    await ui.yearSwitch(page).click();
+  },
+  async selectYear(page, year) {
+    await ui.openYearSwitch(page);
+    await page.getByRole('option', { name: String(year), exact: true }).click();
+    await ui.more(page).waitFor({ state: 'detached' });
+  },
+  // Working year as shown by the year selector ("Working year 2026").
+  async workingYear(page) {
+    if (!await ui.narrow(page)) return ui.yearSwitch(page).getAttribute('aria-label');
+    await ui.openMore(page);
+    const label = await ui.yearSwitch(page).getAttribute('aria-label');
+    await page.keyboard.press('Escape');
+    await ui.more(page).waitFor({ state: 'detached' });
+    return label;
+  },
+  // Settings page (plan Phase 7): sidebar item on desktop, More → Settings below 960 px.
   settingsButton: (page) => page.getByRole('button', { name: 'Settings', exact: true }),
   async openSettings(page) {
+    if (await ui.narrow(page)) await ui.openMore(page);
     await ui.settingsButton(page).click();
     // The page title is only in the desktop header; the first section shows on every layout.
     await ui.settingsSection(page, 'Display').waitFor();
@@ -66,9 +98,12 @@ export const ui = {
   // Settings sections are regions named by their headings.
   settingsSection: (page, name) => page.getByRole('region', { name, exact: true }),
   lock: (page) => page.getByRole('button', { name: 'Lock session', exact: true }),
-  themeToggle: (page) => page.getByRole('button', { name: 'Toggle theme', exact: true }),
+  async lockSession(page) {
+    if (await ui.narrow(page)) await ui.openMore(page);
+    await ui.lock(page).click();
+  },
   newButton: (page) => page.getByRole('button', { name: /^New( entry)?$/ }),
-  // kind: 'Entry' or 'Group'. Desktop: "New entry" split button; narrow toolbar: New menu.
+  // kind: 'Entry' or 'Group'. Desktop: "New entry" split button; mobile: top bar Actions menu.
   async openNew(page, kind) {
     const newEntry = page.getByRole('button', { name: 'New entry', exact: true });
     if (await newEntry.count()) {
@@ -76,8 +111,8 @@ export const ui = {
       await page.getByRole('button', { name: 'More create options', exact: true }).click();
       return page.getByRole('menuitem', { name: 'New group', exact: true }).click();
     }
-    await page.getByRole('button', { name: 'New', exact: true }).click();
-    await page.getByRole('button', { name: kind, exact: true }).click();
+    await page.getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: `New ${kind.toLowerCase()}`, exact: true }).click();
   },
   editMenu: (page) => page.getByRole('button', { name: /^(Actions|Edit)( · .+)?$/ }),
   async enterEditMode(page, mode) {
@@ -94,12 +129,54 @@ export const ui = {
   details: (page) => page.getByTestId('inspector'),
   closeDetails: (page) => ui.details(page).getByRole('button', { name: 'Close details', exact: true }),
   // Entry or group name button in the grid (the inspector repeats the name as its title).
-  rowName: (page, name) => page.getByTestId('entry-table').getByRole('button', { name, exact: true }),
+  // In the month list a group keeps its name button and an entry is its row (named
+  // "entry, month: value"), so the same helper opens details on both layouts.
+  rowName: (page, name) => page.getByTestId('entry-table').getByRole('button', { name, exact: true })
+    .or(page.getByTestId('entry-table').getByRole('listitem').filter({ has: page.getByText(name, { exact: true }) })
+      .getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}, [A-Z][a-z]{2}: `) })),
   // Clicking an entry or group name opens its details in the inspector.
   openDetails: (page, name) => ui.rowName(page, name).click(),
   cell: (page, entry, month) => page.getByRole('button', { name: new RegExp(`^${escapeRegExp(entry)}, ${month}: `) }),
-  // A single click selects the cell and opens the inspector (plan D4).
-  selectCell: (page, entry, month) => ui.cell(page, entry, month).click(),
+  // Month list (mobile): steps to the month with the stepper; no-op on the grid.
+  async showMonth(page, month) {
+    if (!await ui.narrow(page)) return;
+    const heading = page.getByRole('heading', { level: 2, name: new RegExp(`^(${MONTH_NAMES.join('|')}) (Expenses|Incomes) · `) });
+    const target = MONTHS.indexOf(month);
+    for (let step = 0; step < 12; step++) {
+      const text = await heading.textContent();
+      const current = MONTH_NAMES.findIndex(name => text.startsWith(name));
+      if (current === target) return;
+      await page.getByRole('button', { name: current < target ? 'Next month' : 'Previous month', exact: true }).click();
+      await page.getByRole('heading', { level: 2, name: new RegExp(`^${MONTH_NAMES[current + (current < target ? 1 : -1)]} `) }).waitFor();
+    }
+    assert.fail(`Month ${month} not reached`);
+  },
+  // A single click selects the cell and opens the inspector (plan D4); on the
+  // month list a tap on the row opens the bottom sheet (an open sheet is closed
+  // first because it covers the rows).
+  async selectCell(page, entry, month) {
+    // Close first: changing the month also closes the sheet, with an exit animation.
+    if (await ui.narrow(page) && await ui.details(page).count()) {
+      await ui.closeDetails(page).click();
+      await ui.details(page).waitFor({ state: 'detached' });
+    }
+    await ui.showMonth(page, month);
+    await ui.cell(page, entry, month).click();
+  },
+  // Value shown for an entry and month (from the cell or row name, both layouts).
+  async cellValue(page, entry, month) {
+    await ui.showMonth(page, month);
+    return (await ui.cell(page, entry, month).getAttribute('aria-label')).split(': ').pop();
+  },
+  // Value editor: in place in the grid (Enter), the inspector Value field in the month list.
+  async editValue(page, entry, month) {
+    if (await ui.narrow(page)) {
+      await ui.selectCell(page, entry, month);
+      return ui.inspectorValue(page);
+    }
+    await ui.editCell(page, entry, month);
+    return ui.cellInput(page, entry, month);
+  },
   // Enter on a focused cell edits in place without the inspector (plan D4).
   async editCell(page, entry, month) {
     await ui.cell(page, entry, month).focus();

@@ -14,6 +14,8 @@ import { useTableQueryState } from './table/useTableQueryState';
 import { Inspector, SaveStatusLine, type EntryDetailsPatch } from './table/Inspector';
 import { useSaveStatus } from './table/useSaveStatus';
 import { useYears } from './shell/useShell';
+import { useNarrow } from './shell/useNarrow';
+import { MonthList } from './table/MonthList';
 import type { EntryGroup, EntryPatch, EntryRowData, EntryTag, GridSelection, TagColor } from './table/types';
 
 // Name column + 12 months + Sum + Avg.
@@ -60,6 +62,12 @@ export function TableView() {
   const gridMonthRequest = useAppStore((s) => s.gridMonthRequest);
   const clearGridMonthRequest = useAppStore((s) => s.clearGridMonthRequest);
   const [pickedMonth, setPickedMonth] = useState<MonthKey | null>(null);
+  // Below 960 px the month list replaces the grid (plan Phase 8, D11).
+  const narrow = useNarrow();
+  const storedListMonth = useAppStore((s) => s.listMonth);
+  const setListMonth = useAppStore((s) => s.setListMonth);
+  const listMonth: MonthKey = storedListMonth ?? currentMonth ?? 'Jan';
+  const listRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const selectionRef = useRef(selection);
@@ -116,11 +124,17 @@ export function TableView() {
   useEffect(() => {
     if (!gridMonthRequest || type !== 'expense' || !loaded) return;
     clearGridMonthRequest();
+    if (narrow) {
+      // The month list shows the month and focuses its first row.
+      setListMonth(gridMonthRequest);
+      requestAnimationFrame(() => listRef.current?.querySelector<HTMLButtonElement>('.mlist-row')?.focus());
+      return;
+    }
     setPickedMonth(gridMonthRequest);
     const cell = tableRef.current?.querySelector<HTMLButtonElement>(`tr.ledger-entry button[data-month="${gridMonthRequest}"]`);
     // focusVisible shows the ring after a mouse click where supported; the header highlight covers the rest.
     cell?.focus({ focusVisible: true } as FocusOptions);
-  }, [gridMonthRequest, type, loaded, clearGridMonthRequest]);
+  }, [gridMonthRequest, type, loaded, narrow, clearGridMonthRequest]);
 
   // Filtering or an edit mode closes the inspector (Arrange/Remove block details, as before).
   useEffect(() => {
@@ -368,8 +382,9 @@ export function TableView() {
     requestAnimationFrame(() => {
       const active = document.activeElement;
       if (active && active !== document.body && !active.closest('[data-testid="inspector"]')) return;
+      const container = tableRef.current ?? listRef.current;
       const cell = closed?.kind === 'cell'
-        ? tableRef.current?.querySelector<HTMLElement>(`tr[data-entry-id="${closed.entryId}"] button[data-month="${closed.month}"]`)
+        ? container?.querySelector<HTMLElement>(`[data-entry-id="${closed.entryId}"] button[data-month="${closed.month}"]`)
         : null;
       const target = cell ?? (openerRef.current?.isConnected ? openerRef.current : null);
       target?.focus({ preventScroll: true });
@@ -494,6 +509,14 @@ export function TableView() {
   const inspectorOpen = Boolean(selectedEntry || selectedGroup);
   const isEmpty = loaded && !normalizedSearch && rows.length === 0 && groups.length === 0;
   const noMatches = Boolean(normalizedSearch) && visibleRows.length === 0 && visibleGroups.length === 0;
+  const emptyMessage = noMatches ? (
+    <div role="status">No entries match “{searchQuery.trim()}”.</div>
+  ) : isEmpty ? (
+    <div>
+      <strong>No {type === 'income' ? 'incomes' : 'expenses'} in {year} yet.</strong>
+      {!demo && <span> Add the first one with New entry, or create a group to organise them.</span>}
+    </div>
+  ) : null;
 
   // Remove mode: names for the confirmation; entries of a removed group stay unless selected.
   const selectedEntryNames = rows.filter((e) => removeSelection.has(e.id)).map((e) => e.name);
@@ -503,93 +526,117 @@ export function TableView() {
 
   return (
     <div className="ledger-view" data-edit-mode={editMode ?? undefined}>
-      {editMode ? <ModeBanner mode={editMode} /> : <GridSummary totals={totals} currentMonth={currentMonth} type={type} />}
+      {editMode ? <ModeBanner mode={editMode} /> : !narrow && <GridSummary totals={totals} currentMonth={currentMonth} type={type} />}
       {saveState.status === 'error' && !inspectorOpen && (
         <div className="ledger-save-bar"><SaveStatusLine state={saveState} /></div>
       )}
-      <div className="ledger-wrap" data-testid="entry-table">
-        <table
-          className={`ledger ${pickedMonth ? 'is-picked' : ''}`}
-          ref={tableRef}
-          onKeyDown={onGridKeyDown}
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPickedMonth(null);
+      {narrow && year ? (
+        <MonthList
+          listRef={listRef}
+          type={type}
+          year={year}
+          month={listMonth}
+          onMonthChange={(next) => {
+            setSelection(null);
+            setListMonth(next);
           }}
-        >
-          <caption className="sr-only">{type === 'income' ? 'Incomes' : 'Expenses'} {year} by month</caption>
-          <TableHeaderRow currentMonth={currentMonth} pickedMonth={pickedMonth} />
-          <SortableScope
-            enabled={ordering}
-            sensors={sensors}
-            items={visibleGroups.map((g) => g.id)}
-            onDragEnd={handleGroupDragEnd}
+          currentMonth={currentMonth}
+          allRows={rows}
+          groups={visibleGroups}
+          entriesByGroup={entriesByGroup}
+          isCollapsed={(key) => (key === 'ungrouped' ? ungroupedCollapsed : isGroupCollapsed(key))}
+          onToggleCollapse={(key) => (key === 'ungrouped'
+            ? setGroupCollapsed('ungrouped', !ungroupedCollapsed)
+            : setGroupCollapsed(`g:${key}`, !isGroupCollapsed(key)))}
+          showGroupTotals={showGroupTotals}
+          tagsByEntry={tagsByEntry}
+          selection={selection}
+          ordering={ordering}
+          sensors={sensors}
+          onEntryDragEnd={handleDragEnd}
+          onGroupDragEnd={handleGroupDragEnd}
+          removingIds={removingIds}
+          removingGroupIds={removingGroupIds}
+          onSelect={onSelectCell}
+          onOpenGroup={openGroup}
+          empty={emptyMessage && <div className="mlist-empty">{emptyMessage}</div>}
+        />
+      ) : (
+        <div className="ledger-wrap" data-testid="entry-table">
+          <table
+            className={`ledger ${pickedMonth ? 'is-picked' : ''}`}
+            ref={tableRef}
+            onKeyDown={onGridKeyDown}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPickedMonth(null);
+            }}
           >
-            {visibleGroups.map((g) => {
-              const groupKey = `g:${g.id}`;
-              const groupEntries = entriesByGroup.get(g.id) ?? [];
-              const isCollapsed = isGroupCollapsed(g.id);
-              const groupProps = {
-                entryCount: groupEntries.length,
-                isCollapsed,
-                totals: makeGroupTotals(groupEntries),
-                showGroupTotals,
-                currentMonth,
-                onToggleCollapse: () => setGroupCollapsed(groupKey, !isCollapsed),
-              };
-              return (
-                <tbody key={groupKey}>
-                  {ordering ? (
-                    <SortableGroupRow group={g} {...groupProps} />
-                  ) : (
-                    <GroupRow
-                      group={g}
-                      {...groupProps}
-                      removing={removingGroupIds.includes(g.id)}
-                      active={selection?.kind === 'group' && selection.groupId === g.id}
-                      onOpenDetails={(opener) => openGroup(g, opener)}
-                    />
-                  )}
-                  {!isCollapsed && renderEntries(groupEntries)}
-                </tbody>
-              );
-            })}
+            <caption className="sr-only">{type === 'income' ? 'Incomes' : 'Expenses'} {year} by month</caption>
+            <TableHeaderRow currentMonth={currentMonth} pickedMonth={pickedMonth} />
+            <SortableScope
+              enabled={ordering}
+              sensors={sensors}
+              items={visibleGroups.map((g) => g.id)}
+              onDragEnd={handleGroupDragEnd}
+            >
+              {visibleGroups.map((g) => {
+                const groupKey = `g:${g.id}`;
+                const groupEntries = entriesByGroup.get(g.id) ?? [];
+                const isCollapsed = isGroupCollapsed(g.id);
+                const groupProps = {
+                  entryCount: groupEntries.length,
+                  isCollapsed,
+                  totals: makeGroupTotals(groupEntries),
+                  showGroupTotals,
+                  currentMonth,
+                  onToggleCollapse: () => setGroupCollapsed(groupKey, !isCollapsed),
+                };
+                return (
+                  <tbody key={groupKey}>
+                    {ordering ? (
+                      <SortableGroupRow group={g} {...groupProps} />
+                    ) : (
+                      <GroupRow
+                        group={g}
+                        {...groupProps}
+                        removing={removingGroupIds.includes(g.id)}
+                        active={selection?.kind === 'group' && selection.groupId === g.id}
+                        onOpenDetails={(opener) => openGroup(g, opener)}
+                      />
+                    )}
+                    {!isCollapsed && renderEntries(groupEntries)}
+                  </tbody>
+                );
+              })}
 
-            {ungroupedEntries.length > 0 && (
-              <tbody key="ungrouped">
-                <GroupRow
-                  group={null}
-                  entryCount={ungroupedEntries.length}
-                  isCollapsed={ungroupedCollapsed}
-                  totals={makeGroupTotals(ungroupedEntries)}
-                  showGroupTotals={showGroupTotals}
-                  currentMonth={currentMonth}
-                  onToggleCollapse={() => setGroupCollapsed('ungrouped', !ungroupedCollapsed)}
-                />
-                {!ungroupedCollapsed && renderEntries(ungroupedEntries)}
+              {ungroupedEntries.length > 0 && (
+                <tbody key="ungrouped">
+                  <GroupRow
+                    group={null}
+                    entryCount={ungroupedEntries.length}
+                    isCollapsed={ungroupedCollapsed}
+                    totals={makeGroupTotals(ungroupedEntries)}
+                    showGroupTotals={showGroupTotals}
+                    currentMonth={currentMonth}
+                    onToggleCollapse={() => setGroupCollapsed('ungrouped', !ungroupedCollapsed)}
+                  />
+                  {!ungroupedCollapsed && renderEntries(ungroupedEntries)}
+                </tbody>
+              )}
+            </SortableScope>
+
+            {emptyMessage && (
+              <tbody>
+                <tr>
+                  <td colSpan={COLUMN_COUNT} className="ledger-empty">{emptyMessage}</td>
+                </tr>
               </tbody>
             )}
-          </SortableScope>
 
-          {(isEmpty || noMatches) && (
-            <tbody>
-              <tr>
-                <td colSpan={COLUMN_COUNT} className="ledger-empty">
-                  {noMatches ? (
-                    <div role="status">No entries match “{searchQuery.trim()}”.</div>
-                  ) : (
-                    <div>
-                      <strong>No {type === 'income' ? 'incomes' : 'expenses'} in {year} yet.</strong>
-                      {!demo && <span> Add the first one with New entry, or create a group to organise them.</span>}
-                    </div>
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          )}
-
-          <TableTotalRow totals={totals} currentMonth={currentMonth} />
-        </table>
-      </div>
+            <TableTotalRow totals={totals} currentMonth={currentMonth} />
+          </table>
+        </div>
+      )}
 
       {editMode === 'remove' && (
         <BulkRemoveBar

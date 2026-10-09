@@ -63,7 +63,15 @@ function useSearchShortcut() {
       if (!useAppStore.getState().pinSession || document.querySelector('[aria-modal="true"]')) return;
       const input = [...document.querySelectorAll<HTMLInputElement>('input[data-app-search]')]
         .find((node) => node.getClientRects().length && !node.disabled);
-      if (!input) return;
+      if (!input) {
+        // Below 960 px search sits behind an icon (plan D13): open it, it takes focus.
+        const toggle = [...document.querySelectorAll<HTMLButtonElement>('button[data-app-search-toggle]')]
+          .find((node) => node.getClientRects().length && !node.disabled);
+        if (!toggle) return;
+        event.preventDefault();
+        toggle.click();
+        return;
+      }
       event.preventDefault();
       input.focus();
       input.select();

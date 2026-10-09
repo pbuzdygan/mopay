@@ -4,7 +4,9 @@ import { useAppStore } from "./store";
 import { Api } from "./api";
 
 // komponenty
-import { MainBar } from "./components/MainBar";
+import { MobileTopBar } from "./components/mobile/MobileTopBar";
+import { MobileTabBar } from "./components/mobile/MobileTabBar";
+import { useNarrow } from "./components/shell/useNarrow";
 import { Sidebar } from "./components/shell/Sidebar";
 import { PageHeader } from "./components/shell/PageHeader";
 import { useShellEffects } from "./components/shell/useShell";
@@ -34,6 +36,7 @@ export default function App() {
   const tab = useAppStore((s) => s.tab);
   const settingsOpen = useAppStore((s) => s.settingsOpen);
   const themeMode = useAppStore((s) => s.themeMode);
+  const narrow = useNarrow();
   const demo = useAppStore((s) => s.demo);
   const pinSession = useAppStore((s) => s.pinSession);
   const financialReady = useAppStore((s) => s.financialReady);
@@ -137,28 +140,30 @@ export default function App() {
     <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Sample data — read only</span></div>
   );
 
-  // Desktop (>=960px): sidebar + page header. Below that the previous toolbar
-  // stays until the mobile layout (plan Phase 8); CSS shows one of them.
+  // Desktop (>=960px): sidebar + page header. Below that the mobile layout
+  // (plan Phase 8): top bar and bottom tab bar. Only one layout is rendered.
   return (
     <div className="app-shell">
       <ReleaseStatusProvider />
       <PinGuard />
-      <Sidebar />
+      {!narrow && <Sidebar />}
 
       <div className="app-shell-main">
-        <header className="sticky-glass app-mobile-header">
-          <div className="app-container">
+        {narrow && (
+          <header className="app-mobile-header">
             {demoBanner}
-            <MainBar />
-          </div>
-        </header>
+            <MobileTopBar />
+          </header>
+        )}
 
         <main className="app-main">
           <div className="app-container">
-            <div className="app-desktop-header">
-              {demoBanner}
-              <PageHeader />
-            </div>
+            {!narrow && (
+              <div className="app-desktop-header">
+                {demoBanner}
+                <PageHeader />
+              </div>
+            )}
             {pinSession && financialReady && (settingsOpen
               ? <SettingsView />
               : tab === 'reports'
@@ -168,6 +173,7 @@ export default function App() {
               : <TableView />)}
           </div>
         </main>
+        {narrow && <MobileTabBar />}
       </div>
 
       {!demo && <><InitiateYearModal /><AddEntryModal /><AddGroupModal /></>}

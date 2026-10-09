@@ -16,7 +16,7 @@ Acceptance criteria:
 - Text colour tokens meet WCAG AA (4.5:1) in both themes; visible focus; keyboard operation of grid, drawer, menus and dialogs; `prefers-reduced-motion` respected.
 - Rendered checks at 1440, 1024, 767, 390, 320 px and 900×400 landscape, light and dark.
 
-## Decisions (D1, D2 and D10 confirmed by the user on 2026-10-09, D3–D5 before Phase 4, D6–D7 on 2026-10-10 before Phase 7; others are proposed defaults to confirm before their phase)
+## Decisions (D1, D2 and D10 confirmed by the user on 2026-10-09, D3–D5 before Phase 4, D6–D7 on 2026-10-10 before Phase 7, D11–D14 on 2026-10-10 before Phase 8; others are proposed defaults to confirm before their phase)
 
 | # | Decision | Default | Phase |
 | --- | --- | --- | --- |
@@ -30,6 +30,10 @@ Acceptance criteria:
 | D8 | Deferred enhancements | "Copy entries and groups to new year", entry counts in year deletion and Overview "vs 2025" for metrics not already compared today are **out of scope** (separate tasks; copy needs many non-atomic calls or a backend endpoint). | – |
 | D9 | Delivery | Phased replacement on `dev`, each phase complete and shippable; no parallel old/new UI toggle (cost of maintaining two UIs outweighs benefit for a single-instance app). | all |
 | D10 | Version | **Confirmed: v2.0.0.** Accumulate notes under one `v2.0.0 (unreleased)` CHANGELOG section during all phases; `main` is merged only after Phase 9. The user decides final release timing. | 9 |
+| D11 | Month list range | **Confirmed.** Below 960 px Expenses/Incomes are always the month list (also 767 px and 900×400 landscape); no horizontally scrolling grid. | 8 |
+| D12 | Bottom sheet saving | **Confirmed.** Same model as the desktop inspector: each field saves on its own (Enter/blur/change) with *Saving…*/*Saved*, *Retry*/*Undo*; closed with ✕ or Escape; no Cancel/Save buttons as in the mockup. | 8 |
+| D13 | Mobile search | **Confirmed.** A search icon in the top bar of Expenses, Incomes and Savings opens the field; `/` and Ctrl/Cmd+K open and focus it; Escape clears and closes it. | 8 |
+| D14 | Arrange/Remove on the month list | **Confirmed.** Top bar *Actions* menu (New entry, New group, Arrange, Remove); handles and checkboxes in the list rows with the same dnd-kit handlers, selection, bulk bar and confirmation as the grid; *Done* leaves the mode. | 8 |
 
 ### Version assessment (D10)
 
@@ -45,21 +49,21 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 
 | ID | Feature (current) | New location | Phase | Verification |
 | --- | --- | --- | --- | --- |
-| F01 | Tabs Expenses / Incomes / Savings / Reports | Sidebar: Overview, Expenses, Incomes, Savings; mobile bottom bar | 2, 8 | Test |
-| F02 | Working-year dropdown, per-mode persistence (`year` / `demo-year`) | Sidebar year switch; mobile More | 2, 8 | Test |
-| F03 | Search: `/`, Ctrl/Cmd+K focus, Esc clears/blurs, no focus steal from editors/modals/PIN, disabled on Reports | Page header search; hidden on Overview | 2 | Test |
+| F01 | Tabs Expenses / Incomes / Savings / Reports | Sidebar: Overview, Expenses, Incomes, Savings; below 960 px a bottom tab bar (Overview, Expenses, Incomes, Savings, More) | 2, 8 | Test |
+| F02 | Working-year dropdown, per-mode persistence (`year` / `demo-year`) | Sidebar year switch; mobile More sheet (closes after a choice; the year shows in the top bar title) | 2, 8 | Test |
+| F03 | Search: `/`, Ctrl/Cmd+K focus, Esc clears/blurs, no focus steal from editors/modals/PIN, disabled on Reports | Page header search; hidden on Overview and Settings. **Phase 8 change (D13):** below 960 px behind a top bar icon; the shortcuts open it, Escape clears and closes it | 2, 8 | Test |
 | F04 | Search filtering in Expenses, Incomes, Savings incl. no-match message | Same | 3, 6 | Test |
 | F05 | New entry (optionally preselected group) | *New entry* split button; inspector group variant | 3, 4 | Test |
 | F06 | New group | Split button menu, Edit menu | 3 | Test |
-| F07 | Inline month value edit: decimal input filter, Enter saves, Esc reverts, blur saves, `-` = null, empty = 0, `.` is a thousands separator | Grid edit-in-place (D4: Enter, F2, typing or double-click; Tab saves and moves) and inspector Value with quick fill (previous month, average, clear). **Phase 4 fix:** a failed save keeps the typed value and shows an error with *Retry* and *Undo change* (inspector footer, or above the grid when the inspector is closed); same rules for both editors, the inspector skips unchanged values | 4 | Test |
+| F07 | Inline month value edit: decimal input filter, Enter saves, Esc reverts, blur saves, `-` = null, empty = 0, `.` is a thousands separator | Grid edit-in-place (D4: Enter, F2, typing or double-click; Tab saves and moves) and inspector Value with quick fill (previous month, average, clear). **Phase 4 fix:** a failed save keeps the typed value and shows an error with *Retry* and *Undo change* (inspector footer, or above the grid when the inspector is closed); same rules for both editors, the inspector skips unchanged values. **Phase 8 (D11, D12):** below 960 px the Value field of the bottom sheet is the editor (no in-place editing on the month list) | 4, 8 | Test |
 | F08 | Arrange: drag entries **within** a group and drag groups (dnd-kit); moving an entry to another group uses the Group field in details (F12), not drag | Edit → Arrange, mode banner | 3 | Test (mode entry/exit, value/details blocked, entry and group drag payloads) |
 | F09 | Remove mode: select entries and groups, *Remove selected* (no confirmation today), clear on exit, search leaves the mode | Edit → Remove, mode banner, bulk bar. **Phase 3 change:** the bulk bar names the selection, removal needs confirmation (Cancel keeps the selection, the dialog says which entries move to Ungrouped), a failure is shown and retried without resending already removed groups | 3 | Test |
 | F10 | Tag a month cell: colours none/grey/green/orange/red, note, clear, save; none + empty note removes; Enter saves; Cancel/Esc discard | Inspector Tag section; mobile sheet. **Phase 4 change (D3):** Tags mode and its popover are removed; a colour saves on click, the note on Enter/blur (two requests when both change), Escape reverts a changed note, *Clear tag* removes it | 4 | Test |
 | F11 | Tag display: colour + note tooltip | Cell bar + note corner + `title`; the note is the cell's accessible description; inspector Tag section | 3, 4 | Render + Test |
 | F12 | Entry details: rename, change group/ungroup, comment, remove with confirmation | Inspector Entry details + footer. **Phase 4 change:** no *Save changes*/*Cancel*; name saves on Enter/blur, group on change, comment on blur, each as its own PATCH with only that field (the backend accepts partial patches); an empty name is not saved; Escape reverts a changed field; failures keep the draft with *Retry* | 4 | Test |
 | F13 | Group details: rename, add entry to group, arrange group, remove group with confirmation | Inspector group variant (*Add entry to group*, *Arrange*, *Remove group* → *Confirm*); rename saves on Enter/blur | 4 | Test |
-| F14 | Group collapse/expand, persisted per mode/type/year, restored before paint | Group row toggle | 3 | Test (existing) |
-| F15 | Sum, Avg, Total row, current-month highlight | Sticky header/name/total, summary strip (desktop, whole units) | 3 | Test + Render |
+| F14 | Group collapse/expand, persisted per mode/type/year, restored before paint | Group row toggle; month list group header (same state and keys) | 3, 8 | Test (existing) |
+| F15 | Sum, Avg, Total row, current-month highlight | Sticky header/name/total, summary strip (desktop, whole units). Month list: month stepper (opens on the current month, marked), month summary Income/Expenses/Net (whole units), group month subtotals with *Show group totals*, previous month value per row; the entry's Sum and Average are in the sheet | 3, 8 | Test + Render |
 | F16 | Show group totals setting | Settings → Display (switch); group rows | 3, 7 | Test |
 | F17 | Normal / Compact density (`data-view`) | Settings → Display (Table density) | 3, 7 | Render + Test |
 | F18 | Ungrouped entries section (collapsible, persisted) | Grid "Ungrouped" group | 3 | Test |
@@ -86,8 +90,8 @@ Every row gets a check in the phase that moves it. "Test" = automated in `fronte
 | F39 | Runtime-mode load error with Retry | Restyled | 1 | Test (existing) |
 | F40 | PWA install prompt (AddToHomeScreen), offline assets | Unchanged behaviour | 1 | Test (browser-security) |
 | F41 | Entry comment (CommentModal) | Inspector comment field (saves on blur). `CommentModal` was no longer opened anywhere since the details panel took over comments; it is removed | 4 | Test |
-| F42 | Keyboard: search shortcuts, modal focus, Esc | Plus grid navigation (arrows, Home/End, roving tabindex), Shift+Enter into the inspector, Escape closes it and returns focus, keyboard Arrange (Space, arrows) | 4 | Test |
-| F43 | Mobile ≥16 px editable text, no horizontal overflow, landscape toolbar | Mobile layout | 8 | Test (existing, adapted) |
+| F42 | Keyboard: search shortcuts, modal focus, Esc | Plus grid navigation (arrows, Home/End, roving tabindex), Shift+Enter into the inspector, Escape closes it and returns focus, keyboard Arrange (Space, arrows). Month list: each row is one Tab stop, Escape closes the sheet and returns focus to the row; arrow navigation is grid-only | 4, 8 | Test |
+| F43 | Mobile ≥16 px editable text, no horizontal overflow, landscape toolbar | Mobile layout: top bar and tab bar at 320, 390, 767 px and 900×400 (lower tab bar in landscape), 44 px targets, 16 px editable text including the sheet and Settings | 8 | Test (adapted: the toolbar row check became a top bar/tab bar check) |
 | F44 | Update-available indicator | Sidebar version dot + Settings → About | 2 | Render |
 
 ## Approach
@@ -237,15 +241,27 @@ Each phase ends with: production build, all four Chromium suites, rendered deskt
 - Checks: build; ad hoc strict `tsc --noUnusedLocals` clean; ui-transitions 12/12, ui-parity 31/31, browser-security 2/2, demo-runtime 1/1; renders of Settings at 1440, 1024, 767, 390, 320 and 900×400 in both themes (page and year deletion with confirmation) without page overflow and with 16 px editable text below 960 px; grid timing unchanged (167/150 ms).
 - Remaining: `ExportModal` and `ImportModal` keep their previous look (flows unchanged, restyle with the Phase 9 cleanup); README screenshots still show Year operations (Phase 9, T-016 procedure); the mobile *More* menu belongs to Phase 8.
 
-### Phase 8 – Mobile (<960 px)
+### Phase 8 – Mobile (<960 px) – done 2026-10-10
 
 - Bottom tab bar (Overview, Expenses, Incomes, Savings, More); More = Settings, working year, theme, lock, version.
 - Expenses/Incomes as month list with month stepper and month summary; tap opens bottom sheet in inspector order (Value, Entry details, Tag, Entry facts); Arrange/Remove reachable from a page menu.
 - Overview, Savings and Settings stacked versions. Keep ≥16 px editable text, 44 px touch targets, landscape handling from T-013.
 
+#### Phase 8 results
+
+- Below 960 px the app renders only the mobile layout (`shell/useNarrow.ts`; one layout at a time avoids duplicate ids, controls and queries): `mobile/MobileTopBar.tsx` (title with year, search icon, *Actions* menu or *Done*, *New goal* on Savings), `mobile/MobileTabBar.tsx` (Overview, Expenses, Incomes, Savings, More) and the More sheet (Settings, working year, theme Light/Dark/System, Lock session, version). `Dialog` gained `mobileAlign="bottom"` for the sheet. Styles in `styles/mobile.css`.
+- `table/MonthList.tsx`: month stepper, month summary, groups with collapse, name (opens group details), count and optional month subtotal, rows with previous-month value, tag bar and note, comment marker. Rows are named like grid cells (`entry, month: value`) and open the inspector, which is a bottom sheet above the tab bar. Arrange and Remove use handles and checkboxes in the rows with the grid's dnd-kit handlers, store selection, bulk bar (kept above the tab bar) and confirmation. The month is non-persisted store state (`listMonth`): kept across sections and Settings, reset by a year or mode change; a month chosen on Overview opens it and focuses its first row.
+- Removed: `MainBar` and the components only it used (`YearDropdown`, `DropdownMenu`, `VersionIndicator`, `Surface`). The search shortcut opens the collapsed mobile search (`data-app-search-toggle`).
+- Not taken from the mockup: the sheet's Cancel/Save buttons and collapsed Entry details (D12: same sections and saving as the desktop inspector), entry counts and "copy year" (D8).
+- During testing the sheet covered the tab bar, so navigation was unreachable while it was open; it now sits above the tab bar. The More sheet item *Settings* is named by its label only (`aria-labelledby`), with the hint as description.
+- Tests: helpers `narrow`, `showMonth`, `cellValue`, `editValue`, `openSearch`, `openMore`, `openYearSwitch`, `workingYear`, `lockSession`; `selectCell`, `rowName`, `openNew`, `selectYear`, `openSettings` work on both layouts. `ui-parity` 31/31: the mobile variants now run on the month list (values through the sheet with the F07 rules and failures, group subtotals, collapse, details, tags, Arrange/Remove in the list, Overview month opening the list month); grid keyboard checks stay desktop-only and the mobile cell test checks the stepper, Tab stops, sheet focus return and that a month change closes the sheet; the former narrow toolbar test is a mobile shell test (tab bar, 44 px targets, More: year, theme, Settings, lock; search icon and shortcut; Actions menu and Done). `ui-transitions` 12/12: mobile search via shortcut, year switch through More, Overview without search, and the T-013 toolbar row check replaced by top bar/tab bar fit, 44 px targets, no overflow and search width at 320/390/767/900×400. Mobile parity and transitions passed 3 of 3 repeated runs.
+- Checks: build; ad hoc strict `tsc --noUnusedLocals` clean; ui-transitions 12/12, ui-parity 31/31, browser-security 2/2, demo-runtime 1/1, backend 29/29 (see below); renders at 1440, 1024, 767, 390, 320 and 900×400 in both themes (Overview, Savings, Settings; month list, sheet, More, search, Remove) without page overflow, with 16 px editable text and 44 px targets in the bars, list and stepper; grid timing unchanged (167/150 ms).
+- Unrelated CI fix: `backend/tests/demo-mode.test.mjs` waited at most 3 s for a fixture server start (about 0.4 s locally); a GitHub runner exceeded it once. The wait is now a 15 s deadline; expected startup failures still exit at once. No backend code changed.
+- Remaining: `Section.tsx`, `Divider.tsx`, `SoftButton.tsx`, `FormSection.tsx` and the legacy CSS go in Phase 9; screen-reader and real-device testing (iOS Safari keyboard and safe areas) are still gaps.
+
 ### Phase 9 – Cleanup and documentation
 
-- Delete unused CSS from `global.css` (currently ~5 000 lines) and unused components (`MainBar`, `Surface`, `SoftButton`, `SettingsModal`, `YearOperationsModal` if fully replaced; `TableContextPanel`, `TagEditorPopover` and `CommentModal` were already removed in Phase 4). Verify with build and a search for references.
+- Delete unused CSS from `global.css` (currently ~5 000 lines) and unused components (`SoftButton`, `FormSection`, `Section`, `Divider`; `TableContextPanel`, `TagEditorPopover` and `CommentModal` were removed in Phase 4, `SettingsModal` and `YearOperationsModal` in Phase 7, `MainBar`, `Surface`, `YearDropdown`, `DropdownMenu` and `VersionIndicator` in Phase 8). Verify with build and a search for references.
 - Update README screenshots (T-016 procedure), `docs/ARCHITECTURE.md` UI section, `frontend/tests/README.md`, CHANGELOG; keep `docs/mockup_UI` as design reference.
 - Final full parity pass over all 44 rows in normal and demo mode.
 - CHANGELOG `v2.0.0`: *Breaking UI changes* (navigation, start page, tagging, click-to-select, settings page, mobile), *Improvements* (deliberate functional changes recorded per parity row), *Upgrade notes* (no migration; data, API, configuration unchanged; rollback = previous image).

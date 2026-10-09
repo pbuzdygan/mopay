@@ -253,7 +253,8 @@ async function screenshot(page, name) {
   if (process.env.MOPAY_SCREENSHOTS) await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/parity-${name}.png` });
 }
 
-const cellText = (page, entry, month) => ui.cell(page, entry, month).textContent();
+// Value of an entry and month on the grid or the month list.
+const cellText = (page, entry, month) => ui.cellValue(page, entry, month);
 
 for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme: 'dark' }]) {
   const label = `${context.mobile ? 'mobile' : 'desktop'} ${context.theme}`;
@@ -261,20 +262,26 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
   test(`${label}: totals, ungrouped entries and inline month values (F07, F15, F16, F18)`, () => openApp(context, async ({ page, api, errors }) => {
     let w = 0;
     // F15: current month and totals.
-    assert.equal(await page.locator('[aria-current="date"]').textContent(), 'Oct');
-    await page.getByText('1 180,00', { exact: true }).waitFor();
-    // Phase 3: summary strip (desktop; the narrow layout hides it until Phase 8)
-    // and all 12 months, Sum and Avg visible without horizontal scrolling at 1440 px.
     if (context.mobile) {
-      assert.equal(await ui.summaryValue(page, 'Year total').isVisible(), false);
+      // Month list (Phase 8): opens on the current month with its summary; no year grid.
+      await page.getByRole('heading', { level: 2, name: /^October Expenses · 2026 · current month$/ }).waitFor();
+      assert.equal(await page.getByRole('table').count(), 0);
+      await ui.showMonth(page, 'Jan');
+      assert.equal(await ui.summaryValue(page, 'Expenses').textContent(), '1 180');
+      assert.equal(await ui.summaryValue(page, 'Income').textContent(), '5 000');
+      assert.equal(await ui.summaryValue(page, 'Net').textContent(), '+3 820');
+      assert.equal(await ui.summaryValue(page, 'Year total').count(), 0);
     } else {
+      assert.equal(await page.locator('[aria-current="date"]').textContent(), 'Oct');
+      await page.getByText('1 180,00', { exact: true }).waitFor();
       assert.equal(await ui.summaryValue(page, 'Year total').textContent(), '1 380');
       assert.equal(await ui.summaryValue(page, 'Monthly average').textContent(), '115');
       assert.equal(await ui.summaryValue(page, 'October').textContent(), '0▼ 100,0% below average');
       assert.equal(await ui.summaryValue(page, 'Highest month').textContent(), 'January · 1 180');
       assert.equal(await page.locator(hooks.table).evaluate(node => node.scrollWidth - node.clientWidth), 0);
     }
-    // F16: group subtotals follow the Settings toggle and persist.
+    // F16: group subtotals follow the Settings toggle and persist (on the month
+    // list the month subtotal; the list keeps January while Settings is open).
     assert.equal(await page.getByText('1 100,00', { exact: true }).count(), 0);
     const groupTotals = page.getByRole('switch', { name: 'Show group totals', exact: true });
     await ui.openSettings(page);
@@ -299,9 +306,9 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await ui.expandGroup(page).click();
     await page.getByText('Gifts', { exact: true }).waitFor();
 
-    // F07: decimal filter and Enter save.
-    await ui.editCell(page, 'Groceries', 'Jan');
-    const jan = ui.cellInput(page, 'Groceries', 'Jan');
+    // F07: decimal filter and Enter save. The grid edits in place; the month list
+    // uses the Value field of the bottom sheet with the same rules (plan D12).
+    const jan = await ui.editValue(page, 'Groceries', 'Jan');
     assert.equal(await jan.inputValue(), '100,00');
     await jan.fill('2a5,5');
     assert.equal(await jan.inputValue(), '25,5');
@@ -309,36 +316,41 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Jan: 25.5 });
     assert.equal(await cellText(page, 'Groceries', 'Jan'), '25,50');
     // Escape reverts without saving.
-    await ui.editCell(page, 'Groceries', 'Jan');
-    await ui.cellInput(page, 'Groceries', 'Jan').fill('999');
-    await ui.cellInput(page, 'Groceries', 'Jan').press('Escape');
+    let input = await ui.editValue(page, 'Groceries', 'Jan');
+    await input.fill('999');
+    await input.press('Escape');
     await expectNoWrite(api, w);
     assert.equal(await cellText(page, 'Groceries', 'Jan'), '25,50');
     // Blur saves; '-' clears the value (null).
-    await ui.editCell(page, 'Groceries', 'Feb');
-    await ui.cellInput(page, 'Groceries', 'Feb').fill('-');
-    await ui.cellInput(page, 'Groceries', 'Feb').evaluate(node => node.blur());
+    input = await ui.editValue(page, 'Groceries', 'Feb');
+    await input.fill('-');
+    await input.evaluate(node => node.blur());
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Feb: null });
     assert.equal(await cellText(page, 'Groceries', 'Feb'), '-');
     // An empty field saves 0; '.' is a thousands separator and ',' the decimal separator.
-    await ui.editCell(page, 'Groceries', 'Mar');
-    await ui.cellInput(page, 'Groceries', 'Mar').fill('');
-    await ui.cellInput(page, 'Groceries', 'Mar').press('Enter');
+    input = await ui.editValue(page, 'Groceries', 'Mar');
+    await input.fill('');
+    await input.press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Mar: 0 });
     assert.equal(await cellText(page, 'Groceries', 'Mar'), '0,00');
-    await ui.editCell(page, 'Groceries', 'Dec');
-    await ui.cellInput(page, 'Groceries', 'Dec').fill('1.234,5');
-    await ui.cellInput(page, 'Groceries', 'Dec').press('Enter');
+    input = await ui.editValue(page, 'Groceries', 'Dec');
+    await input.fill('1.234,5');
+    await input.press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Dec: 1234.5 });
     assert.equal(await cellText(page, 'Groceries', 'Dec'), '1 234,50');
-    await page.getByText('2 340,00', { exact: true }).waitFor(); // total of the year
+    if (context.mobile) {
+      // No year total row on the month list; the sheet shows the entry's yearly sum.
+      await ui.details(page).getByText('1 260,00', { exact: true }).waitFor();
+    } else {
+      await page.getByText('2 340,00', { exact: true }).waitFor(); // total of the year
+    }
 
     // Phase 4 fix (F07): a failed month save keeps the typed value, shows an
     // error with Retry, and Undo restores the previous value without a request.
     api.failNext('PATCH', /^\/api\/entries\/1$/);
-    await ui.editCell(page, 'Groceries', 'Apr');
-    await ui.cellInput(page, 'Groceries', 'Apr').fill('7');
-    await ui.cellInput(page, 'Groceries', 'Apr').press('Enter');
+    input = await ui.editValue(page, 'Groceries', 'Apr');
+    await input.fill('7');
+    await input.press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Apr: 7 });
     assert.equal(api.writes.at(-1).failed, true);
     assert.equal(await cellText(page, 'Groceries', 'Apr'), '7,00');
@@ -348,9 +360,9 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Apr: 7 });
     await saveError.waitFor({ state: 'detached' });
     api.failNext('PATCH', /^\/api\/entries\/1$/);
-    await ui.editCell(page, 'Groceries', 'May');
-    await ui.cellInput(page, 'Groceries', 'May').fill('8');
-    await ui.cellInput(page, 'Groceries', 'May').press('Enter');
+    input = await ui.editValue(page, 'Groceries', 'May');
+    await input.fill('8');
+    await input.press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { May: 8 });
     const undoError = page.getByRole('alert').filter({ hasText: 'Could not save Groceries, May.' });
     await undoError.getByRole('button', { name: 'Undo change', exact: true }).click();
@@ -395,7 +407,8 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await ui.openDetails(page, 'Home');
     await details.getByRole('button', { name: 'Arrange', exact: true }).click();
     await page.getByRole('button', { name: 'Reorder group Home', exact: true }).waitFor();
-    assert.match(await ui.editMenu(page).textContent(), /Arrange/);
+    await page.getByRole('status').filter({ hasText: 'Arrange mode' }).waitFor();
+    if (!context.mobile) assert.match(await ui.editMenu(page).textContent(), /Arrange/);
     await ui.exitEditMode(page);
     await page.getByRole('button', { name: 'Reorder group Home', exact: true }).waitFor({ state: 'detached' });
     // Remove group with confirmation; its entries become ungrouped.
@@ -481,52 +494,72 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await ui.inspectorValue(page).press('Escape');
     await details.waitFor({ state: 'detached' });
     await expectFocused(ui.cell(page, 'Rent', 'Mar'));
-    // Keyboard (F42): arrows move between month cells; typing a digit edits in place.
-    await page.keyboard.press('ArrowLeft');
-    await expectFocused(ui.cell(page, 'Rent', 'Feb'));
-    await page.keyboard.press('ArrowUp');
-    await expectFocused(ui.cell(page, 'Groceries', 'Feb'));
-    await page.keyboard.press('End');
-    await expectFocused(ui.cell(page, 'Groceries', 'Dec'));
-    await page.keyboard.press('Home');
-    await page.keyboard.press('ArrowDown');
-    await expectFocused(ui.cell(page, 'Rent', 'Jan'));
-    await page.keyboard.press('9');
-    assert.equal(await ui.cellInput(page, 'Rent', 'Jan').inputValue(), '9');
-    await page.keyboard.press('5');
-    // Tab saves and moves to the next month.
-    await page.keyboard.press('Tab');
-    w = await expectWrite(api, w, 'PATCH', '/api/entries/2', { Jan: 95 });
-    await expectFocused(ui.cell(page, 'Rent', 'Feb'));
-    await expectNoWrite(api, w);
-    // Only the active month cell is in the Tab order (roving tabindex).
-    assert.deepEqual(await page.getByTestId('entry-table').locator('button[tabindex="0"][data-month]').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))), ['Rent, Feb: -']);
-    // Double-click edits in place too (desktop; the narrow layout's sheet opens on the first tap).
-    if (context.mobile) {
-      await ui.selectCell(page, 'Gifts', 'Feb');
-      await ui.editCell(page, 'Gifts', 'Feb');
-    } else {
+    if (!context.mobile) {
+      // Keyboard (F42): arrows move between month cells; typing a digit edits in place.
+      await page.keyboard.press('ArrowLeft');
+      await expectFocused(ui.cell(page, 'Rent', 'Feb'));
+      await page.keyboard.press('ArrowUp');
+      await expectFocused(ui.cell(page, 'Groceries', 'Feb'));
+      await page.keyboard.press('End');
+      await expectFocused(ui.cell(page, 'Groceries', 'Dec'));
+      await page.keyboard.press('Home');
+      await page.keyboard.press('ArrowDown');
+      await expectFocused(ui.cell(page, 'Rent', 'Jan'));
+      await page.keyboard.press('9');
+      assert.equal(await ui.cellInput(page, 'Rent', 'Jan').inputValue(), '9');
+      await page.keyboard.press('5');
+      // Tab saves and moves to the next month.
+      await page.keyboard.press('Tab');
+      w = await expectWrite(api, w, 'PATCH', '/api/entries/2', { Jan: 95 });
+      await expectFocused(ui.cell(page, 'Rent', 'Feb'));
+      await expectNoWrite(api, w);
+      // Only the active month cell is in the Tab order (roving tabindex).
+      assert.deepEqual(await page.getByTestId('entry-table').locator('button[tabindex="0"][data-month]').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))), ['Rent, Feb: -']);
+      // Double-click edits in place too.
       await ui.cell(page, 'Gifts', 'Feb').dblclick();
+      await ui.cellInput(page, 'Gifts', 'Feb').fill('3');
+      await ui.cellInput(page, 'Gifts', 'Feb').press('Enter');
+      w = await expectWrite(api, w, 'PATCH', '/api/entries/4', { Feb: 3 });
+      // Escape in the editor cancels the edit first and keeps the inspector open.
+      await ui.editCell(page, 'Gifts', 'Feb');
+      await ui.cellInput(page, 'Gifts', 'Feb').press('Escape');
+      await details.waitFor();
+      await expectNoWrite(api, w);
+      // With the inspector open the selection follows the arrow keys; Shift+Enter moves into it.
+      await page.keyboard.press('ArrowLeft');
+      assert.equal(await details.getByRole('heading', { level: 2 }).textContent(), 'January 2026');
+      await page.keyboard.press('Shift+Enter');
+      await expectFocused(ui.inspectorValue(page));
+      await page.keyboard.press('Escape');
+      await details.waitFor({ state: 'detached' });
+    } else {
+      // Month list (Phase 8, D11): the stepper changes the month, rows name entry
+      // and month like grid cells, and each row is a single Tab stop.
+      await page.getByRole('button', { name: 'Previous month', exact: true }).click();
+      await ui.cell(page, 'Rent', 'Feb').waitFor();
+      assert.equal(await ui.cell(page, 'Rent', 'Mar').count(), 0);
+      assert.equal(await page.getByTestId('entry-table').locator('button[data-month]').evaluateAll(nodes => nodes.every(node => node.tabIndex === 0 && node.dataset.month === 'Feb')), true);
+      // No in-place editor: a tap opens the sheet, Escape closes it and focus returns to the row.
+      await ui.selectCell(page, 'Gifts', 'Feb');
+      await details.waitFor();
+      assert.equal(await details.getByRole('heading', { level: 2 }).textContent(), 'February 2026');
+      await ui.inspectorValue(page).fill('3');
+      await ui.inspectorValue(page).press('Enter');
+      w = await expectWrite(api, w, 'PATCH', '/api/entries/4', { Feb: 3 });
+      await page.keyboard.press('Escape');
+      await details.waitFor({ state: 'detached' });
+      await expectFocused(ui.cell(page, 'Gifts', 'Feb'));
+      // Changing the month closes the sheet.
+      await ui.selectCell(page, 'Gifts', 'Feb');
+      await page.getByRole('button', { name: 'Next month', exact: true }).click();
+      await details.waitFor({ state: 'detached' });
     }
-    await ui.cellInput(page, 'Gifts', 'Feb').fill('3');
-    await ui.cellInput(page, 'Gifts', 'Feb').press('Enter');
-    w = await expectWrite(api, w, 'PATCH', '/api/entries/4', { Feb: 3 });
-    // Escape in the editor cancels the edit first and keeps the inspector open.
-    await ui.editCell(page, 'Gifts', 'Feb');
-    await ui.cellInput(page, 'Gifts', 'Feb').press('Escape');
-    await details.waitFor();
-    await expectNoWrite(api, w);
-    // With the inspector open the selection follows the arrow keys; Shift+Enter moves into it.
-    await page.keyboard.press('ArrowLeft');
-    assert.equal(await details.getByRole('heading', { level: 2 }).textContent(), 'January 2026');
-    await page.keyboard.press('Shift+Enter');
-    await expectFocused(ui.inspectorValue(page));
-    await page.keyboard.press('Escape');
-    await details.waitFor({ state: 'detached' });
 
     // F10/F11: tags are edited in the inspector (Tags mode removed, D3).
+    await ui.showMonth(page, 'Feb');
     assert.equal(await page.getByText('Synthetic note', { exact: true }).count(), 1);
     assert.equal(await ui.cellNote(page, 'Groceries', 'Feb'), 'Synthetic note');
+    await ui.showMonth(page, 'Jan');
     assert.equal(await ui.cellNote(page, 'Groceries', 'Jan'), null);
     await ui.selectCell(page, 'Rent', 'Mar');
     const colour = (name) => details.getByRole('group', { name: 'Tag colour' }).getByRole('button', { name, exact: true });
@@ -592,10 +625,16 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await ui.enterEditMode(page, 'Arrange');
     await page.getByRole('button', { name: 'Reorder Rent', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: /^Reorder group / }).count(), 2);
-    await ui.cell(page, 'Rent', 'Jan').click();
-    await ui.cell(page, 'Rent', 'Jan').press('Enter');
-    assert.equal(await page.getByRole('textbox').count(), 0);
-    await ui.openDetails(page, 'Rent');
+    if (context.mobile) {
+      // Month list rows cannot be opened while a mode is active.
+      await ui.showMonth(page, 'Jan');
+      assert.equal(await ui.cell(page, 'Rent', 'Jan').isDisabled(), true);
+    } else {
+      await ui.cell(page, 'Rent', 'Jan').click();
+      await ui.cell(page, 'Rent', 'Jan').press('Enter');
+      assert.equal(await page.getByRole('textbox').count(), 0);
+      await ui.openDetails(page, 'Rent');
+    }
     assert.equal(await ui.details(page).count(), 0);
     // Drag within a group (dnd-kit pointer sensor); entries cannot be dragged
     // between groups – moving uses the Group field in details (F12).
@@ -637,7 +676,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     assert.equal(await page.getByRole('checkbox', { name: 'Select Rent', exact: true }).isChecked(), false);
     assert.equal(await ui.removeSelected(page).isDisabled(), true);
     // Typing a search leaves the mode.
-    await ui.search(page).fill('Rent');
+    await (await ui.openSearch(page)).fill('Rent');
     await page.getByRole('checkbox', { name: 'Select Rent', exact: true }).waitFor({ state: 'detached' });
     await ui.search(page).press('Escape');
     await ui.enterEditMode(page, 'Remove');
@@ -881,7 +920,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     assert.equal(await year.inputValue(), '');
     // Phase 7 fix (F29): the new year becomes the working year and stays selected.
     await page.waitForTimeout(300);
-    assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2027');
+    assert.equal(await ui.workingYear(page), 'Working year 2027');
     await years.getByText('2025, 2026, 2027', { exact: true }).waitFor();
 
     // Danger zone (F29 change): the working year cannot be deleted, deleting
@@ -914,7 +953,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'DELETE', '/api/years', { years: [2025] });
     await danger.getByText('Deleted 2025.', { exact: true }).waitFor();
     await danger.getByRole('checkbox', { name: '2025', exact: true }).waitFor({ state: 'detached' });
-    assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2027');
+    assert.equal(await ui.workingYear(page), 'Working year 2027');
     // Only the working year can never be selected, so at least one year always remains.
     await ui.selectYear(page, 2026);
     assert.equal(await danger.getByRole('checkbox', { name: '2026 working year', exact: true }).isDisabled(), true);
@@ -937,7 +976,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await start.click();
     w = await expectWrite(api, w, 'POST', '/api/years', { year: 2030 });
     await initiate.waitFor({ state: 'detached' });
-    assert.equal(await ui.yearSwitch(page).getAttribute('aria-label'), 'Working year 2030');
+    assert.equal(await ui.workingYear(page), 'Working year 2030');
     // A year without values or goals shows the Overview empty state (F19).
     await page.getByText('Add income or expense values, or create a Savings goal, to build your financial story.', { exact: true }).waitFor();
     assert.equal(await ui.annualTotals(page).count(), 0);
@@ -988,12 +1027,18 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await ui.cell(page, 'Groceries', 'Feb').waitFor();
     assert.equal(await ui.currentSection(page), 'Expenses');
     await expectFocused(ui.cell(page, 'Groceries', 'Feb'));
-    assert.equal(await ui.cell(page, 'Groceries', 'Feb').getAttribute('tabindex'), '0');
     assert.equal(await ui.details(page).count(), 0, 'No inspector opens');
     await screenshot(page, `${label.replace(' ', '-')}-overview-month`);
-    // Arrow keys continue from there; a month without data works the same way.
-    await page.keyboard.press('ArrowDown');
-    await expectFocused(ui.cell(page, 'Rent', 'Feb'));
+    if (context.mobile) {
+      // The month list shows the chosen month (plan Phase 8).
+      await page.getByRole('heading', { level: 2, name: /^February Expenses · 2026/ }).waitFor();
+    } else {
+      // The grid cell joins the Tab order and arrow keys continue from there.
+      assert.equal(await ui.cell(page, 'Groceries', 'Feb').getAttribute('tabindex'), '0');
+      await page.keyboard.press('ArrowDown');
+      await expectFocused(ui.cell(page, 'Rent', 'Feb'));
+    }
+    // A month without data works the same way.
     await ui.openSection(page, 'Overview');
     await ui.overviewMonth(page, 'Oct').click();
     await expectFocused(ui.cell(page, 'Groceries', 'Oct'));
@@ -1310,9 +1355,73 @@ for (const theme of ['light', 'dark']) {
   }));
 }
 
-test('mobile light: narrow toolbar keeps tabs with Overview first (F01)', () => openApp({ mobile: true, theme: 'light', section: null }, async ({ page, errors }) => {
-  assert.equal(await page.getByRole('navigation', { name: 'Primary' }).count(), 0, 'Sidebar is hidden below 960px');
-  assert.deepEqual(await page.getByRole('tab').allTextContents(), ['Overview', 'Expenses', 'Incomes', 'Savings']);
-  assert.equal(await ui.search(page).isDisabled(), true);
+test('mobile light: tab bar, More sheet, search and actions (F01–F03, F34, F35, D13, D14)', () => openApp({ mobile: true, theme: 'light', section: null }, async ({ page, api, errors }) => {
+  let w = 0;
+  // F01: bottom tab bar instead of the sidebar, Overview first and current.
+  const nav = page.getByRole('navigation', { name: 'Primary' });
+  assert.deepEqual(await nav.getByRole('button').allTextContents(), ['Overview', 'Expenses', 'Incomes', 'Savings', 'More']);
+  assert.equal(await page.getByRole('complementary', { name: 'Sidebar' }).count(), 0, 'No sidebar below 960 px');
+  assert.equal(await ui.currentSection(page), 'Overview');
+  const boxes = await nav.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()).map(({ x, y, width, height, bottom }) => ({ x, y, width, height, bottom })));
+  assert.ok(boxes.every(box => box.height >= 44 && box.width >= 44 && box.y === boxes[0].y && box.x >= 0 && box.x + box.width <= 390 && box.bottom <= 844), JSON.stringify(boxes));
+  // F03: Overview has no search.
+  assert.equal(await ui.search(page).count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Search', exact: true }).count(), 0);
+
+  // F02/F35: working year and theme in the More sheet.
+  await ui.selectYear(page, 2025);
+  assert.equal(await ui.workingYear(page), 'Working year 2025');
+  assert.equal(await page.evaluate(() => localStorage.getItem('year')), '2025');
+  await expectText(page.getByRole('heading', { level: 1 }), /^Overview 2025$/);
+  await ui.selectYear(page, 2026);
+  await ui.openMore(page);
+  const themeMode = ui.more(page).getByRole('group', { name: 'Theme', exact: true });
+  await themeMode.getByRole('button', { name: 'Dark', exact: true }).click();
+  assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.theme, localStorage.getItem('themeMode')]), ['dark', '"dark"']);
+  await screenshot(page, 'mobile-more');
+  await themeMode.getByRole('button', { name: 'Light', exact: true }).click();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
+  await page.keyboard.press('Escape');
+  await ui.more(page).waitFor({ state: 'detached' });
+  await expectFocused(ui.moreButton(page));
+
+  // D13: search behind an icon; / opens and focuses it, Escape clears and closes it.
+  await ui.openSection(page, 'Expenses');
+  await page.getByText('Groceries', { exact: true }).waitFor();
+  assert.equal(await ui.search(page).count(), 0);
+  await page.keyboard.press('/');
+  await expectFocused(ui.search(page));
+  await ui.search(page).fill('Fuel');
+  await page.getByText('Groceries', { exact: true }).waitFor({ state: 'detached' });
+  await page.getByText('Fuel', { exact: true }).waitFor();
+  await ui.search(page).press('Escape');
+  await ui.search(page).waitFor({ state: 'detached' });
+  await page.getByText('Groceries', { exact: true }).waitFor();
+
+  // D14: page actions in the top bar; a mode shows Done instead.
+  await page.getByRole('button', { name: 'Actions', exact: true }).click();
+  assert.deepEqual(await page.getByRole('menuitem').allTextContents(), ['New entry', 'New group', 'Arrange', 'Remove']);
+  await page.keyboard.press('Escape');
+  await ui.enterEditMode(page, 'Arrange');
+  await page.getByRole('button', { name: 'Reorder Rent', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Actions', exact: true }).count(), 0);
+  await ui.exitEditMode(page);
+  await page.getByRole('button', { name: 'Reorder Rent', exact: true }).waitFor({ state: 'detached' });
+
+  // Settings opens from More, which is then the current item.
+  await ui.openSettings(page);
+  assert.equal(await ui.currentSection(page), 'More');
+  await ui.openSection(page, 'Savings');
+  assert.equal(await ui.currentSection(page), 'Savings');
+  await page.getByRole('button', { name: 'New goal', exact: true }).waitFor();
+
+  // F34: Lock session from More; unlocking opens Overview.
+  await ui.lockSession(page);
+  w = await expectWrite(api, w, 'POST', '/api/pin/logout', {});
+  await ui.pinDialog(page).waitFor();
+  await ui.unlock(page, '24681357');
+  w = await expectWrite(api, w, 'POST', '/api/pin/verify', { pin: '24681357' });
+  await ui.annualTotals(page).waitFor();
+  assert.equal(await ui.currentSection(page), 'Overview');
   assert.deepEqual(errors, []);
 }));

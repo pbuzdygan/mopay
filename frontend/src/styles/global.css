@@ -12,6 +12,7 @@
 @import "./overview.css";
 @import "./savings.css";
 @import "./settings.css";
+@import "./mobile.css";
 @source "../../index.html";
 @source "../";
 

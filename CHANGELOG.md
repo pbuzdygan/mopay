@@ -35,6 +35,8 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - deleting years moved to the Danger zone: the working year cannot be deleted (so at least one year always remains and the working year stays selected), the selected years must be typed to confirm, and a reminder offers an export first
 - Settings → About shows when updates were last checked and offers *Check again*; Security shows whether encryption is active
 - in demo mode, Settings explains why years and import are not available instead of hiding them
+- **new mobile layout below 960 px**: a top bar with search behind an icon and an *Actions* menu (New entry, New group, Arrange, Remove), and a bottom tab bar (Overview, Expenses, Incomes, Savings, More); More holds Settings, the working year, theme and Lock session
+- on phones and tablets Expenses and Incomes are a **month list** instead of the scrolling year grid: step between months, see the month's income, expenses and net, tap an entry to edit it in a bottom sheet with the same sections as the desktop inspector; Arrange and Remove work directly in the list
 
 ### Bug fix
 - a newly added savings item now reliably opens for editing; previously it could stay closed when the refreshed list arrived late
@@ -49,6 +51,7 @@ Final Ledger UI migration in progress on `dev`. No data, API or configuration mi
 - added accessible names and dialog semantics to existing controls (dialogs and their close button, PIN overlay, year selector, month cells, remove checkboxes, reorder handles, tag editor, savings item fields and Settings toggles) without changing their appearance
 - moved browser-test selectors to shared role/name-based helpers and added feature-parity regressions with request-payload checks for value editing, details, Arrange/Remove/Tag modes, savings, year operations, export/import dialogs, Settings and encryption dialogs, plus a grid render-time measurement
 - the Expenses/Incomes grid renders faster with 200 entries (cached switch about 20 % faster than v1.6.3 on the reference host)
+- a backend demo-mode regression no longer fails on slow CI runners: the test waits up to 15 s for its fixture server instead of 3 s
 
 ## v1.6.3
 

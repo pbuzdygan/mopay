@@ -28,7 +28,7 @@ function useSectionMeta(): Partial<Record<Section, string>> {
   };
 }
 
-function SidebarVersion() {
+export function SidebarVersion() {
   const appVersion = useAppStore((s) => s.appVersion);
   const latestVersion = useAppStore((s) => s.latestVersion);
   const latestReleaseUrl = useAppStore((s) => s.latestReleaseUrl);

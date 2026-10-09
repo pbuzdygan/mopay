@@ -307,9 +307,7 @@ html[data-view='compact'] .ledger-input { height: 24px; }
 }
 
 @media (max-width: 959px) {
-  /* Narrow screens keep the grid until the month list (plan Phase 8). */
-  .ledger-summary { display: none; }
-  .ledger-col-name > .ledger-name { width: 144px; }
+  /* The month list replaces the grid here (plan Phase 8). */
   .ledger-mode-bar { align-items: flex-start; flex-wrap: wrap; }
 }
 
@@ -446,7 +444,7 @@ html[data-view='compact'] .ledger-input { height: 24px; }
 .ledger-insp-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); font-size: var(--fs-small); color: var(--text-2); }
 
 @media (max-width: 959px) {
-  /* Bottom sheet until the mobile layout (plan Phase 8); still non-modal. */
+  /* Bottom sheet over the month list (plan Phase 8); non-modal like the drawer. */
   .ledger-insp {
     top: auto;
     left: 0;
@@ -459,7 +457,7 @@ html[data-view='compact'] .ledger-input { height: 24px; }
   .ledger-swatch { width: 40px; height: 40px; border-radius: 8px; }
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 959px), (hover: none) and (pointer: coarse) {
   .ledger-insp .ui-input,
   .ledger-insp-value-input { font-size: 16px; }
 }
