@@ -333,7 +333,20 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await input.evaluate(node => node.blur());
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Feb: null });
     assert.equal(await cellText(page, 'Groceries', 'Feb'), '-');
-    // An empty field saves 0; '.' is a thousands separator and ',' the decimal separator.
+    // Fix after Phase 9: a month without a value opens with an empty field (it
+    // started with "-", so typed digits became negative); leaving it unchanged
+    // saves nothing, and typed digits replace the field's text.
+    input = await ui.editValue(page, 'Groceries', 'Mar');
+    assert.equal(await input.inputValue(), '');
+    await input.press('Enter');
+    await expectNoWrite(api, w);
+    assert.equal(await cellText(page, 'Groceries', 'Mar'), '-');
+    input = await ui.editValue(page, 'Groceries', 'Mar');
+    await input.pressSequentially('55');
+    await input.press('Enter');
+    w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Mar: 55 });
+    assert.equal(await cellText(page, 'Groceries', 'Mar'), '55,00');
+    // Clearing a value saves 0; '.' is a thousands separator and ',' the decimal separator.
     input = await ui.editValue(page, 'Groceries', 'Mar');
     await input.fill('');
     await input.press('Enter');
@@ -481,12 +494,26 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
   test(`${label}: cell inspector, keyboard and tags (D4, D5, F07, F10, F11, F42)`, () => openApp(context, async ({ page, api, errors }) => {
     let w = 0;
     const details = ui.details(page);
-    // D4: a single click selects the cell and opens the inspector, no in-place editor.
+    if (!context.mobile) {
+      // D4 (revised after Phase 9): a single click only selects the cell.
+      await ui.cell(page, 'Rent', 'Mar').click();
+      await expectFocused(ui.cell(page, 'Rent', 'Mar'));
+      await page.waitForTimeout(200);
+      assert.equal(await details.count(), 0);
+    }
+    // A double-click (desktop) or a tap (month list) opens the inspector with the
+    // Value field focused; there is no in-place editor.
     await ui.selectCell(page, 'Rent', 'Mar');
     await details.waitFor();
     assert.equal(await ui.cellInput(page, 'Rent', 'Mar').count(), 0);
     assert.equal(await ui.cell(page, 'Rent', 'Mar').getAttribute('aria-current'), 'true');
     assert.equal(await details.getByRole('heading', { level: 2 }).textContent(), 'March 2026');
+    if (!context.mobile) await expectFocused(ui.inspectorValue(page));
+    // The cell variant names the entry and links to its details instead of
+    // repeating the name, group and comment fields; removal is in the details.
+    assert.equal(await details.getByRole('textbox', { name: 'Name' }).count(), 0);
+    assert.equal(await details.getByRole('button', { name: 'Remove entry', exact: true }).count(), 0);
+    await details.getByRole('region', { name: 'Entry', exact: true }).getByText('Rent', { exact: true }).waitFor();
     // Value: saves on Enter; quick fill uses the previous month or the average; Clear sets no value.
     await ui.inspectorValue(page).fill('12,5');
     await ui.inspectorValue(page).press('Enter');
@@ -521,12 +548,32 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
       await expectNoWrite(api, w);
       // Only the active month cell is in the Tab order (roving tabindex).
       assert.deepEqual(await page.getByTestId('entry-table').locator('button[tabindex="0"][data-month]').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))), ['Rent, Feb: -']);
-      // Double-click edits in place too.
-      await ui.cell(page, 'Gifts', 'Feb').dblclick();
-      await ui.cellInput(page, 'Gifts', 'Feb').fill('3');
-      await ui.cellInput(page, 'Gifts', 'Feb').press('Enter');
+      // Enter on a month without a value edits in place; saving with Enter keeps
+      // the inspector closed (it reopened before: the Enter also activated the cell).
+      await ui.editCell(page, 'Gifts', 'Feb');
+      await page.keyboard.type('3');
+      await page.keyboard.press('Enter');
       w = await expectWrite(api, w, 'PATCH', '/api/entries/4', { Feb: 3 });
+      await expectFocused(ui.cell(page, 'Gifts', 'Feb'));
+      await page.waitForTimeout(200);
+      assert.equal(await details.count(), 0);
+      // F2 selects the existing value, so typing replaces it.
+      await page.keyboard.press('F2');
+      await page.keyboard.type('4');
+      await page.keyboard.press('Enter');
+      w = await expectWrite(api, w, 'PATCH', '/api/entries/4', { Feb: 4 });
+      // An open inspector follows a click on another cell; a click outside the
+      // table and the inspector closes it.
+      await ui.selectCell(page, 'Gifts', 'Feb');
+      await details.waitFor();
+      await ui.cell(page, 'Gifts', 'Mar').click();
+      await expectText(details.getByRole('heading', { level: 2 }), /^March 2026$/);
+      await page.getByRole('heading', { level: 1 }).click();
+      await details.waitFor({ state: 'detached' });
+      await expectNoWrite(api, w);
       // Escape in the editor cancels the edit first and keeps the inspector open.
+      await ui.selectCell(page, 'Gifts', 'Feb');
+      await details.waitFor();
       await ui.editCell(page, 'Gifts', 'Feb');
       await ui.cellInput(page, 'Gifts', 'Feb').press('Escape');
       await details.waitFor();
@@ -536,8 +583,13 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
       assert.equal(await details.getByRole('heading', { level: 2 }).textContent(), 'January 2026');
       await page.keyboard.press('Shift+Enter');
       await expectFocused(ui.inspectorValue(page));
+      // Entry details switches the panel to the entry; closing it returns to the cell.
+      await details.getByRole('button', { name: 'Entry details', exact: true }).click();
+      await expectFocused(details.getByRole('textbox', { name: 'Name' }));
+      assert.equal(await details.getAttribute('aria-label'), 'Entry Gifts');
       await page.keyboard.press('Escape');
       await details.waitFor({ state: 'detached' });
+      await expectFocused(ui.cell(page, 'Gifts', 'Jan'));
     } else {
       // Month list (Phase 8, D11): the stepper changes the month, rows name entry
       // and month like grid cells, and each row is a single Tab stop.
@@ -903,7 +955,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
   test(`${label}: Settings years and danger zone (F29)`, () => openApp(context, async ({ page, api, errors }) => {
     let w = 0;
     await ui.openSettings(page);
-    const years = ui.settingsSection(page, 'Years');
+    const years = await ui.showSettingsSection(page, 'Years');
     const year = years.getByRole('textbox', { name: 'Year' });
     const add = years.getByRole('button', { name: 'Add year', exact: true });
     // Only digits, exactly four.
@@ -932,7 +984,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     // Danger zone (F29 change): the working year cannot be deleted, deleting
     // needs the years typed, a backup reminder offers Export, and the working
     // year stays as it is afterwards.
-    const danger = ui.settingsSection(page, 'Danger zone');
+    const danger = await ui.showSettingsSection(page, 'Danger zone');
     assert.equal(await danger.getByRole('checkbox', { name: '2027 working year', exact: true }).isDisabled(), true);
     await danger.getByRole('checkbox', { name: '2025', exact: true }).check();
     await danger.getByRole('checkbox', { name: '2026', exact: true }).check();
@@ -1075,7 +1127,11 @@ for (const mobile of [false, true]) {
       await group.waitFor({ state: 'detached' });
       // F31: export selected years as an XLSX download, opened from Settings.
       await ui.openSettings(page);
-      const data = ui.settingsSection(page, 'Import & export');
+      // Settings opens on Display, the only section shown until another is chosen.
+      assert.equal(await ui.settingsMenu(page).getByRole('button', { name: 'Display', exact: true }).getAttribute('aria-current'), 'true');
+      assert.equal(await ui.settingsSection(page, 'Danger zone').count(), 0);
+      const data = await ui.showSettingsSection(page, 'Import & export');
+      assert.equal(await ui.settingsSection(page, 'Display').count(), 0);
       await data.getByRole('button', { name: 'Export…', exact: true }).click();
       const exportDialog = ui.dialog(page, 'Export data');
       await exportDialog.getByRole('button', { name: '2026', exact: true }).click();
@@ -1102,7 +1158,7 @@ for (const mobile of [false, true]) {
       await importDialog.waitFor({ state: 'detached' });
 
       // F17/F35/D6: display settings. Density and theme, including System.
-      const display = ui.settingsSection(page, 'Display');
+      const display = await ui.showSettingsSection(page, 'Display');
       const themeMode = display.getByRole('group', { name: 'Theme mode', exact: true });
       assert.equal(await themeMode.getByRole('button', { name: theme === 'dark' ? 'Dark' : 'Light', exact: true }).getAttribute('aria-pressed'), 'true');
       await screenshot(page, `${name}-settings`);
@@ -1124,14 +1180,28 @@ for (const mobile of [false, true]) {
       assert.deepEqual(await stored(), [`"${theme}"`, `"${theme}"`, theme]);
 
       // F33: About shows version, channel and the update check; Check again repeats it.
-      const about = ui.settingsSection(page, 'About');
+      const about = await ui.showSettingsSection(page, 'About');
       await about.getByText('MOPAY v1.6.3', { exact: true }).waitFor();
       await about.getByText(/^Release channel: main · checked \d{2}:\d{2}$/).waitFor();
       await about.getByText('No published release found', { exact: true }).waitFor();
       await about.getByRole('button', { name: 'Check again', exact: true }).click();
       await about.getByText('No published release found', { exact: true }).waitFor();
+      // Each Settings section is its own sub-page: the menu shows only the chosen
+      // section and marks it as current; focus stays in the menu.
+      const help = await ui.showSettingsSection(page, 'Help');
+      const menuItem = ui.settingsMenu(page).getByRole('button', { name: 'Help', exact: true });
+      assert.equal(await menuItem.getAttribute('aria-current'), 'true');
+      await expectFocused(menuItem);
+      assert.deepEqual(await page.getByRole('region').evaluateAll(regions => regions.map(region => region.getAttribute('aria-labelledby'))), ['settings-help']);
+      assert.equal(await ui.settingsMenu(page).locator('[aria-current]').count(), 1);
+      // Help lists the keyboard shortcuts in one table per area.
+      const groups = await help.getByRole('table').evaluateAll(tables => tables.map(table => table.caption.querySelector('.prefs-row-title').textContent));
+      assert.deepEqual(groups, ['Search', 'Expenses and Incomes table', 'Editing a value', 'Inspector and bottom sheet', 'Arrange mode', 'Menus, year selector and dialogs', 'Savings items', 'Month list']);
+      const search = help.getByRole('table', { name: /^Search/ });
+      assert.equal(await search.getByRole('rowheader').first().textContent(), '/ or Ctrl+K or ⌘+K');
+      await help.getByRole('row', { name: 'Shift + Enter or double-click Open the inspector on the month', exact: true }).waitFor();
       // F34: Security shows the encryption state and locks the session.
-      const security = ui.settingsSection(page, 'Security');
+      const security = await ui.showSettingsSection(page, 'Security');
       await security.getByText('Not enabled', { exact: true }).waitFor();
       await security.getByRole('button', { name: 'Lock now', exact: true }).click();
       w = await expectWrite(api, w, 'POST', '/api/pin/logout', {});
@@ -1198,7 +1268,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
   test(`${label}: import validation, overwrite confirmation and retry (F32)`, () => openApp({ ...context, section: null }, async ({ page, api, errors }) => {
     let w = 0;
     await ui.openSettings(page);
-    await ui.settingsSection(page, 'Import & export').getByRole('button', { name: 'Import…', exact: true }).click();
+    await (await ui.showSettingsSection(page, 'Import & export')).getByRole('button', { name: 'Import…', exact: true }).click();
     const dialog = ui.dialog(page, 'Import data');
     const workbook = Buffer.from('synthetic workbook');
     const chooseFile = async (fileName) => {
@@ -1249,7 +1319,7 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await ui.closeDialog(page).click();
     await dialog.waitFor({ state: 'detached' });
     // The refreshed year list offers the imported year.
-    await ui.settingsSection(page, 'Years').getByText('2025, 2026, 2027', { exact: true }).waitFor();
+    await (await ui.showSettingsSection(page, 'Years')).getByText('2025, 2026, 2027', { exact: true }).waitFor();
     assert.deepEqual(errors, []);
   }));
 

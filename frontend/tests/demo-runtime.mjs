@@ -55,13 +55,16 @@ test('real demo dataset renders desktop/mobile Expenses, Incomes, Savings and Re
       await page.getByText('Groceries', { exact: true }).waitFor();
       if (process.env.MOPAY_SCREENSHOTS) await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/real-demo-${mobile ? 'mobile' : 'desktop'}-expenses.png` });
       // Settings: no year creation, deletion or import in demo mode, each explained; export works.
+      // Each section is its own sub-page, so every check opens its section first.
       await ui.openSettings(page);
-      assert.equal(await page.getByRole('button', { name: 'Add year', exact: true }).count(), 0);
-      assert.equal(await page.getByRole('button', { name: 'Import…', exact: true }).count(), 0);
-      assert.equal(await ui.settingsSection(page, 'Danger zone').getByRole('checkbox').count(), 0);
-      await ui.settingsSection(page, 'Years').getByText('Demo data is read only. Years cannot be created or deleted.', { exact: true }).waitFor();
-      await ui.settingsSection(page, 'Import & export').getByText('Import is not available in demo mode.', { exact: true }).waitFor();
-      await ui.settingsSection(page, 'Import & export').getByRole('button', { name: 'Export…', exact: true }).click();
+      assert.equal(await (await ui.showSettingsSection(page, 'Danger zone')).getByRole('checkbox').count(), 0);
+      const years = await ui.showSettingsSection(page, 'Years');
+      await years.getByText('Demo data is read only. Years cannot be created or deleted.', { exact: true }).waitFor();
+      assert.equal(await years.getByRole('button', { name: 'Add year', exact: true }).count(), 0);
+      const data = await ui.showSettingsSection(page, 'Import & export');
+      await data.getByText('Import is not available in demo mode.', { exact: true }).waitFor();
+      assert.equal(await data.getByRole('button', { name: 'Import…', exact: true }).count(), 0);
+      await data.getByRole('button', { name: 'Export…', exact: true }).click();
       await ui.dialog(page, 'Export data').getByRole('button', { name: /^\d{4}$/ }).first().click();
       const download = page.waitForEvent('download');
       await page.getByRole('button', { name: /^Export \d/ }).click();

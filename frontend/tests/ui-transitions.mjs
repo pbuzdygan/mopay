@@ -423,6 +423,13 @@ for (const mobile of [false, true]) {
         assert.equal(await page.getByRole('textbox').count(), 0, 'Demo values cannot be edited');
         await ui.closeDetails(page).click();
         await ui.details(page).waitFor({ state: 'detached' });
+        if (!mobile) {
+          // Read only: Enter on a focused cell opens the inspector instead of an editor.
+          await ui.editCell(page, 'Demo groceries', 'Jan');
+          await ui.details(page).getByText('Demo data is read only.', { exact: true }).waitFor();
+          await ui.closeDetails(page).click();
+          await ui.details(page).waitFor({ state: 'detached' });
+        }
         await ui.openDetails(page, 'Demo groceries');
         await ui.details(page).getByText('Demo data is read only.', { exact: true }).waitFor();
         assert.equal(await ui.details(page).getByRole('textbox').count() + await ui.details(page).getByRole('combobox').count(), 0);

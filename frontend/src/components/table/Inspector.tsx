@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { MONTHS, MONTH_NAMES } from '../../utils/months';
 import { formatCurrency, parseCurrencyInputNullable } from '../../utils/currency';
 import { Button, Callout, Icon, IconButton } from '../ui';
-import { filterValueInput, formatMonthValue, monthValue, plainMonthValue } from './GridRows';
+import { editDraft, filterValueInput, formatMonthValue, monthValue } from './GridRows';
 import type { SaveState } from './useSaveStatus';
 import type { EntryGroup, EntryRowData, EntryTag, GridSelection, TagColor } from './types';
 
@@ -25,6 +25,8 @@ type InspectorProps = {
   /** Changes when focus should move into the panel (name click, Shift+Enter on a cell). */
   focusRequest: number;
   onClose: () => void;
+  /** Switches the cell variant to the entry's details (name, group, comment, remove). */
+  onShowEntry: (entry: EntryRowData) => void;
   onSaveMonth: (entry: EntryRowData, month: string, value: number | null) => void;
   onSaveEntry: (entry: EntryRowData, patch: EntryDetailsPatch) => Promise<boolean>;
   onSaveGroup: (group: EntryGroup, name: string) => Promise<boolean>;
@@ -77,7 +79,7 @@ function ValueSection({ entry, month, year, readOnly, onSave }: {
   onSave: InspectorProps['onSaveMonth'];
 }) {
   const value = monthValue(entry, month);
-  const [draft, setDraft] = useState(plainMonthValue(value));
+  const [draft, setDraft] = useState(editDraft(value));
   const focused = useRef(false);
   const index = monthIndex(month);
   const previous = index > 0 ? monthValue(entry, MONTHS[index - 1]) : null;
@@ -85,16 +87,18 @@ function ValueSection({ entry, month, year, readOnly, onSave }: {
   const average = values.length ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100 : null;
 
   useEffect(() => {
-    if (!focused.current) setDraft(plainMonthValue(value));
+    if (!focused.current) setDraft(editDraft(value));
   }, [value]);
 
+  // Unchanged text is not saved, so an empty month stays empty (F07 rules otherwise).
   const commit = () => {
+    if (draft === editDraft(value)) return;
     const next = parseCurrencyInputNullable(draft);
-    setDraft(plainMonthValue(next));
+    setDraft(editDraft(next));
     if (next !== value) onSave(entry, month, next);
   };
   const fill = (next: number | null) => {
-    setDraft(plainMonthValue(next));
+    setDraft(editDraft(next));
     if (next !== value) onSave(entry, month, next);
   };
 
@@ -111,7 +115,12 @@ function ValueSection({ entry, month, year, readOnly, onSave }: {
             inputMode="decimal"
             value={draft}
             data-autofocus
-            onFocus={() => { focused.current = true; }}
+            placeholder="No value"
+            onFocus={(event) => {
+              focused.current = true;
+              // Typing replaces the current value.
+              event.currentTarget.select();
+            }}
             onChange={(event) => setDraft(filterValueInput(event.target.value))}
             onBlur={() => {
               focused.current = false;
@@ -120,9 +129,9 @@ function ValueSection({ entry, month, year, readOnly, onSave }: {
             onKeyDown={(event) => {
               if (event.key === 'Enter') commit();
               // A changed draft is reverted first; otherwise Escape closes the panel.
-              if (event.key === 'Escape' && draft !== plainMonthValue(value)) {
+              if (event.key === 'Escape' && draft !== editDraft(value)) {
                 event.preventDefault();
-                setDraft(plainMonthValue(value));
+                setDraft(editDraft(value));
               }
             }}
           />
@@ -143,6 +152,25 @@ function ValueSection({ entry, month, year, readOnly, onSave }: {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+/** Cell variant: the entry's name and group, with a link to its details. */
+function EntryLine({ entry, groups, onShowEntry }: {
+  entry: EntryRowData;
+  groups: EntryGroup[];
+  onShowEntry: InspectorProps['onShowEntry'];
+}) {
+  const groupName = groups.find((g) => g.id === entry.groupId)?.name ?? 'Ungrouped';
+  const comment = entry.comment?.trim();
+  return (
+    <section className="ledger-insp-sec ledger-insp-entry" aria-label="Entry">
+      <div className="ledger-insp-entry-text">
+        <strong>{entry.name}</strong>
+        <span>{groupName}{comment ? ` · ${comment}` : ''}</span>
+      </div>
+      <Button size="sm" variant="ghost" onClick={() => onShowEntry(entry)}>Entry details</Button>
     </section>
   );
 }
@@ -587,7 +615,9 @@ export function Inspector(props: InspectorProps) {
             ) : entry ? (
               <>
                 {month && <ValueSection key={`value-${entry.id}-${month}`} entry={entry} month={month} year={year} readOnly={readOnly} onSave={props.onSaveMonth} />}
-                <DetailsSection key={entry.id} entry={entry} groups={groups} readOnly={readOnly} onSave={props.onSaveEntry} />
+                {month
+                  ? <EntryLine entry={entry} groups={groups} onShowEntry={props.onShowEntry} />
+                  : <DetailsSection key={entry.id} entry={entry} groups={groups} readOnly={readOnly} onSave={props.onSaveEntry} />}
                 {month && <TagSection key={`tag-${entry.id}-${month}`} entry={entry} month={month} tag={props.tags[month]} readOnly={readOnly} onSave={props.onSaveTag} />}
                 <EntryFacts entry={entry} month={month} year={year} previousYearEntries={props.previousYearEntries} />
               </>
@@ -597,7 +627,7 @@ export function Inspector(props: InspectorProps) {
             <footer className="ledger-insp-foot">
               <SaveStatusLine state={saveState} />
               <span className="ledger-insp-spacer" />
-              {confirmRemove ? (
+              {month ? null : confirmRemove ? (
                 <span className="ledger-insp-confirm">
                   <span>{selection?.kind === 'group' ? `Remove group? Its ${props.groupEntryCount === 1 ? 'entry moves' : 'entries move'} to Ungrouped.` : 'Remove this entry and its values?'}</span>
                   <Button size="sm" variant="ghost" onClick={() => setConfirmRemove(false)} disabled={removing}>Cancel</Button>

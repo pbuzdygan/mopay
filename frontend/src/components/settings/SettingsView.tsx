@@ -5,25 +5,28 @@ import { useAppStore, type ThemeMode } from '../../store';
 import { buildReleaseInfo, formatVersionLabel, REPO_SLUG } from '../../utils/release';
 import { useShellActions, useYears } from '../shell/useShell';
 import { Button, Callout, Icon, Input, Segmented, Switch } from '../ui';
+import { KeyboardShortcuts } from './KeyboardShortcuts';
 
 // Settings page (plan Phase 7, D7: view state, not a persisted tab). Replaces
-// the Settings and Year operations dialogs and the data menu.
+// the Settings and Year operations dialogs and the data menu. Each section is
+// its own sub-page: the section menu shows one section at a time (Display
+// first); the choice is not persisted and resets when Settings is reopened.
 
 const SECTIONS = [
-  { id: 'display', label: 'Display' },
-  { id: 'security', label: 'Security' },
-  { id: 'years', label: 'Years' },
-  { id: 'data', label: 'Import & export' },
-  { id: 'about', label: 'About' },
-  { id: 'danger', label: 'Danger zone' },
+  { id: 'display', label: 'Display', Content: DisplaySection },
+  { id: 'security', label: 'Security', Content: SecuritySection },
+  { id: 'years', label: 'Years', Content: YearsSection },
+  { id: 'data', label: 'Import & export', Content: DataSection },
+  { id: 'about', label: 'About', Content: AboutSection },
+  { id: 'help', label: 'Help', Content: HelpSection },
+  { id: 'danger', label: 'Danger zone', Content: DangerSection },
 ] as const;
 
+type SectionId = (typeof SECTIONS)[number]['id'];
+
 export function SettingsView() {
-  const jumpTo = (id: string) => {
-    const heading = document.getElementById(`settings-${id}`);
-    heading?.scrollIntoView({ block: 'start' });
-    heading?.focus({ preventScroll: true });
-  };
+  const [current, setCurrent] = useState<SectionId>('display');
+  const { Content } = SECTIONS.find((section) => section.id === current)!;
 
   return (
     <div className="prefs mode-enter">
@@ -34,19 +37,20 @@ export function SettingsView() {
               key={section.id}
               type="button"
               className={section.id === 'danger' ? 'is-danger' : undefined}
-              onClick={() => jumpTo(section.id)}
+              aria-current={section.id === current ? 'true' : undefined}
+              aria-controls="settings-panel"
+              onClick={(event) => {
+                setCurrent(section.id);
+                // Keep the chosen item visible in the horizontally scrolling menu (below 760 px).
+                event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+              }}
             >
               {section.label}
             </button>
           ))}
         </nav>
-        <div className="prefs-sections">
-          <DisplaySection />
-          <SecuritySection />
-          <YearsSection />
-          <DataSection />
-          <AboutSection />
-          <DangerSection />
+        <div className="prefs-sections" id="settings-panel">
+          <Content />
         </div>
       </div>
     </div>
@@ -314,6 +318,16 @@ function AboutSection() {
           </div>
         )}
       </Row>
+    </Section>
+  );
+}
+
+function HelpSection() {
+  return (
+    <Section id="help" title="Help" intro="Keyboard shortcuts. Everything also works with a mouse or touch.">
+      <div className="prefs-note">
+        <KeyboardShortcuts />
+      </div>
     </Section>
   );
 }

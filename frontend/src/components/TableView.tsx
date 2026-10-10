@@ -449,11 +449,43 @@ export function TableView() {
     setFocusCell({ entryId, month });
     if (options?.focusInspector) setFocusRequest((value) => value + 1);
   }, []);
+  // A single click only selects the cell (focus, roving tabindex); an open
+  // inspector follows it. Double-click or Shift+Enter opens the inspector.
+  const onClickCell = useCallback((entryId: number, month: string) => {
+    if (selectionRef.current) onSelectCell(entryId, month);
+  }, [onSelectCell]);
   const onOpenEntry = useCallback((entry: EntryRowData, opener: HTMLElement) => {
     openerRef.current = opener;
     setSelection({ kind: 'entry', entryId: entry.id });
     setFocusRequest((value) => value + 1);
   }, []);
+  // "Entry details" in the cell inspector switches it to the entry; closing it
+  // later returns focus to the cell (or month list row) it came from.
+  const showEntryDetails = (entry: EntryRowData) => {
+    const current = selectionRef.current;
+    const container = tableRef.current ?? listRef.current;
+    const cell = current?.kind === 'cell'
+      ? container?.querySelector<HTMLElement>(`[data-entry-id="${current.entryId}"] button[data-month="${current.month}"]`)
+      : null;
+    openerRef.current = cell ?? null;
+    setSelection({ kind: 'entry', entryId: entry.id });
+    setFocusRequest((value) => value + 1);
+  };
+
+  // A click outside the table and the inspector closes it. Menus, dialogs and
+  // other floating layers (rendered elsewhere in the document) do not count.
+  useEffect(() => {
+    if (!selection) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target?.closest || !target.isConnected) return;
+      if (target.closest('[data-testid="inspector"], [data-testid="entry-table"], [role="dialog"], [role="menu"], [role="listbox"]')) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      setSelection(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [selection]);
   const openGroup = (group: EntryGroup, opener: HTMLElement) => {
     openerRef.current = opener;
     setSelection({ kind: 'group', groupId: group.id });
@@ -481,6 +513,7 @@ export function TableView() {
             rowSelected={Boolean(shown)}
             activeMonth={activeCell?.entryId === e.id ? activeCell.month : null}
             onSelectCell={onSelectCell}
+            onClickCell={onClickCell}
             onFocusCell={onFocusCell}
             onSaveMonth={onSaveMonth}
             onMoveFrom={onMoveFrom}
@@ -666,6 +699,7 @@ export function TableView() {
           saveState={saveState}
           focusRequest={focusRequest}
           onClose={closeInspector}
+          onShowEntry={showEntryDetails}
           onSaveMonth={saveMonth}
           onSaveEntry={saveEntry}
           onSaveGroup={saveGroup}

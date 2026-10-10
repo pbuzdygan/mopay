@@ -185,7 +185,12 @@ export const monthValue = (e: EntryRowData, month: string): number | null => {
 };
 
 export const formatMonthValue = (value: number | null) => (value === null ? '-' : formatCurrency(value));
-export const plainMonthValue = (value: number | null) => (value === null ? '-' : formatCurrencyPlain(value));
+/**
+ * Starting text of a value editor: empty for a month without a value. Starting
+ * from "-" let typed digits become a negative number ("-55"), and a click into
+ * the field could even save 0. Editors only save when the text was changed.
+ */
+export const editDraft = (value: number | null) => (value === null ? '' : formatCurrencyPlain(value));
 
 /** Allowed while typing a value: digits, separators, spaces and minus. */
 export const filterValueInput = (text: string) => text.replace(/[^\d,.\s-]/g, '');
@@ -202,6 +207,7 @@ export const EntryRow = memo(function EntryRow({
   rowSelected,
   activeMonth,
   onSelectCell,
+  onClickCell,
   onFocusCell,
   onSaveMonth,
   onMoveFrom,
@@ -217,7 +223,10 @@ export const EntryRow = memo(function EntryRow({
   rowSelected: boolean;
   /** Month cell of this row in the Tab order (roving tabindex), if any. */
   activeMonth: string | null;
+  /** Opens the inspector on the cell (double-click, Shift+Enter), or moves it there. */
   onSelectCell: (entryId: number, month: string, options?: { focusInspector?: boolean }) => void;
+  /** A single click: selects the cell; the inspector follows only when it is already open. */
+  onClickCell: (entryId: number, month: string) => void;
   onFocusCell: (entryId: number, month: string) => void;
   onSaveMonth: (entry: EntryRowData, month: string, value: number | null) => void;
   /** Tab/Shift+Tab in the in-place editor saves and moves to the next/previous month. */
@@ -238,6 +247,9 @@ export const EntryRow = memo(function EntryRow({
   const refocusMonth = useRef<string | null>(null);
   // Set once an edit is saved or cancelled, so the input's later blur does nothing.
   const editClosed = useRef(false);
+  // Enter/F2 select the existing text so typing replaces it; a typed first key does not.
+  const selectDraft = useRef(false);
+  const initialDraft = useRef('');
 
   const [editingMonth, setEditingMonth] = useState<string | null>(null);
   const [monthDraft, setMonthDraft] = useState('');
@@ -260,18 +272,22 @@ export const EntryRow = memo(function EntryRow({
   const filled = values.filter((v) => v !== null).length;
   const rowAvg = filled ? rowSum / filled : 0;
 
-  const startEdit = (month: string, draft: string) => {
+  const startEdit = (month: string, draft: string, select = false) => {
     if (!canEditValues) return;
     editClosed.current = false;
+    selectDraft.current = select;
+    initialDraft.current = select ? draft : '';
     setEditingMonth(month);
     setMonthDraft(draft);
   };
 
   // F07 rules: Enter and blur save, Escape reverts, '-' = no value, empty = 0.
+  // Text left as it was opened is not saved (an empty month stays empty).
   const saveMonth = (month: string) => {
     if (editClosed.current) return;
     editClosed.current = true;
     setEditingMonth(null);
+    if (selectDraft.current && monthDraft === initialDraft.current) return;
     onSaveMonth(e, month, parseCurrencyInputNullable(monthDraft));
   };
 
@@ -348,8 +364,14 @@ export const EntryRow = memo(function EntryRow({
                 value={monthDraft}
                 onChange={(ev) => setMonthDraft(filterValueInput(ev.target.value))}
                 onBlur={() => saveMonth(m)}
+                onFocus={(ev) => {
+                  if (selectDraft.current) ev.currentTarget.select();
+                }}
                 onKeyDown={(ev) => {
                   if (ev.key === 'Enter') {
+                    // Without this the Enter also activates the cell button that gets
+                    // focus back, which used to reopen the inspector.
+                    ev.preventDefault();
                     refocusMonth.current = m;
                     saveMonth(m);
                   } else if (ev.key === 'Escape') {
@@ -380,9 +402,11 @@ export const EntryRow = memo(function EntryRow({
                 aria-keyshortcuts="Enter Shift+Enter"
                 onFocus={() => onFocusCell(e.id, m)}
                 onClick={() => {
-                  if (!editMode) onSelectCell(e.id, m);
+                  if (!editMode) onClickCell(e.id, m);
                 }}
-                onDoubleClick={() => startEdit(m, plainMonthValue(value))}
+                onDoubleClick={() => {
+                  if (!editMode) onSelectCell(e.id, m, { focusInspector: true });
+                }}
                 onKeyDown={(ev) => {
                   if (editMode || ev.altKey || ev.ctrlKey || ev.metaKey) return;
                   if (ev.key === 'Enter' && ev.shiftKey) {
@@ -390,7 +414,9 @@ export const EntryRow = memo(function EntryRow({
                     onSelectCell(e.id, m, { focusInspector: true });
                   } else if (ev.key === 'Enter' || ev.key === 'F2') {
                     ev.preventDefault();
-                    startEdit(m, plainMonthValue(value));
+                    // Read only (demo): Enter shows the inspector instead of an editor.
+                    if (canEditValues) startEdit(m, editDraft(value), true);
+                    else onSelectCell(e.id, m, { focusInspector: true });
                   } else if (canEditValues && STARTS_EDIT.test(ev.key)) {
                     ev.preventDefault();
                     startEdit(m, ev.key);

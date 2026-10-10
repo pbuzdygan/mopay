@@ -251,7 +251,7 @@ Views:
 - Overview (start page after load and unlock; internal tab key `reports`)
 - Expenses/Incomes: a semantic table with sticky header, name column and totals on desktop, a month list below 960 px; a non-modal inspector (drawer on desktop, bottom sheet on mobile) edits values, entry details and tags, each field saving on its own
 - Savings: goal list and goal detail with items
-- Settings page (display, security, years, import/export, about, year deletion); held as view state, not as a tab
+- Settings page (display, security, years, import/export, about, help, year deletion), one section at a time chosen in its section menu; held as view state, not as a tab
 
 Styling uses CSS custom properties from `styles/tokens.css` (colours per theme, spacing, radii, type, motion, z-index) and plain CSS per area; Tailwind supplies the reset and a few utilities. Components use the base components in `components/ui` rather than ad-hoc button or field classes.
 

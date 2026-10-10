@@ -95,8 +95,16 @@ export const ui = {
     // The page title is only in the desktop header; the first section shows on every layout.
     await ui.settingsSection(page, 'Display').waitFor();
   },
-  // Settings sections are regions named by their headings.
+  // Settings sections are regions named by their headings. Only the section chosen
+  // in the section menu is shown (Display when Settings opens).
   settingsSection: (page, name) => page.getByRole('region', { name, exact: true }),
+  settingsMenu: (page) => page.getByRole('navigation', { name: 'Settings sections' }),
+  async showSettingsSection(page, name) {
+    await ui.settingsMenu(page).getByRole('button', { name, exact: true }).click();
+    const section = ui.settingsSection(page, name);
+    await section.waitFor();
+    return section;
+  },
   lock: (page) => page.getByRole('button', { name: 'Lock session', exact: true }),
   async lockSession(page) {
     if (await ui.narrow(page)) await ui.openMore(page);
@@ -135,7 +143,15 @@ export const ui = {
     .or(page.getByTestId('entry-table').getByRole('listitem').filter({ has: page.getByText(name, { exact: true }) })
       .getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}, [A-Z][a-z]{2}: `) })),
   // Clicking an entry or group name opens its details in the inspector.
-  openDetails: (page, name) => ui.rowName(page, name).click(),
+  // On the month list an entry row opens the month's sheet, which links to the
+  // entry details (the cell variant no longer repeats them).
+  async openDetails(page, name) {
+    await ui.rowName(page, name).click();
+    if (!await ui.narrow(page)) return;
+    const link = ui.details(page).getByRole('button', { name: 'Entry details', exact: true });
+    await ui.details(page).waitFor();
+    if (await link.count()) await link.click();
+  },
   cell: (page, entry, month) => page.getByRole('button', { name: new RegExp(`^${escapeRegExp(entry)}, ${month}: `) }),
   // Month list (mobile): steps to the month with the stepper; no-op on the grid.
   async showMonth(page, month) {
@@ -151,9 +167,10 @@ export const ui = {
     }
     assert.fail(`Month ${month} not reached`);
   },
-  // A single click selects the cell and opens the inspector (plan D4); on the
-  // month list a tap on the row opens the bottom sheet (an open sheet is closed
-  // first because it covers the rows).
+  // Opens the inspector on a month: a double-click in the grid (a single click
+  // only selects the cell, plan D4 as revised after Phase 9); on the month list a
+  // tap on the row opens the bottom sheet (an open sheet is closed first because
+  // it covers the rows).
   async selectCell(page, entry, month) {
     // Close first: changing the month also closes the sheet, with an exit animation.
     if (await ui.narrow(page) && await ui.details(page).count()) {
@@ -161,7 +178,8 @@ export const ui = {
       await ui.details(page).waitFor({ state: 'detached' });
     }
     await ui.showMonth(page, month);
-    await ui.cell(page, entry, month).click();
+    if (await ui.narrow(page)) await ui.cell(page, entry, month).click();
+    else await ui.cell(page, entry, month).dblclick();
   },
   // Value shown for an entry and month (from the cell or row name, both layouts).
   async cellValue(page, entry, month) {

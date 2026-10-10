@@ -8,8 +8,8 @@ New Final Ledger user interface. Data, API, database, encryption, configuration,
 - **new navigation**: on screens 960 px and wider a sidebar holds the working year, Overview, Expenses, Incomes and Savings (with yearly totals), Settings, Lock session, the theme switch and the version/update link; each page has a header with search, an *Edit* menu and a *New entry* split button (with *New group*). The toolbar and its menu are gone
 - **Reports is renamed Overview**, is listed first and is always the start page after loading or unlocking; the selected year is still remembered
 - **Tags mode is removed**; tags are set in the inspector (desktop) or the bottom sheet (mobile)
-- **a single click on a month selects it** and opens the inspector instead of editing; Enter, F2, typing a number or a double-click edits the value in place
-- **Settings is a page** (sidebar *Settings*, or *More → Settings* below 960 px) with Display, Security, Years, Import & export, About and Danger zone; it replaces the Settings and Year operations dialogs
+- **a single click on a month only selects it**; a double-click or Shift+Enter opens the inspector, and Enter, F2 or typing a number edits the value in place
+- **Settings is a page** (sidebar *Settings*, or *More → Settings* below 960 px) with Display, Security, Years, Import & export, About, Help and Danger zone, each shown on its own when chosen in the section menu; it replaces the Settings and Year operations dialogs
 - **new mobile layout below 960 px**: a top bar with search behind an icon and an *Actions* menu (New entry, New group, Arrange, Remove), and a bottom tab bar (Overview, Expenses, Incomes, Savings, More); More holds Settings, the working year, theme and Lock session. Expenses and Incomes are a **month list** instead of the horizontally scrolling year grid
 - search is no longer shown on Overview; `/` and Ctrl/Cmd+K focus the search field of the current page (below 960 px they open it)
 
@@ -24,7 +24,8 @@ New Final Ledger user interface. Data, API, database, encryption, configuration,
 - Arrange and Remove modes show a banner explaining the mode; in Remove mode a bar below the grid names the selection (for example "Remove 1 group and 2 entries") and offers *Clear selection*
 - removing selected entries and groups now asks for confirmation and states which entries move to Ungrouped; previously the selection was deleted immediately
 - Expenses and Incomes have an inspector panel on the right (a bottom sheet below 960 px) that replaces the details panel and the tag popover. It shows the selected month's value with quick fill (previous month, average, clear), the entry's name, group and comment, the month's tag colour and note, and a 12-month chart with sum, average, change against the previous month and the same month of the previous year (matched by entry name). Group rows open group details (rename, add entry, arrange, remove). In demo mode it is read only
-- in the grid, Tab saves and moves to the next month, arrow keys, Home and End move between months, Shift+Enter moves into the inspector and Escape closes it
+- in the grid, Tab saves and moves to the next month, arrow keys, Home and End move between months, Shift+Enter opens the inspector and Escape closes it; an open inspector follows clicks on other months and closes with a click outside the table
+- the inspector of a month shows the value, the entry's name and group with an *Entry details* link, the tag and the chart; name, group, comment and *Remove entry* are in the entry details (click the entry name, or *Entry details*), so the fields are no longer shown twice
 - inspector fields save on their own (name and tag note on Enter or when leaving the field, group and tag colour on change, comment when leaving the field) and show *Saving…*/*Saved hh:mm*; *Save changes* and *Cancel* are gone, and Escape reverts a changed field
 - Arrange mode can also be used with the keyboard (Space picks up a row, arrow keys move it, Space drops it)
 - Overview has a new layout: income, expenses, net result (each compared with the previous year) and savings in goals at the top, then the year month by month, where money went next to the savings overview, and predictability
@@ -38,6 +39,7 @@ New Final Ledger user interface. Data, API, database, encryption, configuration,
 - creating a year now makes it the working year
 - deleting years moved to the Danger zone: the working year cannot be deleted (so at least one year always remains and the working year stays selected), the selected years must be typed to confirm, and a reminder offers an export first
 - Settings → About shows when updates were last checked and offers *Check again*; Security shows whether encryption is active
+- new Settings → **Help** section lists all keyboard shortcuts by area (search, table, value editing, inspector, Arrange, menus and dialogs, savings items, month list)
 - in demo mode, Settings explains why years and import are not available instead of hiding them
 - the month list (below 960 px) steps between months, shows the month's income, expenses and net and the previous month per entry; tapping an entry opens a bottom sheet with the same sections and saving as the desktop inspector; Arrange and Remove work directly in the list
 - 44 px touch targets in the mobile bars, lists and sheets; editable text stays at 16 px on small and touch screens
@@ -55,6 +57,8 @@ New Final Ledger user interface. Data, API, database, encryption, configuration,
 - failed savings changes (adding or editing a goal, adding, saving or removing an item, removing a goal) are now shown and can be retried; a failed item add no longer leaves an empty item behind
 - adding a year in Settings now switches to it; previously the working year jumped back to the previous one
 - failures when adding or deleting a year or downloading the import template are now shown
+- typing into a month without a value no longer saves a negative number ("55" became "-55" after Enter, F2 or a double-click) or 0 (in the inspector); the editor opens empty, an existing value is selected so typing replaces it, and leaving a month unchanged saves nothing. The fault was already present in v1.6.3
+- saving a value with Enter no longer reopens a closed inspector
 - an import error (for example another import running, a busy database or an expired session) is now shown when years are marked for overwrite; previously the message was cleared immediately, and changing the year selection now clears an earlier result instead
 
 ### Upgrade notes

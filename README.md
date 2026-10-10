@@ -206,6 +206,6 @@ If You like results of my efforts, feel free to show that by supporting me.
 
 ## Search shortcuts and mobile forms
 
-In Expenses, Incomes and Savings, press `/` or **Ctrl+K** (**Cmd+K** on macOS) to focus search when not editing another field. **Escape** clears search and leaves the field. Shortcuts do not move focus behind the PIN screen or an open dialog; Overview and Settings have no search.
+In Expenses, Incomes and Savings, press `/` or **Ctrl+K** (**Cmd+K** on macOS) to focus search when not editing another field. **Escape** clears search and leaves the field. Shortcuts do not move focus behind the PIN screen or an open dialog; Overview and Settings have no search. **Settings → Help** lists every keyboard shortcut, including table navigation, editing and Arrange mode.
 
 Below 960 px MOPAY uses a mobile layout: a top bar with search behind an icon (the shortcuts open it) and an *Actions* menu, a bottom tab bar with Overview, Expenses, Incomes, Savings and More, and Expenses/Incomes as a month list whose entries open in a bottom sheet. Editable fields keep at least 16px text on small/touch screens to avoid small-text focus zoom; manual pinch zoom remains available. The layout was checked in Chromium mobile emulation at 320, 390 and 767 px and 900×400 landscape; real iOS/Safari keyboard behavior still needs a device check.
