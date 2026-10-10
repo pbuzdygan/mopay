@@ -3,8 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
 import { Api, ApiError } from '../../api';
-import { FormSection } from '../FormSection';
-import { SoftButton } from '../SoftButton';
+import { Button, Callout, Icon } from '../ui';
 
 type ImportApiBody = {
   error?: string;
@@ -187,12 +186,6 @@ export function ImportModal() {
     }
   }, [overwriteYears, confirmOverwrite]);
 
-  useEffect(() => {
-    if (overwriteYears.length && message) {
-      setMessage(null);
-    }
-  }, [overwriteYears.length, message]);
-
   async function handleConfirmImport() {
     if (!payload || !years.length) return;
     setMessage(null);
@@ -233,124 +226,91 @@ export function ImportModal() {
     <ModalBase
       open={open}
       title="Import data"
-      icon={<img src="/icons/ui/table-import.svg" alt="" className="modal-header-icon-svg" aria-hidden="true" />}
+      icon={<Icon name="table-import" />}
       onClose={() => closeModal('import')}
       size="md"
     >
-      <div className="space-y-3 sm:space-y-4 modal-compact-mobile">
-        <FormSection>
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center w-full">
-              <button
-                type="button"
-                className="btn min-w-[180px] w-full sm:w-auto"
-                onClick={downloadTemplate}
-              >
-                Download template
-              </button>
-              <button
-                type="button"
-                className="btn min-w-[180px] w-full sm:w-auto"
-                onClick={openGuide}
-              >
-                Guide (wiki)
-              </button>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center w-full">
-              <button
-                type="button"
-                className={`btn min-w-[180px] w-full sm:w-auto min-h-[42px] whitespace-nowrap ${
-                  payload ? 'btn-warning' : ''
-                }`}
-                disabled={payload ? !canImport : isValidating}
-                onClick={payload ? handleConfirmImport : handleImportClick}
-              >
-                {payload
-                  ? isImporting
-                    ? 'Importing...'
-                    : 'Confirm import'
-                  : isValidating
-                  ? 'Validating...'
-                  : 'Import'}
-              </button>
-            </div>
+      <div className="dialog-form">
+        <div className="dialog-import-actions">
+          <Button onClick={downloadTemplate}>Download template</Button>
+          <Button variant="ghost" onClick={openGuide}>Guide (wiki)</Button>
+          <Button
+            variant="primary"
+            icon="table-import"
+            disabled={payload ? !canImport : false}
+            loading={payload ? isImporting : isValidating}
+            onClick={payload ? handleConfirmImport : handleImportClick}
+          >
+            {payload ? 'Confirm import' : 'Import'}
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".xlsx"
+            hidden
+            onChange={handleFileChange}
+          />
+        </div>
+
+        <div role="group" aria-labelledby="import-summary-label" className={`dialog-years-field ${summaryActive ? '' : 'is-inactive'}`}>
+          <p id="import-summary-label" className="ui-field-label">Import summary</p>
+          <div className="dialog-years">
+            {years.map((item) => {
+              const status = item.exists ? (item.overwrite ? 'is-overwrite' : 'is-existing') : 'is-new';
+              return (
+                <button
+                  key={item.year}
+                  type="button"
+                  className={`dialog-year ${status}`}
+                  aria-pressed={item.exists ? item.overwrite : true}
+                  aria-disabled={!item.exists}
+                  onClick={() => {
+                    if (!item.exists) return;
+                    // A changed selection replaces the previous result message. Messages
+                    // are no longer cleared while years are marked for overwrite, so a
+                    // failed import (busy, expired session) stays visible for the retry.
+                    setMessage(null);
+                    setYears((prev) =>
+                      prev.map((yearItem) =>
+                        yearItem.year === item.year
+                          ? { ...yearItem, overwrite: !yearItem.overwrite }
+                          : yearItem
+                      )
+                    );
+                  }}
+                >
+                  {item.year}
+                </button>
+              );
+            })}
+            {!years.length && <p className="dialog-years-empty">Import a template</p>}
+          </div>
+          <ul className="dialog-legend">
+            <li><span className="dialog-year is-existing" aria-hidden="true" />Exists in DB - default skip. Overwrite by marking.</li>
+            <li><span className="dialog-year is-new" aria-hidden="true" />Ready to import.</li>
+          </ul>
+        </div>
+
+        {message && (
+          <Callout tone={message.type === 'ok' ? 'success' : 'danger'} role={message.type === 'ok' ? 'status' : 'alert'}>
+            {message.text}
+          </Callout>
+        )}
+        {overwriteYears.length > 0 && (
+          <label className="dialog-confirm">
             <input
-              ref={inputRef}
-              type="file"
-              accept=".xlsx"
-              className="hidden"
-              onChange={handleFileChange}
+              type="checkbox"
+              checked={confirmOverwrite}
+              onChange={(event) => setConfirmOverwrite(event.target.checked)}
             />
-          </div>
-        </FormSection>
+            <span>Agree to overwrite: {overwriteYears.join(', ')}</span>
+          </label>
+        )}
 
-        <FormSection title="Import summary">
-          <div className={`stack-sm ${summaryActive ? '' : 'import-summary-disabled'}`}>
-            <div className="selection-card year-selection-grid import-summary-card">
-              {years.map((item) => {
-                const statusClass = item.exists
-                  ? item.overwrite
-                    ? 'import-overwrite'
-                    : 'import-existing'
-                  : 'import-new';
-                return (
-                  <button
-                    key={item.year}
-                    type="button"
-                    className={`year-tile ${statusClass}`}
-                    aria-pressed={item.exists ? item.overwrite : true}
-                    aria-disabled={!item.exists}
-                    onClick={() => {
-                      if (!item.exists) return;
-                      setYears((prev) =>
-                        prev.map((yearItem) =>
-                          yearItem.year === item.year
-                            ? { ...yearItem, overwrite: !yearItem.overwrite }
-                            : yearItem
-                        )
-                      );
-                    }}
-                  >
-                    {item.year}
-                  </button>
-                );
-              })}
-              {!years.length && <div className="selection-empty">Import a template</div>}
-            </div>
-            <div className="legend-stack text-sm text-textSec">
-              <div className="legend-row">
-                <span className="year-tile import-existing legend-swatch" aria-hidden="true" />
-                <span>Exists in DB - default skip. Overwrite by marking.</span>
-              </div>
-              <div className="legend-row">
-                <span className="year-tile import-new legend-swatch" aria-hidden="true" />
-                <span>Ready to import.</span>
-              </div>
-            </div>
-          </div>
-        </FormSection>
-
-        <div className="modal-footer-premium flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-h-[34px]">
-            {message ? (
-              <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
-                {message.text}
-              </div>
-            ) : overwriteYears.length > 0 ? (
-              <label className="flex items-center gap-2 text-sm text-textSec">
-                <input
-                  type="checkbox"
-                  className="confirm-checkbox confirm-checkbox-pulse"
-                  checked={confirmOverwrite}
-                  onChange={(event) => setConfirmOverwrite(event.target.checked)}
-                />
-                <span>Agree to overwrite: {overwriteYears.join(', ')}</span>
-              </label>
-            ) : null}
-          </div>
-          <SoftButton variant="ghost" onClick={() => closeModal('import')}>
+        <div className="ui-dialog-actions">
+          <Button variant="ghost" onClick={() => closeModal('import')}>
             Close
-          </SoftButton>
+          </Button>
         </div>
       </div>
     </ModalBase>

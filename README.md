@@ -10,7 +10,8 @@
 - ✅ Modern UI (React + Vite + Tailwind)
 - ✅ Backend API (Node.js)
 - ✅ PWA – works offline and behaves like a native app
-- ✅ Manage multiple years, entries, entry groups, reports, and savings goals
+- ✅ Manage multiple years, entries, entry groups and savings goals, with a yearly overview
+- ✅ Responsive layout: sidebar and inspector on desktop, month list and bottom tabs on phones
 - ✅ Designed for self-hosting (Docker, docker-compose, reverse proxy friendly)
 - ✅ Secured with encryption key
 - ✅ PIN session protection for frontend and backend API
@@ -21,32 +22,41 @@
 ---
 ## Demo / Screenshots
 
-### Main UI
+### Overview
 <p align="center">
-  <img src="branding/0_dark_new.png" width="45%" alt="Main UI Expenses Dark">
-  <img src="branding/0_light_new.png" width="45%" alt="Main UI Expenses Light">
+  <img src="branding/v2_overview_dark.png" width="45%" alt="Overview Dark">
+  <img src="branding/v2_overview_light.png" width="45%" alt="Overview Light">
 </p>
+
+### Expenses with the inspector
 <p align="center">
-  <img src="branding/1_dark_new.png" width="45%" alt="Main UI Incomes Dark">
-  <img src="branding/1_light_new.png" width="45%" alt="Main UI Incomes Light">
+  <img src="branding/v2_expenses_dark.png" width="45%" alt="Expenses with inspector Dark">
+  <img src="branding/v2_expenses_light.png" width="45%" alt="Expenses with inspector Light">
+</p>
+
+### Incomes
+<p align="center">
+  <img src="branding/v2_incomes_dark.png" width="45%" alt="Incomes Dark">
+  <img src="branding/v2_incomes_light.png" width="45%" alt="Incomes Light">
 </p>
 
 ### Savings
 <p align="center">
-  <img src="branding/2_dark_new.png" width="45%" alt="Savings Dark">
-  <img src="branding/2_light_new.png" width="45%" alt="Savings Light">
+  <img src="branding/v2_savings_dark.png" width="45%" alt="Savings Dark">
+  <img src="branding/v2_savings_light.png" width="45%" alt="Savings Light">
 </p>
 
-### Reports
+### Settings
 <p align="center">
-  <img src="branding/3_dark_new.png" width="45%" alt="Reports Dark">
-  <img src="branding/3_light_new.png" width="45%" alt="Reports Light">
+  <img src="branding/v2_settings_dark.png" width="45%" alt="Settings Dark">
+  <img src="branding/v2_settings_light.png" width="45%" alt="Settings Light">
 </p>
 
-### Year operations
+### Mobile
 <p align="center">
-  <img src="branding/4_dark_new.png" width="45%" alt="Year operations Dark">
-  <img src="branding/4_light_new.png" width="45%" alt="Year operations Light">
+  <img src="branding/v2_mobile_overview_dark.png" width="30%" alt="Mobile Overview Dark">
+  <img src="branding/v2_mobile_expenses_light.png" width="30%" alt="Mobile Expenses month list Light">
+  <img src="branding/v2_mobile_sheet_dark.png" width="30%" alt="Mobile entry bottom sheet Dark">
 </p>
 
 ---
@@ -55,7 +65,8 @@
 
 - Manage **financial years**
 - Add, edit, reorder, group, and delete **income and expense entries**
-- Generate **reports and summaries**
+- **Overview** of the year: income, expenses and net result compared with the previous year, month by month, where money went, savings and predictability
+- **Inspector** next to the Expenses/Incomes grid: edit a month's value, the entry's name, group and comment, and its tag without leaving the table
 - Track **savings goals** and progress
 - **Entry groups** for better table organization in incomes and expenses
 - **PIN guard** built-in with backend API session protection via `X-Mopay-Session`
@@ -195,6 +206,6 @@ If You like results of my efforts, feel free to show that by supporting me.
 
 ## Search shortcuts and mobile forms
 
-In Expenses, Incomes and Savings, press `/` or **Ctrl+K** (**Cmd+K** on macOS) to focus search when not editing another field. **Escape** clears search and leaves the field. Shortcuts do not move focus behind the PIN screen or an open dialog; search remains unavailable in Reports.
+In Expenses, Incomes and Savings, press `/` or **Ctrl+K** (**Cmd+K** on macOS) to focus search when not editing another field. **Escape** clears search and leaves the field. Shortcuts do not move focus behind the PIN screen or an open dialog; Overview and Settings have no search.
 
-On mobile, search shares the row with Year, Menu, Lock and Theme, filling the space between Menu and Lock. Editable fields keep at least 16px text on small/touch screens to avoid small-text focus zoom; manual pinch zoom remains available. The layout and font sizes were checked in Chromium mobile emulation, including landscape; real iOS/Safari keyboard behavior still needs a device check.
+Below 960 px MOPAY uses a mobile layout: a top bar with search behind an icon (the shortcuts open it) and an *Actions* menu, a bottom tab bar with Overview, Expenses, Incomes, Savings and More, and Expenses/Incomes as a month list whose entries open in a bottom sheet. Editable fields keep at least 16px text on small/touch screens to avoid small-text focus zoom; manual pinch zoom remains available. The layout was checked in Chromium mobile emulation at 320, 390 and 767 px and 900×400 landscape; real iOS/Safari keyboard behavior still needs a device check.

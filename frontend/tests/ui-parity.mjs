@@ -66,6 +66,12 @@ function createApi({ encryption = { encryptionEnabled: false, keyMismatch: false
     }
     if (method === 'GET' && path === '/api/import/template') return route.fulfill({ body: Buffer.from('synthetic template'), contentType: XLSX });
     if (method === 'POST' && path === '/api/export') return route.fulfill({ body: Buffer.from('synthetic export'), contentType: XLSX });
+    // Import: the workbook is synthetic; validation reports 2026 as existing and 2027 as new.
+    if (method === 'POST' && path === '/api/import/validate') return ok({ ok: true, years: [{ year: 2026, exists: true }, { year: 2027, exists: false }] });
+    if (method === 'POST' && path === '/api/import') {
+      state.years = [...new Set([...state.years, ...body.importYears])].sort();
+      return ok({ ok: true, imported: body.importYears, skipped: [] });
+    }
     if (method === 'POST' && path === '/api/entry-groups') {
       const group = { id: nextId++, name: body.name, sortIndex: 9 };
       state.groups[body.type].push(group);
@@ -1181,6 +1187,104 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'POST', '/api/encryption/reset', { confirm: true });
     await mismatch.getByText('Synthetic failure', { exact: true }).waitFor();
     await mismatch.waitFor();
+    assert.deepEqual(errors, []);
+  }));
+}
+
+for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme: 'dark' }]) {
+  const label = `${context.mobile ? 'mobile' : 'desktop'} ${context.theme}`;
+  const name = label.replace(' ', '-');
+
+  test(`${label}: import validation, overwrite confirmation and retry (F32)`, () => openApp({ ...context, section: null }, async ({ page, api, errors }) => {
+    let w = 0;
+    await ui.openSettings(page);
+    await ui.settingsSection(page, 'Import & export').getByRole('button', { name: 'Import…', exact: true }).click();
+    const dialog = ui.dialog(page, 'Import data');
+    const workbook = Buffer.from('synthetic workbook');
+    const chooseFile = async (fileName) => {
+      const chooser = page.waitForEvent('filechooser');
+      await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+      await (await chooser).setFiles({ name: fileName, mimeType: XLSX, buffer: workbook });
+    };
+    // A file that is not the template is rejected before anything is uploaded.
+    await chooseFile('budget.xlsx');
+    await dialog.getByRole('alert').filter({ hasText: 'Invalid import template. Check Guide' }).waitFor();
+    await expectNoWrite(api, w);
+    // The template is validated: new years are imported, existing ones skipped unless marked.
+    await chooseFile('mopay_import_template.xlsx');
+    w = await expectWrite(api, w, 'POST', '/api/import/validate', { name: 'mopay_import_template.xlsx', data: workbook.toString('base64') });
+    await dialog.getByRole('status').filter({ hasText: 'Template verified. Review the years above.' }).waitFor();
+    const summary = dialog.getByRole('group', { name: 'Import summary', exact: true });
+    const year = (value) => summary.getByRole('button', { name: String(value), exact: true });
+    assert.equal(await year(2026).getAttribute('aria-pressed'), 'false');
+    assert.equal(await year(2027).getAttribute('aria-pressed'), 'true');
+    assert.equal(await year(2027).getAttribute('aria-disabled'), 'true');
+    const confirm = dialog.getByRole('button', { name: 'Confirm import', exact: true });
+    assert.equal(await confirm.isEnabled(), true);
+    // Marking an existing year needs the overwrite confirmation.
+    await year(2026).click();
+    assert.equal(await year(2026).getAttribute('aria-pressed'), 'true');
+    assert.equal(await dialog.getByRole('status').count(), 0, 'A changed selection clears the previous message');
+    const agree = dialog.getByRole('checkbox', { name: 'Agree to overwrite: 2026', exact: true });
+    assert.equal(await confirm.isEnabled(), false);
+    await agree.check();
+    assert.equal(await confirm.isEnabled(), true);
+    await screenshot(page, `${name}-import-summary`);
+    // Phase 9 fix: a retryable failure while overwriting stays visible (it was
+    // cleared at once before) and keeps the selection and confirmation for the retry.
+    api.failNext('POST', /^\/api\/import$/, 423, { ok: false, error: 'IMPORT_IN_PROGRESS', message: 'Another import is currently running. Please wait and try again.' });
+    await confirm.click();
+    const request = { name: 'mopay_import_template.xlsx', data: workbook.toString('base64'), overwriteYears: [2026], importYears: [2026, 2027] };
+    w = await expectWrite(api, w, 'POST', '/api/import', request);
+    const failure = dialog.getByRole('alert').filter({ hasText: 'Another import is currently running. Please wait and try again.' });
+    await failure.waitFor();
+    await page.waitForTimeout(300);
+    assert.equal(await failure.isVisible(), true);
+    assert.equal(await agree.isChecked(), true);
+    await confirm.click();
+    w = await expectWrite(api, w, 'POST', '/api/import', request);
+    await dialog.getByRole('status').filter({ hasText: 'Import completed. Imported 2, skipped 0.' }).waitFor();
+    await summary.getByText('Import a template', { exact: true }).waitFor();
+    assert.equal(await dialog.getByRole('button', { name: 'Import', exact: true }).isEnabled(), true);
+    await ui.closeDialog(page).click();
+    await dialog.waitFor({ state: 'detached' });
+    // The refreshed year list offers the imported year.
+    await ui.settingsSection(page, 'Years').getByText('2025, 2026, 2027', { exact: true }).waitFor();
+    assert.deepEqual(errors, []);
+  }));
+
+  test(`${label}: PWA install prompt (F40)`, () => openApp({ ...context, section: null }, async ({ page, api, errors }) => {
+    // Chromium only fires beforeinstallprompt for installable origins; a synthetic
+    // event with the same interface drives the prompt.
+    const offer = (outcome) => page.evaluate((outcome) => {
+      const event = new Event('beforeinstallprompt', { cancelable: true });
+      event.prompt = () => { window.installPrompts = (window.installPrompts ?? 0) + 1; };
+      event.userChoice = Promise.resolve({ outcome });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    }, outcome);
+    const prompt = page.getByRole('region', { name: 'Install MOPAY', exact: true });
+    assert.equal(await offer('dismissed'), true, 'The browser mini-infobar is replaced by the app prompt');
+    await prompt.getByText('Add MOPAY to your home screen', { exact: true }).waitFor();
+    await screenshot(page, `${name}-install`);
+    if (context.mobile) {
+      // The prompt stays above the bottom tab bar, so navigation remains usable.
+      const card = await prompt.getByRole('button', { name: 'Install', exact: true }).boundingBox();
+      const tabs = await page.getByRole('navigation', { name: 'Primary' }).boundingBox();
+      assert.ok(card.y + card.height <= tabs.y, 'Install prompt above the tab bar');
+    }
+    await prompt.getByRole('button', { name: 'Install', exact: true }).click();
+    await prompt.waitFor({ state: 'detached' });
+    assert.equal(await page.evaluate(() => window.installPrompts), 1);
+    // Skip hides the prompt for the rest of the browser session.
+    await offer('dismissed');
+    await prompt.getByRole('button', { name: 'Skip', exact: true }).click();
+    await prompt.waitFor({ state: 'detached' });
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('mopay-pwa-install-dismissed')), '1');
+    assert.equal(await offer('dismissed'), false);
+    await page.waitForTimeout(100);
+    assert.equal(await prompt.count(), 0);
+    await expectNoWrite(api, 0);
     assert.deepEqual(errors, []);
   }));
 }
