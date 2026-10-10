@@ -243,7 +243,7 @@ The frontend is a single-page React application bootstrapped by Vite. The UI fol
 
 Layouts (only one is rendered at a time, chosen by `useNarrow` at 960 px, so ids, controls and queries are never duplicated):
 
-- desktop (960 px and wider): sidebar (working year, Overview, Expenses, Incomes, Savings with yearly totals, Settings, Lock session, theme, version) and a page header with search, Edit menu and *New entry* split button
+- desktop (960 px and wider): sidebar (working year, Overview, Expenses, Incomes, Savings with optional yearly totals and goal count (`showNavTotals`, off by default), Settings, Lock session, theme, version) and a page header with search, Edit menu and *New entry* split button
 - mobile (below 960 px): top bar (title, search icon, *Actions* menu), bottom tab bar (Overview, Expenses, Incomes, Savings, More) and a More sheet (Settings, working year, theme, Lock session, version)
 
 Views:

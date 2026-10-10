@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Api } from "../../api";
 import { useAppStore } from "../../store";
 import { ModalBase } from "./ModalBase";
-import { Button, Input } from "../ui";
+import { Button, Callout, Input } from "../ui";
 
 export function AddGroupModal() {
   const qc = useQueryClient();
@@ -11,6 +11,8 @@ export function AddGroupModal() {
 
   const open = modals.addGroup;
   const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -24,14 +26,24 @@ export function AddGroupModal() {
   }, [open]);
 
   async function submit() {
-    if (!name.trim() || !year) return;
+    if (!name.trim() || !year || saving) return;
 
     const type = tab === "incomes" ? "income" : "expense";
-    await Api.entryGroups.add({
-      type,
-      year,
-      name: name.trim(),
-    });
+    setSaving(true);
+    setError(null);
+    try {
+      await Api.entryGroups.add({
+        type,
+        year,
+        name: name.trim(),
+      });
+    } catch {
+      // The dialog stays open with the typed name, so the same click retries.
+      setError("Could not add the group. Try again.");
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     setName("");
     closeModal("addGroup");
@@ -44,6 +56,7 @@ export function AddGroupModal() {
   function close() {
     closeModal("addGroup");
     setName("");
+    setError(null);
   }
 
   return (
@@ -71,11 +84,12 @@ export function AddGroupModal() {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        {error && <Callout tone="danger" role="alert">{error}</Callout>}
         <div className="ui-dialog-actions">
           <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={!name.trim() || !year}>
+          <Button type="submit" variant="primary" disabled={!name.trim() || !year} loading={saving}>
             Add group
           </Button>
         </div>

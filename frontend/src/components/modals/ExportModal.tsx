@@ -22,8 +22,10 @@ export function ExportModal(){
     }
   }, [open]);
 
+  // Success messages fade after 5 s; errors stay until the next action or until
+  // the dialog closes, so a failure is not missed while the user looks away.
   useEffect(() => {
-    if (!message) return;
+    if (message?.type !== 'ok') return;
     const tm = setTimeout(() => setMessage(null), 5000);
     return () => clearTimeout(tm);
   }, [message]);

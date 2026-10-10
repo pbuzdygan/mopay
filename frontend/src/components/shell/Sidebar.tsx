@@ -13,14 +13,17 @@ type EntryValues = Record<string, number | null | undefined>;
 const yearTotal = (entries: EntryValues[]) =>
   entries.reduce((sum, entry) => sum + MONTHS.reduce((acc, month) => acc + Number((month === 'Dec' ? entry.Decm ?? entry.Dec : entry[month]) ?? 0), 0), 0);
 
+// Hidden by default (Settings → Display); while hidden nothing is fetched for them.
 function useSectionMeta(): Partial<Record<Section, string>> {
   const year = useAppStore((s) => s.year);
-  const enabled = useAppStore((s) => s.pinSession && s.financialReady) && Boolean(year);
+  const show = useAppStore((s) => s.showNavTotals);
+  const enabled = useAppStore((s) => s.pinSession && s.financialReady) && Boolean(year) && show;
   // Same query keys as the views, so the sidebar reuses their cached data.
   const expenses = useQuery({ enabled, queryKey: ['entries', 'expense', year], queryFn: () => Api.entries.list('expense', year!) });
   const incomes = useQuery({ enabled, queryKey: ['entries', 'income', year], queryFn: () => Api.entries.list('income', year!) });
   const savings = useQuery({ enabled, queryKey: ['savings', year], queryFn: () => Api.savings.list(year!) });
   const goals = savings.data?.goals?.length;
+  if (!show) return {};
   return {
     expenses: expenses.data ? formatCurrencyWhole(yearTotal(expenses.data.entries ?? [])) : undefined,
     incomes: incomes.data ? formatCurrencyWhole(yearTotal(incomes.data.entries ?? [])) : undefined,

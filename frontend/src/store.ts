@@ -101,6 +101,8 @@ type State = {
   viewMode: ViewMode;
   searchQuery: string;
   showGroupTotals: boolean;
+  /** Yearly totals and goal count next to the sidebar sections (off by default). */
+  showNavTotals: boolean;
   editMode: null | 'order' | 'remove';
   // Month picked on Overview; the Expenses grid focuses that column once, then clears it.
   gridMonthRequest: MonthKey | null;
@@ -157,6 +159,7 @@ type State = {
   setLatestReleaseUrl: (url: string | null) => void;
   setReleaseChannel: (channel: string | null) => void;
   setShowGroupTotals: (active: boolean) => void;
+  setShowNavTotals: (active: boolean) => void;
 };
 
 // Builds before D6 stored only `theme`; their choice becomes the mode.
@@ -179,6 +182,7 @@ export const useAppStore = create<State>((set, get) => ({
   viewMode: load<ViewMode>('viewMode', 'normal'),
   searchQuery: '',
   showGroupTotals: load<boolean>('showGroupTotals', false),
+  showNavTotals: load<boolean>('showNavTotals', false),
   editMode: null,
   gridMonthRequest: null,
   listMonth: null,
@@ -256,6 +260,10 @@ export const useAppStore = create<State>((set, get) => ({
 
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 
+  setShowNavTotals: (showNavTotals) => {
+    save('showNavTotals', showNavTotals);
+    set({ showNavTotals });
+  },
   setShowGroupTotals: (showGroupTotals) => {
     save('showGroupTotals', showGroupTotals);
     set({ showGroupTotals });

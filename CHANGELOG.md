@@ -1,11 +1,11 @@
 # Changelog
 
-## v2.0.0 (unreleased)
+## v2.0.0
 
 New Final Ledger user interface. Data, API, database, encryption, configuration, Docker setup and XLSX formats are unchanged; no migration is required.
 
 ### Breaking UI changes
-- **new navigation**: on screens 960 px and wider a sidebar holds the working year, Overview, Expenses, Incomes and Savings (with yearly totals), Settings, Lock session, the theme switch and the version/update link; each page has a header with search, an *Edit* menu and a *New entry* split button (with *New group*). The toolbar and its menu are gone
+- **new navigation**: on screens 960 px and wider a sidebar holds the working year, Overview, Expenses, Incomes and Savings (yearly totals and goal count can be shown with Settings → Display → *Show totals in the sidebar*, off by default), Settings, Lock session, the theme switch and the version/update link; each page has a header with search, an *Edit* menu (Arrange, Remove) and a *New entry* split button (with *New group*). The toolbar and its menu are gone
 - **Reports is renamed Overview**, is listed first and is always the start page after loading or unlocking; the selected year is still remembered
 - **Tags mode is removed**; tags are set in the inspector (desktop) or the bottom sheet (mobile)
 - **a single click on a month only selects it**; a double-click or Shift+Enter opens the inspector, and Enter, F2 or typing a number edits the value in place
@@ -36,6 +36,8 @@ New Final Ledger user interface. Data, API, database, encryption, configuration,
 - savings items are added with a form (note, amount and *Contribution* or *Temporary withdrawal*) instead of an empty row; a withdrawal is marked next to its note
 - removing a savings goal now asks for confirmation in a dialog that says how many items are removed; the goal menu (⋯) holds *Remove goal*
 - new theme option **System** that follows the device setting
+- new Display option *Show totals in the sidebar* (off by default)
+- error messages in the export and import dialogs stay until the next action or until the dialog closes; only success messages disappear after 5 s (errors used to disappear after 5 s too, and could be missed during a long import)
 - creating a year now makes it the working year
 - deleting years moved to the Danger zone: the working year cannot be deleted (so at least one year always remains and the working year stays selected), the selected years must be typed to confirm, and a reminder offers an export first
 - Settings → About shows when updates were last checked and offers *Check again*; Security shows whether encryption is active
@@ -59,6 +61,7 @@ New Final Ledger user interface. Data, API, database, encryption, configuration,
 - failures when adding or deleting a year or downloading the import template are now shown
 - typing into a month without a value no longer saves a negative number ("55" became "-55" after Enter, F2 or a double-click) or 0 (in the inspector); the editor opens empty, an existing value is selected so typing replaces it, and leaving a month unchanged saves nothing. The fault was already present in v1.6.3
 - saving a value with Enter no longer reopens a closed inspector
+- a failed *New entry* or *New group* is now shown in the dialog, which keeps the typed name for another try; previously nothing was shown. The fault was already present in v1.6.3
 - an import error (for example another import running, a busy database or an expired session) is now shown when years are marked for overwrite; previously the message was cleared immediately, and changing the year selection now clears an earlier result instead
 
 ### Upgrade notes

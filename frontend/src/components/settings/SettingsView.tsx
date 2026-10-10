@@ -97,6 +97,8 @@ function DisplaySection() {
   const viewMode = useAppStore((s) => s.viewMode);
   const setViewMode = useAppStore((s) => s.setViewMode);
   const showGroupTotals = useAppStore((s) => s.showGroupTotals);
+  const showNavTotals = useAppStore((s) => s.showNavTotals);
+  const setShowNavTotals = useAppStore((s) => s.setShowNavTotals);
   const setShowGroupTotals = useAppStore((s) => s.setShowGroupTotals);
 
   return (
@@ -130,6 +132,9 @@ function DisplaySection() {
       </Row>
       <Row title="Show group totals" description="Subtotals in group rows of Expenses and Incomes.">
         {(titleId) => <Switch checked={showGroupTotals} onChange={setShowGroupTotals} labelledBy={titleId} />}
+      </Row>
+      <Row title="Show totals in the sidebar" description="Yearly totals next to Expenses and Incomes and the number of goals next to Savings (screens 960 px and wider).">
+        {(titleId) => <Switch checked={showNavTotals} onChange={setShowNavTotals} labelledBy={titleId} />}
       </Row>
     </Section>
   );

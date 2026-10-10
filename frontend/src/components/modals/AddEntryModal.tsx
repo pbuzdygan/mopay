@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../../api";
 import { useAppStore } from "../../store";
 import { ModalBase } from "./ModalBase";
-import { Button, Input, Select } from "../ui";
+import { Button, Callout, Input, Select } from "../ui";
 
 export function AddEntryModal() {
   const qc = useQueryClient();
@@ -12,6 +12,8 @@ export function AddEntryModal() {
   const open = modals.add;
   const [name, setName] = useState("");
   const [groupId, setGroupId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const type = tab === "incomes" ? "income" : "expense";
   const groupsQ = useQuery({
@@ -34,14 +36,24 @@ export function AddEntryModal() {
   }, [open, addEntryGroupId]);
 
   async function submit() {
-    if (!name.trim() || !year) return;
+    if (!name.trim() || !year || saving) return;
 
-    await Api.entries.add({
-      type: tab === "incomes" ? "income" : "expense",
-      year,
-      name: name.trim(),
-      groupId,
-    });
+    setSaving(true);
+    setError(null);
+    try {
+      await Api.entries.add({
+        type: tab === "incomes" ? "income" : "expense",
+        year,
+        name: name.trim(),
+        groupId,
+      });
+    } catch {
+      // The dialog stays open with the typed name and group, so the same click retries.
+      setError("Could not add the entry. Try again.");
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     setName("");
     setGroupId(null);
@@ -56,6 +68,7 @@ export function AddEntryModal() {
     closeModal("add");
     setName("");
     setGroupId(null);
+    setError(null);
   }
 
   return (
@@ -95,11 +108,12 @@ export function AddEntryModal() {
             <option key={group.id} value={group.id}>{group.name}</option>
           ))}
         </Select>
+        {error && <Callout tone="danger" role="alert">{error}</Callout>}
         <div className="ui-dialog-actions">
           <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={!name.trim() || !year}>
+          <Button type="submit" variant="primary" disabled={!name.trim() || !year} loading={saving}>
             Add entry
           </Button>
         </div>

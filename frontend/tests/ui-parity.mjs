@@ -418,6 +418,15 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     await addEntry.waitFor();
     await expectValue(addEntry.getByRole('combobox', { name: 'Place entry in' }), '10');
     await addEntry.getByRole('textbox', { name: 'Name' }).fill('Water');
+    // Fix after Phase 9: a failed add is shown and keeps the dialog with the typed
+    // name and group (it was an unhandled rejection without a message); the same
+    // button retries.
+    api.failNext('POST', /^\/api\/entries$/);
+    await addEntry.getByRole('button', { name: 'Add entry', exact: true }).click();
+    w = await expectWrite(api, w, 'POST', '/api/entries', { type: 'expense', year: 2026, name: 'Water', groupId: 10 });
+    await addEntry.getByRole('alert').filter({ hasText: 'Could not add the entry. Try again.' }).waitFor();
+    await expectValue(addEntry.getByRole('textbox', { name: 'Name' }), 'Water');
+    await expectValue(addEntry.getByRole('combobox', { name: 'Place entry in' }), '10');
     await addEntry.getByRole('button', { name: 'Add entry', exact: true }).click();
     w = await expectWrite(api, w, 'POST', '/api/entries', { type: 'expense', year: 2026, name: 'Water', groupId: 10 });
     await ui.rowName(page, 'Water').waitFor();
@@ -1121,6 +1130,12 @@ for (const mobile of [false, true]) {
       const group = ui.dialog(page, 'Add expense group');
       await group.getByRole('textbox', { name: 'Name' }).fill('Leisure');
       await screenshot(page, `${name}-new-group`);
+      // Fix after Phase 9: a failure is shown, the dialog keeps the name, Add group retries.
+      api.failNext('POST', /^\/api\/entry-groups$/);
+      await group.getByRole('button', { name: 'Add group', exact: true }).click();
+      w = await expectWrite(api, w, 'POST', '/api/entry-groups', { type: 'expense', year: 2026, name: 'Leisure' });
+      await group.getByRole('alert').filter({ hasText: 'Could not add the group. Try again.' }).waitFor();
+      await expectValue(group.getByRole('textbox', { name: 'Name' }), 'Leisure');
       await group.getByRole('button', { name: 'Add group', exact: true }).click();
       w = await expectWrite(api, w, 'POST', '/api/entry-groups', { type: 'expense', year: 2026, name: 'Leisure' });
       await page.getByText('Leisure', { exact: true }).waitFor();
@@ -1308,7 +1323,8 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
     w = await expectWrite(api, w, 'POST', '/api/import', request);
     const failure = dialog.getByRole('alert').filter({ hasText: 'Another import is currently running. Please wait and try again.' });
     await failure.waitFor();
-    await page.waitForTimeout(300);
+    // Errors stay until the next action (only success messages fade after 5 s).
+    await page.waitForTimeout(5500);
     assert.equal(await failure.isVisible(), true);
     assert.equal(await agree.isChecked(), true);
     await confirm.click();
@@ -1416,17 +1432,27 @@ for (const theme of ['light', 'dark']) {
     const boxes = await nav.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()).map(({ x, y, width }) => ({ x, y, width })));
     assert.ok(boxes.every((box, i) => box.x === boxes[0].x && box.width === boxes[0].width && (i === 0 || box.y > boxes[i - 1].y)), JSON.stringify(boxes));
     assert.equal(await ui.search(page).count(), 0, 'Overview has no search field');
-    // Section totals follow the data and inline edits (whole units).
-    assert.equal(await page.locator('#sidebar-meta-expenses').textContent(), '1 380');
-    assert.equal(await page.locator('#sidebar-meta-incomes').textContent(), '5 000');
-    assert.equal(await page.locator('#sidebar-meta-savings').textContent(), '2 goals');
+    // Section totals are hidden by default (user request after Phase 9) and
+    // switched on in Settings → Display; the choice is stored.
+    for (const name of ['Expenses', 'Incomes', 'Savings']) assert.equal(await ui.sidebarTotal(page, name), null);
+    await ui.openSettings(page);
+    const navTotals = ui.settingsSection(page, 'Display').getByRole('switch', { name: 'Show totals in the sidebar', exact: true });
+    assert.equal(await navTotals.getAttribute('aria-checked'), 'false');
+    await navTotals.click();
+    assert.equal(await page.evaluate(() => localStorage.getItem('showNavTotals')), 'true');
+    // They follow the data and inline edits (whole units).
+    await expectText(page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Expenses', exact: true }), /1 380$/);
+    assert.equal(await ui.sidebarTotal(page, 'Expenses'), '1 380');
+    assert.equal(await ui.sidebarTotal(page, 'Incomes'), '5 000');
+    assert.equal(await ui.sidebarTotal(page, 'Savings'), '2 goals');
     await ui.openSection(page, 'Expenses');
     assert.equal(await ui.currentSection(page), 'Expenses');
     await ui.editCell(page, 'Groceries', 'Jan');
     await ui.cellInput(page, 'Groceries', 'Jan').fill('25,5');
     await ui.cellInput(page, 'Groceries', 'Jan').press('Enter');
     w = await expectWrite(api, w, 'PATCH', '/api/entries/1', { Jan: 25.5 });
-    await expectText(page.locator('#sidebar-meta-expenses'), /^1 306$/);
+    await expectText(page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Expenses', exact: true }), /1 306$/);
+    assert.equal(await ui.sidebarTotal(page, 'Expenses'), '1 306');
 
     // Working year: keyboard listbox, persisted per mode.
     const yearSwitch = ui.yearSwitch(page);
@@ -1493,13 +1519,16 @@ for (const theme of ['light', 'dark']) {
     const menu = page.getByRole('menu', { name: 'Edit' });
     await menu.waitFor();
     const focused = () => page.evaluate(() => document.activeElement?.textContent);
-    // D3: Tags mode is gone; tagging lives in the inspector.
-    assert.deepEqual(await menu.getByRole('menuitem').allTextContents(), ['Arrange', 'Remove', 'New group']);
+    // D3: Tags mode is gone; tagging lives in the inspector. New group is only in
+    // the New entry split button (removed from Edit after Phase 9, it was listed twice).
+    assert.deepEqual(await menu.getByRole('menuitem').allTextContents(), ['Arrange', 'Remove']);
     assert.equal(await focused(), 'Arrange');
     await page.keyboard.press('ArrowDown');
     assert.equal(await focused(), 'Remove');
+    await page.keyboard.press('Home');
+    assert.equal(await focused(), 'Arrange');
     await page.keyboard.press('End');
-    assert.equal(await focused(), 'New group');
+    assert.equal(await focused(), 'Remove');
     await page.keyboard.press('Home');
     assert.equal(await focused(), 'Arrange');
     await page.keyboard.press('Escape');

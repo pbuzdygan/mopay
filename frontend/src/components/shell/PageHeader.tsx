@@ -74,7 +74,6 @@ export function PageHeader() {
   const editItems: MenuItem[] = [
     { label: 'Arrange', icon: 'arrows-sort', onSelect: () => selectEditMode('order') },
     { label: 'Remove', icon: 'trash', onSelect: () => selectEditMode('remove') },
-    { label: 'New group', icon: 'folder', onSelect: () => openModal('addGroup'), separatorBefore: true },
   ];
 
   if (settingsOpen) {

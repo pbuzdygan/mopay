@@ -49,6 +49,10 @@ export const ui = {
   section: (page, name) => page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name, exact: true })
     .or(page.getByRole('tab', { name, exact: true })),
   openSection: (page, name) => ui.section(page, name).click(),
+  // Sidebar total of a section (its accessible description); null while hidden
+  // (Settings → Display → Show totals in the sidebar, off by default).
+  sidebarTotal: (page, name) => page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name, exact: true })
+    .evaluate(node => document.getElementById(node.getAttribute('aria-describedby') ?? '')?.textContent ?? null),
   // True below 960 px, where the mobile layout (plan Phase 8) is rendered.
   narrow: (page) => page.evaluate(() => matchMedia('(max-width: 959px)').matches),
   // Bottom tab bar item that opens the More sheet (mobile layout).
