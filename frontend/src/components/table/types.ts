@@ -1,4 +1,4 @@
-import type { TagColor } from '../TagEditorPopover';
+export type TagColor = 'none' | 'grey' | 'green' | 'orange' | 'red';
 
 export type EntryTag = {
   id: number;
@@ -31,3 +31,9 @@ export type EntryRowData = {
 };
 
 export type EntryPatch = Partial<EntryRowData>;
+
+/** What the inspector shows: a month cell, an entry (name click) or a group row. */
+export type GridSelection =
+  | { kind: 'cell'; entryId: number; month: string }
+  | { kind: 'entry'; entryId: number }
+  | { kind: 'group'; groupId: number };

@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept A · Ledger</title>
+<link rel="stylesheet" href="shared/chrome.css">
+<style>
+/* ---------- Design tokens (Concept A) ---------- */
+:root {
+  --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #F7F8FA; --surface-3: #EEF0F4;
+  --border: #E2E4EA; --border-strong: #CDD0D9;
+  --text-1: #1B1C22; --text-2: #555966; --text-3: #6B6F7A;
+  --accent: #5B54C6; --accent-hover: #4C46B0; --on-accent: #FFFFFF; --accent-soft: rgba(91, 84, 198, .10); --accent-text: #4A43B5;
+  --focus: rgba(91, 84, 198, .45);
+  --success: #17805A; --warning: #A86A08; --danger: #C2413A; --info: #2D6CD6;
+  --success-soft: rgba(23,128,90,.10); --danger-soft: rgba(194,65,58,.10); --warning-soft: rgba(168,106,8,.12);
+  --tag-grey: #8D93A1; --tag-green: #23A26F; --tag-orange: #E08A1E; --tag-red: #D9534A;
+  --shadow-pop: 0 8px 28px rgba(20, 22, 35, .14), 0 1px 3px rgba(20, 22, 35, .08);
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
+  --row-h: 36px;
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #15151A; --surface: #1C1C23; --surface-2: #22222A; --surface-3: #2A2A33;
+  --border: #2E2E38; --border-strong: #3C3C48;
+  --text-1: #E7E7EC; --text-2: #A5A5B0; --text-3: #8C8C98;
+  --accent: #8F89E8; --accent-hover: #A39EF0; --on-accent: #16142E; --accent-soft: rgba(143, 137, 232, .14); --accent-text: #B0ABF5;
+  --focus: rgba(143, 137, 232, .5);
+  --success: #4CC38A; --warning: #E3A54C; --danger: #F07167; --info: #6EA2F5;
+  --success-soft: rgba(76,195,138,.12); --danger-soft: rgba(240,113,103,.12); --warning-soft: rgba(227,165,76,.14);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-1); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.i { width: 18px; height: 18px; flex: none; }
+.i-sm { width: 16px; height: 16px; flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-3); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- App shell ---------- */
+.app { display: grid; grid-template-columns: 224px 1fr; min-height: calc(100vh - 41px); }
+.sidebar {
+  position: sticky; top: 41px; height: calc(100vh - 41px);
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 12px; background: var(--surface); border-right: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-weight: 700; letter-spacing: .02em; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 15px; font-weight: 800; }
+.year-switch {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: 8px 10px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface-2); cursor: pointer; text-align: left;
+}
+.year-switch small { display: block; font-size: 11px; color: var(--text-3); line-height: 1.2; }
+.year-switch strong { font-size: 15px; }
+.nav-label { font-size: 11px; font-weight: 600; color: var(--text-3); padding: 12px 10px 4px; letter-spacing: .04em; text-transform: uppercase; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 10px;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-2); cursor: pointer; text-align: left;
+  transition: background 150ms, color 150ms;
+}
+.nav-item:hover { background: var(--surface-3); color: var(--text-1); }
+.nav-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+.nav-item .meta { margin-left: auto; font-size: 12px; color: var(--text-3); font-weight: 400; }
+.sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); padding-top: 8px; }
+.theme-seg { display: flex; gap: 2px; padding: 2px; margin: 6px 10px 0; background: var(--surface-3); border-radius: var(--r-sm); }
+.theme-seg button { flex: 1; height: 28px; border: 0; border-radius: 5px; background: transparent; color: var(--text-2); display: grid; place-items: center; cursor: pointer; }
+.theme-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.version { font-size: 12px; color: var(--text-3); padding: 8px 10px 0; display: flex; align-items: center; gap: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; }
+
+.main { min-width: 0; padding: 24px 24px 48px; }
+
+/* ---------- Page header & toolbar ---------- */
+.page-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.page-title h1 { margin: 0; font-size: 28px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; }
+.page-title h1 span { color: var(--text-3); font-weight: 500; }
+.page-title p { margin: 4px 0 0; color: var(--text-2); }
+.toolbar { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.search {
+  display: flex; align-items: center; gap: 8px; width: 260px; height: 36px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-3);
+}
+.search input { border: 0; outline: 0; background: transparent; flex: 1; min-width: 0; color: var(--text-1); }
+.kbd { font-size: 11px; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; color: var(--text-3); background: var(--surface-2); }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
+  border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); color: var(--text-1);
+  font-weight: 550; cursor: pointer; transition: background 150ms, border-color 150ms; white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-danger:hover { filter: brightness(.95); background: var(--danger); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--text-2); }
+.btn-ghost:hover { background: var(--surface-3); color: var(--text-1); }
+.btn-icon { width: 36px; padding: 0; justify-content: center; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.split { display: inline-flex; }
+.split .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split .btn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 8px; border-left: 1px solid color-mix(in srgb, var(--on-accent) 25%, transparent); }
+
+/* ---------- Summary strip (numbers, not cards) ---------- */
+.summary { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 20px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.summary > div { padding: 12px 24px 12px 0; margin-right: 24px; border-right: 1px solid var(--border); }
+.summary > div:last-child { border-right: 0; }
+.summary dt { font-size: 12px; color: var(--text-3); }
+.summary dd { margin: 2px 0 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary dd small { font-size: 12px; font-weight: 500; margin-left: 6px; }
+.up { color: var(--danger); } .down { color: var(--success); }
+
+/* ---------- Grid table ---------- */
+.table-wrap { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: auto; max-height: calc(100vh - 290px); }
+table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1080px; font-size: 13px; }
+.grid th, .grid td { height: var(--row-h); padding: 0 6px; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.grid thead th {
+  position: sticky; top: 0; z-index: 3; background: var(--surface); height: 40px;
+  font-size: 12px; font-weight: 600; color: var(--text-3); text-align: right; letter-spacing: .02em;
+}
+.grid thead th:first-child { text-align: left; }
+.grid th.col-name, .grid td.col-name { position: sticky; left: 0; z-index: 2; background: inherit; text-align: left; width: 180px; min-width: 180px; padding-left: 12px; border-right: 1px solid var(--border); }
+.grid thead th.col-name { z-index: 4; background: var(--surface); }
+.grid tbody tr { background: var(--surface); }
+.grid tbody tr.entry:hover { background: var(--surface-2); }
+.grid td { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-1); }
+.grid td.empty { color: var(--text-3); }
+.grid td.col-sum { font-weight: 600; border-left: 1px solid var(--border); }
+.grid td.col-avg, .grid th.col-avg { color: var(--text-2); }
+.grid .is-current { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.grid thead th.is-current { color: var(--accent-text); }
+.grid thead th.is-current span { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--accent-soft); }
+.entry-name { display: flex; align-items: center; gap: 8px; }
+.entry-name button { border: 0; background: none; padding: 0; cursor: pointer; color: var(--text-1); text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.entry-name button:hover { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
+.entry-name .i-sm { color: var(--text-3); }
+tr.group td { background: var(--surface-2); height: 34px; font-weight: 600; color: var(--text-2); font-size: 12px; }
+tr.group td.col-name { color: var(--text-1); font-size: 13px; }
+.group-toggle { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; cursor: pointer; color: inherit; font-weight: 600; }
+.count { font-size: 11px; font-weight: 600; color: var(--text-3); background: var(--surface-3); border-radius: 4px; padding: 0 5px; }
+.grid tfoot td {
+  position: sticky; bottom: 0; z-index: 2; background: var(--surface); border-top: 1px solid var(--border-strong);
+  border-bottom: 0; font-weight: 650; height: 40px;
+}
+.grid tfoot td.col-name { z-index: 3; }
+
+/* Cell states */
+.cell { position: relative; }
+.cell.tagged::before { content: ""; position: absolute; left: 4px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--tag-c); }
+.cell.noted::after { content: ""; position: absolute; right: 2px; top: 2px; border: 4px solid transparent; border-top-color: var(--tag-c, var(--text-3)); border-right-color: var(--tag-c, var(--text-3)); }
+.cell.selected { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 2px; }
+.cell.editing { padding: 2px 4px; }
+.cell.editing input { position: absolute; right: 2px; top: 3px; z-index: 2; width: max(calc(100% - 4px), 96px); height: 30px; box-shadow: var(--shadow-pop); text-align: right; border: 2px solid var(--accent); border-radius: 4px; padding: 0 6px; background: var(--surface); font-variant-numeric: tabular-nums; outline: 0; }
+.tag-mode .cell { cursor: crosshair; }
+.tag-mode .cell:hover { background: var(--accent-soft); }
+.chk { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+tr.selected-row td { background: var(--danger-soft) !important; }
+.handle { color: var(--text-3); cursor: grab; display: grid; place-items: center; }
+
+/* Mode banner */
+.mode-bar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 16px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--r-md); background: var(--surface);
+}
+.mode-bar strong { font-weight: 600; }
+.mode-bar p { margin: 0; color: var(--text-2); }
+.mode-bar .btn { margin-left: auto; height: 32px; }
+
+/* Bulk action bar */
+.bulk-bar {
+  position: sticky; bottom: 16px; z-index: 10; margin: 12px auto 0; width: max-content;
+  display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px;
+  background: var(--text-1); color: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
+}
+.bulk-bar .btn-ghost { color: var(--surface); opacity: .8; }
+.bulk-bar .btn-ghost:hover { background: rgba(255,255,255,.1); color: var(--surface); opacity: 1; }
+
+/* Popover */
+.popover {
+  position: absolute; z-index: 20; width: 280px; padding: 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
+}
+.popover h3 { margin: 0 0 2px; font-size: 14px; }
+.popover .sub { margin: 0 0 12px; font-size: 12px; color: var(--text-3); }
+.field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin: 0 0 6px; }
+.swatches { display: flex; gap: 6px; margin-bottom: 12px; }
+.swatch { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--sw); cursor: pointer; display: grid; place-items: center; color: #fff; }
+.swatch[data-c="none"] { background: var(--surface); color: var(--text-3); }
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.input, textarea.input, select.input {
+  width: 100%; min-height: 36px; padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: var(--r-sm);
+  background: var(--surface); outline: 0;
+}
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pop-actions { display: flex; gap: 8px; margin-top: 12px; }
+.pop-actions .btn { height: 32px; padding: 0 12px; }
+.pop-actions .spacer { flex: 1; }
+
+/* Drawer (entry details) */
+.drawer-scrim { position: fixed; inset: 41px 0 0 0; background: rgba(15, 16, 24, .32); z-index: 30; }
+.drawer {
+  position: fixed; top: 41px; right: 0; bottom: 0; width: 400px; z-index: 31; display: flex; flex-direction: column;
+  background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--shadow-pop);
+}
+.drawer header { display: flex; align-items: flex-start; gap: 12px; padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+.drawer header h2 { margin: 0; font-size: 18px; }
+.drawer header p { margin: 2px 0 0; font-size: 13px; color: var(--text-3); }
+.drawer .body { flex: 1; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.drawer footer { display: flex; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--border); }
+.drawer footer .spacer { flex: 1; }
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stat-row dt { font-size: 12px; color: var(--text-3); }
+.stat-row dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; align-items: end; height: 72px; }
+.bars span { background: var(--surface-3); border-radius: 3px 3px 0 0; position: relative; }
+.bars span.cur { background: var(--accent); }
+.bars-l { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; font-size: 10px; color: var(--text-3); text-align: center; margin-top: 4px; }
+.danger-zone { border: 1px solid var(--danger-soft); border-radius: var(--r-md); padding: 12px; display: flex; align-items: center; gap: 12px; }
+.danger-zone p { margin: 0; font-size: 13px; color: var(--text-2); flex: 1; }
+
+/* Savings list */
+.goals { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.goal { border-bottom: 1px solid var(--border); }
+.goal:last-child { border-bottom: 0; }
+.goal-head { display: grid; grid-template-columns: 28px minmax(180px, 1.4fr) 1fr 1.6fr 64px 40px; align-items: center; gap: 16px; padding: 14px 16px; }
+.goal-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.goal-head .amt { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 13px; }
+.goal-head .amt strong { color: var(--text-1); font-size: 14px; }
+.progress { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.progress.done > span { background: var(--success); }
+.pct { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.goal-items { padding: 0 16px 12px 60px; }
+.goal-items table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.goal-items th { text-align: left; font-size: 12px; font-weight: 600; color: var(--text-3); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.goal-items th.v, .goal-items td.v { text-align: right; }
+.goal-items td { padding: 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.goal-items tr:hover td { background: var(--surface-2); }
+.goal-items td.act { width: 40px; text-align: right; opacity: 0; }
+.goal-items tr:hover td.act { opacity: 1; }
+.badge { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+.badge-warn { background: var(--warning-soft); color: var(--warning); }
+.goal-foot { display: flex; align-items: center; padding: 8px; font-size: 13px; }
+.goal-foot .spacer { flex: 1; }
+
+/* Dialog */
+.dialog-scrim { position: fixed; inset: 41px 0 0 0; background: rgba(15, 16, 24, .45); z-index: 40; display: grid; place-items: center; padding: 16px; }
+.dialog { width: 520px; max-width: 100%; background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-pop); border: 1px solid var(--border); }
+.dialog header { display: flex; align-items: flex-start; gap: 12px; padding: 20px 24px 0; }
+.dialog header h2 { margin: 0; font-size: 18px; }
+.dialog header p { margin: 4px 0 0; color: var(--text-2); font-size: 13px; }
+.dialog .body { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+.dialog section h3 { margin: 0 0 8px; font-size: 14px; }
+.dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--border); }
+.row { display: flex; gap: 8px; align-items: center; }
+.year-list { border: 1px solid var(--border); border-radius: var(--r-md); }
+.year-list label { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.year-list label:last-child { border-bottom: 0; }
+.year-list .meta { margin-left: auto; font-size: 12px; color: var(--text-3); }
+.callout { display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--danger-soft); color: var(--text-1); font-size: 13px; }
+.callout .i { color: var(--danger); }
+.hint { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+
+/* Mobile top bar: sidebar becomes a drawer behind the menu button */
+.mobile-bar { display: none; }
+/* Responsive */
+@media (max-width: 960px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .mobile-bar { display: flex; align-items: center; gap: 8px; position: sticky; top: 41px; z-index: 20; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .mobile-bar .brand { padding: 0; }
+  .mobile-bar .year-switch { width: auto; margin: 0 0 0 auto; padding: 4px 10px; gap: 6px; }
+  .summary > div { padding-right: 16px; margin-right: 16px; }
+  .main { padding: 16px; }
+  .search { width: 100%; }
+  .toolbar { width: 100%; margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="mock-chrome">
+  <span class="mock-chrome-title">Concept A · Ledger <small>sidebar shell + spreadsheet-grade grid</small></span>
+  <div class="mock-chrome-group" role="group" aria-label="Screen">
+    <button data-screen-link="expenses">Expenses</button>
+    <button data-screen-link="details">Entry drawer</button>
+    <button data-screen-link="tags">Tag mode</button>
+    <button data-screen-link="remove">Remove mode</button>
+    <button data-screen-link="savings">Savings</button>
+    <button data-screen-link="yearops">Year operations</button>
+  </div>
+  <div class="mock-chrome-spacer"></div>
+  <div class="mock-chrome-group" role="group" aria-label="Theme">
+    <button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button>
+  </div>
+  <a href="index.html">All concepts</a>
+</div>
+
+<div class="app">
+  <aside class="sidebar" aria-label="Primary">
+    <div class="brand"><span class="brand-mark">M</span>MOPAY</div>
+    <button class="year-switch" aria-haspopup="listbox"><span><small>Working year</small><strong>2026</strong></span><svg class="i-sm"><use href="#i-chevron-down"/></svg></button>
+    <nav id="nav"></nav>
+    <div class="nav-label">Data</div>
+    <button class="nav-item"><svg class="i"><use href="#i-calendar"/></svg>Year operations</button>
+    <button class="nav-item"><svg class="i"><use href="#i-import"/></svg>Import data</button>
+    <button class="nav-item"><svg class="i"><use href="#i-export"/></svg>Export data</button>
+    <div class="sidebar-foot">
+      <button class="nav-item"><svg class="i"><use href="#i-settings"/></svg>Settings</button>
+      <button class="nav-item"><svg class="i"><use href="#i-lock"/></svg>Lock session<span class="meta kbd">L</span></button>
+      <div class="theme-seg" role="group" aria-label="Theme">
+        <button data-theme-set="light" aria-label="Light theme"><svg class="i-sm"><use href="#i-sun"/></svg></button>
+        <button data-theme-set="dark" aria-label="Dark theme"><svg class="i-sm"><use href="#i-moon"/></svg></button>
+      </div>
+      <div class="version"><span class="dot"></span>v2.6.0 · up to date</div>
+    </div>
+  </aside>
+
+  <div class="mobile-bar">
+    <button class="btn btn-ghost btn-icon" aria-label="Open navigation"><svg class="i"><use href="#i-menu"/></svg></button>
+    <div class="brand"><span class="brand-mark">M</span>Expenses</div>
+    <button class="year-switch"><strong>2026</strong><svg class="i-sm"><use href="#i-chevron-down"/></svg></button>
+    <button class="btn btn-ghost btn-icon" aria-label="Lock session"><svg class="i"><use href="#i-lock"/></svg></button>
+  </div>
+  <main class="main">
+    <!-- Expenses (default) -->
+    <section class="mock-screen" id="screen-expenses"></section>
+    <section class="mock-screen" id="screen-details" hidden></section>
+    <section class="mock-screen" id="screen-tags" hidden></section>
+    <section class="mock-screen" id="screen-remove" hidden></section>
+    <section class="mock-screen" id="screen-savings" hidden></section>
+    <section class="mock-screen" id="screen-yearops" hidden></section>
+  </main>
+</div>
+
+<div class="mock-notes">
+  <div data-notes="expenses">
+    <h2>Expenses – what changes and why</h2>
+    <ul>
+      <li><b>Stable application shell</b> (§34, §37): primary navigation, working year and data operations move to a sidebar. The year is global context, so it sits above the sections it affects instead of beside search.</li>
+      <li><b>Compact page header</b> (§36): title + count, one primary action (<i>New entry</i> split button with <i>New group</i>), secondary <i>Edit</i> menu holding Arrange / Remove / Tags. Same functions as today's <code>New ▾</code> and <code>Actions ▾</code>.</li>
+      <li><b>Summary strip</b> instead of nothing: year total, monthly average, current month vs average, highest month. Numbers only – no decorative cards (§21).</li>
+      <li><b>Grid built for scanning</b> (§13): real <code>&lt;table&gt;</code>, sticky header, sticky name column and sticky totals row; groups become subtle section rows with inline subtotals instead of saturated purple bars, so colour is left for meaning.</li>
+      <li><b>Tags</b> render as a thin coloured bar inside the cell plus a corner mark when a note exists – visible without hiding the number.</li>
+      <li><span class="tag-new">Better</span><b>Keyboard editing</b>: arrows/Tab move the cell cursor, Enter or typing starts editing, Esc cancels – spreadsheet behaviour on top of the existing per-cell PATCH.</li>
+      <li><span class="tag-new">Better</span>Group subtotals are always visible in the group row; the <i>Show group totals</i> setting can remain as an opt-out.</li>
+    </ul>
+  </div>
+  <div data-notes="details" hidden>
+    <h2>Entry drawer</h2>
+    <ul>
+      <li>Replaces the centred context panel with a right-side drawer (§39 list → drawer). The table stays visible for orientation.</li>
+      <li>Same fields as today (name, group, comment, remove) plus read-only insight: sum, average, highest month and a 12-month bar strip computed client-side from data already loaded.</li>
+      <li>Destructive action sits in a separated area with explicit label <i>Remove entry</i> and a confirmation step (§12, §20).</li>
+    </ul>
+  </div>
+  <div data-notes="tags" hidden>
+    <h2>Tag mode</h2>
+    <ul>
+      <li>A mode banner states which mode is active and how to leave it (§11 "where am I"). Today's state is only visible in the button label.</li>
+      <li>Popover keeps today's tag model (none / grey / green / orange / red + note) with labelled colour swatches and explicit <i>Save tag</i> / <i>Clear tag</i>.</li>
+    </ul>
+  </div>
+  <div data-notes="remove" hidden>
+    <h2>Remove mode</h2>
+    <ul>
+      <li>Checkbox column appears in place; groups can be selected as a whole. Selected rows are tinted red.</li>
+      <li>A floating bulk bar shows the selection count and the destructive action with a specific label (<i>Remove 2 entries</i>) – fulfils §9 action labels.</li>
+      <li>Arrange mode uses the same pattern with drag handles in the same column.</li>
+    </ul>
+  </div>
+  <div data-notes="savings" hidden>
+    <h2>Savings</h2>
+    <ul>
+      <li>Goals become rows of one list (no card-per-goal) with aligned columns: name, balance / target, progress, percentage, menu (§7).</li>
+      <li>Edit / delete move to a row menu; item rows show actions on hover only, removing 2 icon buttons per row (§13).</li>
+      <li>Temporary withdrawals keep their caption as a warning badge; goals without target show "No target" instead of a progress bar.</li>
+    </ul>
+  </div>
+  <div data-notes="yearops" hidden>
+    <h2>Year operations</h2>
+    <ul>
+      <li>Two clearly separated tasks: <i>Create year</i> and <i>Delete years</i>. Years are a checklist with entry counts so the user knows what is lost.</li>
+      <li><span class="tag-new">Better</span>Deletion requires typing the year (or "DELETE" for several) – matches the irreversibility of the action. The working year cannot be the last remaining year (existing rule, now explained inline).</li>
+      <li><span class="tag-new">Better</span>Optional "Copy entries and groups from 2026" when creating a year – structure only, values empty. Frontend can do this with existing endpoints; flag as optional.</li>
+    </ul>
+  </div>
+</div>
+
+<script src="shared/data.js"></script>
+<script src="shared/icons.js"></script>
+<script>
+const D = window.MOPAY_DEMO;
+const { fmt, esc, MONTHS, CURRENT_MONTH } = D;
+
+document.getElementById('nav').innerHTML = [
+  ['expenses', 'Expenses', fmt(D.rowSum(D.monthTotals(D.expenses)), { decimals: 0 })],
+  ['incomes', 'Incomes', fmt(D.rowSum(D.monthTotals(D.incomes)), { decimals: 0 })],
+  ['savings', 'Savings', '4 goals'],
+  ['reports', 'Reports', ''],
+].map(([k, l, m], i) => `<button class="nav-item" ${i === 0 ? 'aria-current="page"' : ''} data-nav="${k}">${icon(k)}${l}<span class="meta num">${m}</span></button>`).join('');
+
+function pageHead(opts = {}) {
+  return `
+  <div class="page-head">
+    <div class="page-title">
+      <h1>${opts.title || 'Expenses'} <span>2026</span></h1>
+      <p>${opts.sub || '9 entries in 3 groups · last change today, 09:14'}</p>
+    </div>
+    <div class="toolbar">
+      ${opts.toolbar ?? `
+      <label class="search">${icon('search', 'i-sm')}<input placeholder="Search expenses" aria-label="Search expenses"><span class="kbd">/</span></label>
+      <button class="btn">${icon('edit', 'i-sm')}Edit${icon('chevron-down', 'i-sm')}</button>
+      <span class="split"><button class="btn btn-primary">${icon('plus', 'i-sm')}New entry</button><button class="btn btn-primary" aria-label="More create options">${icon('chevron-down', 'i-sm')}</button></span>`}
+    </div>
+  </div>`;
+}
+
+function summary() {
+  const t = D.monthTotals(D.expenses);
+  const total = t.reduce((a, x) => a + (x ?? 0), 0);
+  const filled = t.filter((x) => x !== null);
+  const avg = total / filled.length;
+  const cur = t[CURRENT_MONTH];
+  const diff = ((cur - avg) / avg) * 100;
+  let max = 0, maxI = 0; t.forEach((x, i) => { if ((x ?? 0) > max) { max = x; maxI = i; } });
+  return `<dl class="summary">
+    <div><dt>Year to date</dt><dd>${fmt(total)}</dd></div>
+    <div><dt>Monthly average</dt><dd>${fmt(avg)}</dd></div>
+    <div><dt>${D.MONTHS_LONG[CURRENT_MONTH]}</dt><dd>${fmt(cur)}<small class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1).replace('.', ',')}% vs avg</small></dd></div>
+    <div><dt>Highest month</dt><dd>${D.MONTHS_LONG[maxI]} · ${fmt(max)}</dd></div>
+  </dl>`;
+}
+
+function tagColor(c) { return `var(--tag-${c})`; }
+
+function table(groups, opts = {}) {
+  const mode = opts.mode;
+  const lead = mode === 'remove' || mode === 'order';
+  const head = `<thead><tr>
+    <th class="col-name">${lead ? '' : 'Entry'}</th>
+    ${MONTHS.map((m, i) => `<th class="${i === CURRENT_MONTH ? 'is-current' : ''}"><span>${m}</span></th>`).join('')}
+    <th>Sum</th><th class="col-avg">Avg</th></tr></thead>`;
+  let body = '<tbody>';
+  groups.forEach((g) => {
+    const gt = D.groupTotals(g);
+    const gsum = D.rowSum(gt);
+    const gSel = opts.selected && g.entries.every((e) => opts.selected.includes(e.id));
+    body += `<tr class="group ${gSel ? 'selected-row' : ''}"><td class="col-name"><span class="entry-name">
+      ${mode === 'remove' ? `<input type="checkbox" class="chk" ${gSel ? 'checked' : ''} aria-label="Select group ${esc(g.name)}">` : ''}
+      ${mode === 'order' ? `<span class="handle">${icon('grip', 'i-sm')}</span>` : ''}
+      <button class="group-toggle" aria-expanded="true">${icon('chevron-down', 'i-sm')}${esc(g.name)}</button><span class="count">${g.entries.length}</span></span></td>
+      ${gt.map((x, i) => `<td class="${i === CURRENT_MONTH ? 'is-current' : ''}">${x === null ? '' : fmt(x)}</td>`).join('')}
+      <td class="col-sum">${fmt(gsum)}</td><td class="col-avg">${fmt(D.rowAvg(gt))}</td></tr>`;
+    g.entries.forEach((e) => {
+      const sel = opts.selected && opts.selected.includes(e.id);
+      body += `<tr class="entry ${sel ? 'selected-row' : ''}"><td class="col-name"><span class="entry-name">
+        ${mode === 'remove' ? `<input type="checkbox" class="chk" ${sel ? 'checked' : ''} aria-label="Select ${esc(e.name)}">` : ''}
+        ${mode === 'order' ? `<span class="handle">${icon('grip', 'i-sm')}</span>` : ''}
+        <button>${esc(e.name)}</button>${e.comment ? `<span title="${esc(e.comment)}">${icon('comment', 'i-sm')}</span>` : ''}</span></td>`;
+      e.v.forEach((x, i) => {
+        const tag = e.tags && e.tags[i];
+        const cls = ['cell'];
+        let style = '';
+        if (i === CURRENT_MONTH) cls.push('is-current');
+        if (x === null) cls.push('empty');
+        if (tag) { cls.push('tagged'); if (tag.text) cls.push('noted'); style = `--tag-c:${tagColor(tag.color)}`; }
+        const isSel = opts.cell && opts.cell[0] === e.id && opts.cell[1] === i;
+        const isEdit = opts.edit && opts.edit[0] === e.id && opts.edit[1] === i;
+        if (isSel) cls.push('selected');
+        if (isEdit) { cls.push('editing'); body += `<td class="${cls.join(' ')}"><input value="${fmt(x).replace(/ /g, ' ')}" aria-label="${esc(e.name)} ${MONTHS[i]}"></td>`; return; }
+        body += `<td class="${cls.join(' ')}" style="${style}" ${tag && tag.text ? `title="${esc(tag.text)}"` : ''}>${fmt(x)}</td>`;
+      });
+      body += `<td class="col-sum">${fmt(D.rowSum(e.v))}</td><td class="col-avg">${fmt(D.rowAvg(e.v))}</td></tr>`;
+    });
+  });
+  body += '</tbody>';
+  const mt = D.monthTotals(groups);
+  const foot = `<tfoot><tr><td class="col-name">Total</td>${mt.map((x, i) => `<td class="${i === CURRENT_MONTH ? 'is-current' : ''}">${fmt(x)}</td>`).join('')}
+    <td class="col-sum">${fmt(D.rowSum(mt))}</td><td class="col-avg">${fmt(D.rowAvg(mt))}</td></tr></tfoot>`;
+  return `<div class="table-wrap ${mode === 'tag' ? 'tag-mode' : ''}" id="${opts.id || ''}"><table class="grid">${head}${body}${foot}</table></div>`;
+}
+
+/* Screens */
+document.getElementById('screen-expenses').innerHTML = pageHead() + summary() + table(D.expenses, { edit: [4, CURRENT_MONTH] });
+
+document.getElementById('screen-details').innerHTML = pageHead() + summary() + table(D.expenses, { cell: [2, CURRENT_MONTH] }) + (() => {
+  const e = D.expenses[0].entries[1];
+  const max = Math.max(...e.v.map((x) => x ?? 0));
+  return `<div class="drawer-scrim"></div>
+  <aside class="drawer" role="dialog" aria-labelledby="dr-title">
+    <header><div style="flex:1"><h2 id="dr-title">${esc(e.name)}</h2><p>Expense · Home &amp; utilities · 2026</p></div>
+      <button class="btn btn-ghost btn-icon" aria-label="Close details">${icon('x')}</button></header>
+    <div class="body">
+      <dl class="stat-row"><div><dt>Sum</dt><dd>${fmt(D.rowSum(e.v))}</dd></div><div><dt>Average</dt><dd>${fmt(D.rowAvg(e.v))}</dd></div><div><dt>Highest</dt><dd>Jan · ${fmt(max)}</dd></div></dl>
+      <div><span class="field-label">Monthly values</span>
+        <div class="bars">${e.v.map((x, i) => `<span class="${i === CURRENT_MONTH ? 'cur' : ''}" style="height:${x ? Math.max(4, (x / max) * 100) : 2}%" title="${MONTHS[i]} ${fmt(x)}"></span>`).join('')}</div>
+        <div class="bars-l">${MONTHS.map((m) => `<span>${m[0]}</span>`).join('')}</div></div>
+      <div><label class="field-label" for="dn">Name</label><input id="dn" class="input" value="${esc(e.name)}"></div>
+      <div><label class="field-label" for="dg">Group</label><select id="dg" class="input"><option>Home &amp; utilities</option><option>Everyday essentials</option><option>Lifestyle</option><option>Ungrouped</option></select></div>
+      <div><label class="field-label" for="dc">Comment <span class="muted" style="font-weight:400">optional</span></label><textarea id="dc" class="input" rows="3">${esc(e.comment)}</textarea></div>
+      <div class="danger-zone"><p>Removing the entry deletes all 12 monthly values and tags for 2026.</p><button class="btn" style="color:var(--danger)">${icon('trash', 'i-sm')}Remove entry</button></div>
+    </div>
+    <footer><span class="spacer"></span><button class="btn btn-ghost">Cancel</button><button class="btn btn-primary">Save changes</button></footer>
+  </aside>`;
+})();
+
+document.getElementById('screen-tags').innerHTML = pageHead({ toolbar: `<button class="btn btn-primary">${icon('check', 'i-sm')}Done</button>` }) +
+  `<div class="mode-bar">${icon('tag')}<strong>Tag mode</strong><p>Click any month cell to add a colour and a note. Values are read-only while tagging.</p></div>` +
+  `<div style="position:relative">${table(D.expenses, { mode: 'tag', cell: [2, CURRENT_MONTH] })}
+  <div class="popover" style="top:128px; right:290px" role="dialog" aria-labelledby="tp-t">
+    <h3 id="tp-t">Electricity &amp; heating</h3><p class="sub">October 2026 · 210,00</p>
+    <span class="field-label">Colour</span>
+    <div class="swatches" role="group" aria-label="Tag colour">
+      <button class="swatch" data-c="none" aria-label="None">${icon('x', 'i-sm')}</button>
+      <button class="swatch" style="--sw:var(--tag-grey)" aria-label="Grey"></button>
+      <button class="swatch" style="--sw:var(--tag-green)" aria-label="Green"></button>
+      <button class="swatch" style="--sw:var(--tag-orange)" aria-label="Orange" aria-pressed="true">${icon('check', 'i-sm')}</button>
+      <button class="swatch" style="--sw:var(--tag-red)" aria-label="Red"></button>
+    </div>
+    <label class="field-label" for="tn">Note</label>
+    <textarea id="tn" class="input" rows="2">Higher than usual – check meter reading</textarea>
+    <div class="pop-actions"><button class="btn btn-ghost">Clear tag</button><span class="spacer"></span><button class="btn">Cancel</button><button class="btn btn-primary">Save tag</button></div>
+  </div></div>`;
+
+document.getElementById('screen-remove').innerHTML = pageHead({ toolbar: `<button class="btn">Cancel</button>` }) +
+  `<div class="mode-bar" style="border-left-color:var(--danger)">${icon('trash')}<strong>Remove mode</strong><p>Select entries or whole groups. Nothing is deleted until you confirm.</p></div>` +
+  table(D.expenses, { mode: 'remove', selected: [8, 9] }) +
+  `<div class="bulk-bar"><span><b>2</b> entries selected</span><button class="btn btn-ghost">Clear selection</button><button class="btn btn-danger">${icon('trash', 'i-sm')}Remove 2 entries</button></div>`;
+
+document.getElementById('screen-savings').innerHTML = pageHead({
+  title: 'Savings', sub: `4 goals · ${fmt(D.goals.reduce((a, g) => a + D.goalBalance(g), 0))} saved of ${fmt(D.goals.reduce((a, g) => a + (g.target || 0), 0))} targeted`,
+  toolbar: `<label class="search">${icon('search', 'i-sm')}<input placeholder="Search savings" aria-label="Search savings"><span class="kbd">/</span></label><button class="btn btn-primary">${icon('plus', 'i-sm')}New goal</button>`,
+}) + `<div class="goals">${D.goals.map((g, gi) => {
+  const bal = D.goalBalance(g);
+  const pct = g.target ? Math.min(100, (bal / g.target) * 100) : null;
+  const open = gi === 0 || gi === 1;
+  return `<div class="goal"><div class="goal-head">
+    <button class="btn btn-ghost btn-icon" style="width:28px;height:28px" aria-expanded="${open}">${icon(open ? 'chevron-down' : 'chevron-right', 'i-sm')}</button>
+    <h3>${esc(g.name)}</h3>
+    <span class="amt"><strong>${fmt(bal)}</strong> ${g.target ? '/ ' + fmt(g.target) : '· No target'}</span>
+    ${pct !== null ? `<div class="progress ${pct >= 100 ? 'done' : ''}"><span style="width:${pct}%"></span></div>` : '<span class="muted" style="font-size:13px">—</span>'}
+    <span class="pct">${pct !== null ? Math.round(pct) + '%' : ''}</span>
+    <button class="btn btn-ghost btn-icon" aria-label="Goal actions">${icon('dots')}</button></div>
+    ${open ? `<div class="goal-items"><table><thead><tr><th>Source or note</th><th></th><th class="v">Amount</th><th></th></tr></thead><tbody>
+      ${g.items.map((it) => `<tr><td>${esc(it.name)}</td><td>${it.withdrawal ? '<span class="badge badge-warn">Temporary withdrawal</span>' : ''}</td>
+        <td class="v" style="${it.value < 0 ? 'color:var(--danger)' : ''}">${fmt(it.value, { signed: true })}</td><td class="act"><button class="btn btn-ghost btn-icon" style="width:28px;height:28px" aria-label="Item actions">${icon('dots', 'i-sm')}</button></td></tr>`).join('')}
+      </tbody></table>
+      <div class="goal-foot"><button class="btn btn-ghost">${icon('plus', 'i-sm')}Add item</button><span class="spacer"></span><span class="muted">Current balance</span>&nbsp;&nbsp;<b class="num">${fmt(bal)}</b></div></div>` : ''}
+  </div>`;
+}).join('')}</div>`;
+
+document.getElementById('screen-yearops').innerHTML = pageHead() + summary() + table(D.expenses) + `
+<div class="dialog-scrim"><div class="dialog" role="dialog" aria-labelledby="yo-t">
+  <header><div style="flex:1"><h2 id="yo-t">Year operations</h2><p>Create a new working year or delete years you no longer need.</p></div><button class="btn btn-ghost btn-icon" aria-label="Close">${icon('x')}</button></header>
+  <div class="body">
+    <section><h3>Create year</h3>
+      <div class="row"><input class="input" style="width:120px" value="2027" aria-label="Year" inputmode="numeric"><button class="btn btn-primary">Create 2027</button></div>
+      <label class="row hint" style="font-size:13px;color:var(--text-2);margin-top:10px"><input type="checkbox" class="chk" checked> Copy entries and groups from 2026 (values stay empty)</label>
+    </section>
+    <section><h3>Delete years</h3>
+      <div class="year-list">
+        <label><input type="checkbox" class="chk" checked>2024<span class="meta">14 entries · 2 goals</span></label>
+        <label><input type="checkbox" class="chk">2025<span class="meta">13 entries · 3 goals</span></label>
+        <label style="opacity:.55;cursor:not-allowed"><input type="checkbox" class="chk" disabled>2026 <span class="count">working year</span><span class="meta">13 entries · 4 goals</span></label>
+      </div>
+      <div class="callout" style="margin-top:12px">${icon('alert')}<span>Deleting 2024 permanently removes its entries, tags and savings. Export a backup first if you might need it.</span></div>
+      <div class="row" style="margin-top:12px"><input class="input" placeholder="Type 2024 to confirm" aria-label="Confirm year"><button class="btn btn-danger" disabled>Delete 2024</button></div>
+    </section>
+  </div>
+  <footer><button class="btn btn-ghost">${icon('export', 'i-sm')}Export backup</button><span style="flex:1"></span><button class="btn">Close</button></footer>
+</div></div>`;
+
+MockupChrome.init();
+</script>
+</body>
+</html>

@@ -3,8 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../../api";
 import { useAppStore } from "../../store";
 import { ModalBase } from "./ModalBase";
-import { FormSection } from "../FormSection";
-import { SoftButton } from "../SoftButton";
+import { Button, Callout, Input, Select } from "../ui";
 
 export function AddEntryModal() {
   const qc = useQueryClient();
@@ -13,6 +12,8 @@ export function AddEntryModal() {
   const open = modals.add;
   const [name, setName] = useState("");
   const [groupId, setGroupId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const type = tab === "incomes" ? "income" : "expense";
   const groupsQ = useQuery({
@@ -22,7 +23,7 @@ export function AddEntryModal() {
   });
   const groups = (groupsQ.data?.groups ?? []) as Array<{ id: number; name: string }>;
 
-  // Focus na input po otwarciu
+  // Focus the name field after opening.
   useEffect(() => {
     if (!open) return;
     setGroupId(addEntryGroupId ?? null);
@@ -35,14 +36,24 @@ export function AddEntryModal() {
   }, [open, addEntryGroupId]);
 
   async function submit() {
-    if (!name.trim() || !year) return;
+    if (!name.trim() || !year || saving) return;
 
-    await Api.entries.add({
-      type: tab === "incomes" ? "income" : "expense",
-      year,
-      name: name.trim(),
-      groupId,
-    });
+    setSaving(true);
+    setError(null);
+    try {
+      await Api.entries.add({
+        type: tab === "incomes" ? "income" : "expense",
+        year,
+        name: name.trim(),
+        groupId,
+      });
+    } catch {
+      // The dialog stays open with the typed name and group, so the same click retries.
+      setError("Could not add the entry. Try again.");
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     setName("");
     setGroupId(null);
@@ -53,87 +64,60 @@ export function AddEntryModal() {
     });
   }
 
+  function close() {
+    closeModal("add");
+    setName("");
+    setGroupId(null);
+    setError(null);
+  }
+
   return (
     <ModalBase
       open={open}
       title={tab === "incomes" ? "Add income entry" : "Add expense entry"}
-      onClose={() => {
-        closeModal("add");
-        setName("");
-        setGroupId(null);
-      }}
+      onClose={close}
       size="sm"
       mobileAlign="top"
     >
-      <div className="space-y-3 sm:space-y-4">
-        <FormSection
-          //label="Details"
-          title="Entry name"
-          //description="Max 40 characters."
+      <form
+        className="dialog-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <Input
+          id="entry-name-input"
+          ref={inputRef}
+          label="Name"
+          hint="You can rename entries later."
+          maxLength={40}
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Select
+          id="entry-group-input"
+          label="Place entry in"
+          hint="You can move the entry later from its details panel."
+          value={groupId ?? ""}
+          onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : null)}
         >
-          <div className="field-stack">
-            <label className="field-label" htmlFor="entry-name-input">
-              Name
-            </label>
-            <input
-              id="entry-name-input"
-              ref={inputRef}
-              type="text"
-              className="input"
-              maxLength={40}
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submit();
-              }}
-            />
-            <p className="field-helper">You can rename entries later.</p>
-          </div>
-        </FormSection>
-
-        <FormSection title="Group">
-          <div className="field-stack">
-            <label className="field-label" htmlFor="entry-group-input">
-              Place entry in
-            </label>
-            <select
-              id="entry-group-input"
-              className="input app-select"
-              value={groupId ?? ""}
-              onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">Ungrouped</option>
-              {groups.map((group) => (
-                <option key={group.id} value={group.id}>{group.name}</option>
-              ))}
-            </select>
-            <p className="field-helper">You can move the entry later from its details panel.</p>
-          </div>
-        </FormSection>
-
-        <div className="modal-footer-premium flex justify-end gap-2">
-          <SoftButton
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              closeModal("add");
-              setName("");
-              setGroupId(null);
-            }}
-          >
+          <option value="">Ungrouped</option>
+          {groups.map((group) => (
+            <option key={group.id} value={group.id}>{group.name}</option>
+          ))}
+        </Select>
+        {error && <Callout tone="danger" role="alert">{error}</Callout>}
+        <div className="ui-dialog-actions">
+          <Button variant="ghost" onClick={close}>
             Cancel
-          </SoftButton>
-          <button
-            type="button"
-            className="btn"
-            disabled={!name.trim() || !year}
-            onClick={submit}
-          >
+          </Button>
+          <Button type="submit" variant="primary" disabled={!name.trim() || !year} loading={saving}>
             Add entry
-          </button>
+          </Button>
         </div>
-      </div>
+      </form>
     </ModalBase>
   );
 }

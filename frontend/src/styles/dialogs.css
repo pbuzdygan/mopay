@@ -1,0 +1,97 @@
+/* Data dialogs (new entry/group, export, import) and the PWA install prompt,
+   built on the base components (plan Phase 9). */
+.dialog-form { display: flex; flex-direction: column; gap: var(--sp-16); }
+.dialog-form .ui-dialog-actions { margin-top: var(--sp-4); }
+.dialog-actions-split { justify-content: space-between; }
+.dialog-actions-end { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-8); margin-left: auto; }
+
+/* Year toggles: aria-pressed carries the state; colour is not the only cue
+   (selected years are bold with a thicker border). */
+.dialog-years-field { display: flex; flex-direction: column; gap: var(--sp-8); }
+.dialog-years-field > .ui-field-label { margin: 0; }
+.dialog-years-field.is-inactive .dialog-legend { opacity: 0.6; }
+.dialog-years { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--sp-8); }
+.dialog-year {
+  min-height: var(--control-h);
+  padding: 0 var(--sp-12);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.dialog-year:hover { background: var(--surface-2); }
+.dialog-year:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.dialog-year[aria-pressed='true'] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); color: var(--accent-text); font-weight: var(--fw-semibold); }
+.dialog-year[aria-disabled='true'] { cursor: default; }
+/* Import summary: new years are imported, existing ones skipped unless marked. */
+.dialog-year.is-new,
+.dialog-year.is-new:hover { border-color: var(--success); box-shadow: none; background: var(--success-soft); color: var(--success); }
+.dialog-year.is-existing { border-style: dashed; color: var(--text-2); font-weight: var(--fw-regular); }
+.dialog-year.is-overwrite,
+.dialog-year.is-overwrite:hover { border-color: var(--warning); box-shadow: inset 0 0 0 1px var(--warning); background: var(--warning-soft); color: var(--warning); }
+.dialog-years-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--sp-12);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  font-size: var(--fs-small);
+  text-align: center;
+}
+.dialog-legend { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-small); color: var(--text-2); }
+.dialog-legend li { display: flex; align-items: center; gap: var(--sp-8); }
+.dialog-legend .dialog-year { flex: none; width: 14px; min-height: 14px; height: 14px; padding: 0; border-radius: 4px; }
+
+.dialog-import-actions { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.dialog-import-actions > .ui-button-primary { margin-left: auto; }
+.dialog-confirm { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--text-1); cursor: pointer; }
+.dialog-confirm input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--warning); }
+
+/* PWA install prompt, kept above the mobile tab bar. */
+.install-prompt {
+  position: fixed;
+  right: 0;
+  bottom: var(--sp-16);
+  left: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--sp-16);
+  pointer-events: none;
+}
+.install-prompt-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-12) var(--sp-16);
+  width: 100%;
+  max-width: 560px;
+  padding: var(--sp-16);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  color: var(--text-1);
+  font-family: var(--font);
+  pointer-events: auto;
+}
+.install-prompt-icon { flex: none; width: 44px; height: 44px; border-radius: var(--r-md); border: 1px solid var(--border); }
+.install-prompt-text { display: flex; flex: 1 1 200px; flex-direction: column; min-width: 0; }
+.install-prompt-text span { font-size: var(--fs-small); color: var(--text-2); }
+.install-prompt-actions { display: flex; gap: var(--sp-8); margin-left: auto; }
+
+@media (max-width: 959px) {
+  /* Editable text stays at 16px where mobile browsers zoom on focus (T-013). */
+  .dialog-form .ui-input { font-size: 16px; }
+  .dialog-year { min-height: 44px; }
+  .dialog-legend .dialog-year { min-height: 14px; }
+  .install-prompt { bottom: calc(var(--mtabs-h) + env(safe-area-inset-bottom, 0px) + var(--sp-12)); }
+  .install-prompt-actions { flex: 1 0 100%; }
+  .install-prompt-actions .ui-button { flex: 1; min-height: 44px; }
+}

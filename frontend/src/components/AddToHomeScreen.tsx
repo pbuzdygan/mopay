@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { SoftButton } from "./SoftButton";
+import { Button } from "./ui";
 
 export default function AddToHomeScreen() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -53,32 +53,20 @@ export default function AddToHomeScreen() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 left-0 right-0 z-50 flex justify-center px-4">
-      <div className="layer-card compact w-full max-w-xl flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 border border-border shadow-soft">
-        <div className="flex items-center gap-3">
-          <img
-            src="/android-chrome-192x192.png"
-            className="w-12 h-12 rounded-2xl border border-border shadow-soft"
-            alt="MOPAY icon"
-          />
-          <div className="flex flex-col">
-            <span className="font-semibold text-textPrim">Add MOPAY to your home screen</span>
-            <span className="text-sm text-textSec">Full offline mode, instant launch</span>
-          </div>
+    <div className="install-prompt" role="region" aria-label="Install MOPAY">
+      <div className="install-prompt-card">
+        <img src="/android-chrome-192x192.png" className="install-prompt-icon" alt="" />
+        <div className="install-prompt-text">
+          <strong>Add MOPAY to your home screen</strong>
+          <span>Full offline mode, instant launch</span>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:ml-auto">
-          <SoftButton
-            type="button"
-            variant="ghost"
-            block
-            className="sm:w-auto"
-            onClick={skipPrompt}
-          >
+        <div className="install-prompt-actions">
+          <Button variant="ghost" onClick={skipPrompt}>
             Skip
-          </SoftButton>
-          <button type="button" className="btn w-full sm:w-auto px-5 py-2" onClick={onInstallClick}>
+          </Button>
+          <Button variant="primary" onClick={onInstallClick}>
             Install
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,0 +1,129 @@
+/* Final Ledger design tokens (docs/mockup_UI/final-ledger.html).
+   Text and state colours are adjusted where the mockup values fell below
+   WCAG AA 4.5:1 against bg/surface/surface-2/surface-3 (text-3, success,
+   warning, danger, expense in light; text-3 and on-danger in dark). */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F4F5F8;
+  --surface: #FFFFFF;
+  --surface-2: #F7F8FA;
+  --surface-3: #EEF0F4;
+  --border: #E2E4EA;
+  --border-strong: #CDD0D9;
+  --text-1: #1B1C22;
+  --text-2: #555966;
+  --text-3: #62666F;
+  --accent: #5B54C6;
+  --accent-hover: #4C46B0;
+  --on-accent: #FFFFFF;
+  --accent-soft: rgba(91, 84, 198, .10);
+  --accent-text: #4A43B5;
+  --focus: rgba(91, 84, 198, .45);
+  --success: #157552;
+  --warning: #8E5A05;
+  --danger: #B93D36;
+  --on-danger: #FFFFFF;
+  --info: #4A43B5;
+  --success-soft: rgba(23, 128, 90, .10);
+  --warning-soft: rgba(168, 106, 8, .12);
+  --danger-soft: rgba(194, 65, 58, .10);
+  --info-soft: rgba(91, 84, 198, .10);
+  --income: #157552;
+  --expense: #B04D32;
+  --tag-grey: #8D93A1;
+  --tag-green: #23A26F;
+  --tag-orange: #E08A1E;
+  --tag-red: #D9534A;
+  --scrim: rgba(17, 18, 26, .40);
+  --shadow-xs: 0 1px 2px rgba(20, 22, 35, .08);
+  --shadow-pop: 0 8px 28px rgba(20, 22, 35, .14), 0 1px 3px rgba(20, 22, 35, .08);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #15151A;
+  --surface: #1C1C23;
+  --surface-2: #22222A;
+  --surface-3: #2A2A33;
+  --border: #2E2E38;
+  --border-strong: #3C3C48;
+  --text-1: #E7E7EC;
+  --text-2: #A5A5B0;
+  --text-3: #9898A4;
+  --accent: #8F89E8;
+  --accent-hover: #A39EF0;
+  --on-accent: #16142E;
+  --accent-soft: rgba(143, 137, 232, .14);
+  --accent-text: #B0ABF5;
+  --focus: rgba(143, 137, 232, .5);
+  --success: #4CC38A;
+  --warning: #E3A54C;
+  --danger: #F07167;
+  --on-danger: #1A0B0A;
+  --info: #B0ABF5;
+  --success-soft: rgba(76, 195, 138, .12);
+  --warning-soft: rgba(227, 165, 76, .14);
+  --danger-soft: rgba(240, 113, 103, .12);
+  --info-soft: rgba(143, 137, 232, .14);
+  --income: #4CC38A;
+  --expense: #F08A6C;
+  --scrim: rgba(0, 0, 0, .55);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+:root {
+  /* Spacing on a 4/8 px scale, named by size. */
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-40: 40px;
+  --sp-48: 48px;
+  --sp-64: 64px;
+
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-caption: 12px;
+  --fs-small: 13px;
+  --fs-body: 14px;
+  --fs-lead: 16px;
+  --fs-h3: 17px;
+  --fs-h2: 20px;
+  --fs-h1: 28px;
+  --lh-tight: 1.25;
+  --lh-body: 1.5;
+  --fw-regular: 400;
+  --fw-medium: 550;
+  --fw-semibold: 600;
+  --fw-bold: 650;
+
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 250ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+
+  --z-sticky: 50;
+  --z-menu: 60;
+  --z-drawer: 70;
+  --z-dialog: 90;
+  --z-pin: 200;
+
+  --control-h: 36px;
+  --control-h-sm: 30px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0.01ms;
+    --dur-base: 0.01ms;
+    --dur-slow: 0.01ms;
+  }
+}

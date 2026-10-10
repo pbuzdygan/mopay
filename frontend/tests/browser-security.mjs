@@ -4,10 +4,8 @@ import { test } from 'node:test';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, sep, extname } from 'node:path';
-import { createRequire } from 'node:module';
 import { browserSecurityHeaders } from '../../backend/browserSecurity.js';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.MOPAY_PLAYWRIGHT_MODULE || 'playwright');
+import { chromium, ui } from './ui-helpers.mjs';
 const dist = resolve(import.meta.dirname, '../dist');
 const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
 
@@ -94,7 +92,7 @@ test('CSP permits production PWA registration, controlled reload and offline doc
       document.addEventListener('securitypolicyviolation', e => window.violations.push(e.effectiveDirective));
     });
     await page.goto(origin);
-    await page.locator('#pin-guard-input').waitFor();
+    await ui.pinInput(page).waitFor();
     await page.evaluate(async () => {
       const response = await fetch('https://api.github.com/repos/pbuzdygan/mopay/releases?per_page=30');
       if (!response.ok) throw new Error('Mock release request failed');
@@ -104,7 +102,7 @@ test('CSP permits production PWA registration, controlled reload and offline doc
     await page.evaluate(async () => { await navigator.serviceWorker.ready; });
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
     await page.reload();
-    await page.locator('#pin-guard-input').waitFor();
+    await ui.pinInput(page).waitFor();
     assert.deepEqual(await page.evaluate(() => window.violations), []);
     await context.setOffline(true);
     const response = await page.reload();
@@ -112,13 +110,13 @@ test('CSP permits production PWA registration, controlled reload and offline doc
     assert.equal(response.headers()['content-security-policy'], browserSecurityHeaders['Content-Security-Policy']);
     // Assets work offline, but runtime mode is NetworkOnly and must be confirmed online.
     await page.getByText('Could not load application mode.', { exact: false }).waitFor();
-    assert.equal(await page.locator('#pin-guard-input').count(), 0);
+    assert.equal(await ui.pinInput(page).count(), 0);
     assert.deepEqual(await page.evaluate(() => window.violations), []);
     assert.deepEqual(errors, []);
     // Download blob navigation is intentionally allowed without enabling blob scripts/workers.
     await context.setOffline(false);
     await page.getByRole('button', { name: 'Retry', exact: true }).click();
-    await page.locator('#pin-guard-input').waitFor();
+    await ui.pinInput(page).waitFor();
     const download = page.waitForEvent('download');
     await page.evaluate(() => {
       const anchor = document.createElement('a');

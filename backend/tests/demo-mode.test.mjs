@@ -39,7 +39,11 @@ async function start(root, demo, extra = {}) {
   child.stdout.on('data', chunk => { output += chunk; });
   child.stderr.on('data', chunk => { output += chunk; });
   const stop = async () => { if (child.exitCode === null && child.signalCode === null) { child.kill('SIGTERM'); await once(child, 'exit'); } };
-  for (let i = 0; i < 150 && child.exitCode === null; i++) {
+  // Startup takes about 0.4 s locally, but a shared CI runner once needed more
+  // than the former 3 s budget. Expected startup failures exit at once, so a
+  // longer wait only matters for a slow successful start.
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline && child.exitCode === null) {
     const match = output.match(/Fixture port: (\d+)/);
     if (match) return { child, stop, origin: `http://127.0.0.1:${match[1]}`, output: () => output };
     await delay(20);

@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept C · Inspector</title>
+<link rel="stylesheet" href="shared/chrome.css">
+<style>
+/* ---------- Design tokens (Concept C, dark-first) ---------- */
+:root, [data-theme="dark"] {
+  --bg: #111113; --surface: #18181B; --surface-2: #1E1E22; --surface-3: #26262B; --surface-4: #2E2E34;
+  --border: #2A2A30; --border-strong: #3A3A42;
+  --text-1: #ECECEF; --text-2: #A8A8B2; --text-3: #8C8C96;
+  --accent: #9D8CF0; --accent-hover: #B0A2F5; --on-accent: #17122E; --accent-soft: rgba(157, 140, 240, .14); --accent-text: #B9ADF7;
+  --focus: rgba(157, 140, 240, .55);
+  --success: #4CC38A; --warning: #E3A54C; --danger: #F07167;
+  --success-soft: rgba(76,195,138,.12); --warning-soft: rgba(227,165,76,.13); --danger-soft: rgba(240,113,103,.12);
+  --income: #4CC38A; --expense: #E8875F;
+  --tag-grey: #8E8E99; --tag-green: #3DBA7E; --tag-orange: #E59A3A; --tag-red: #E9615A;
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, .55), 0 1px 3px rgba(0, 0, 0, .4);
+}
+[data-theme="light"] {
+  --bg: #F5F5F7; --surface: #FFFFFF; --surface-2: #FAFAFB; --surface-3: #F0F0F3; --surface-4: #E7E7EB;
+  --border: #E3E3E8; --border-strong: #CFCFD6;
+  --text-1: #18181B; --text-2: #54545E; --text-3: #6C6C76;
+  --accent: #6A57D6; --accent-hover: #5B48C4; --on-accent: #FFFFFF; --accent-soft: rgba(106, 87, 214, .09); --accent-text: #5944C8;
+  --focus: rgba(106, 87, 214, .45);
+  --success: #15805C; --warning: #A3660A; --danger: #C43D3A;
+  --success-soft: rgba(21,128,92,.09); --warning-soft: rgba(163,102,10,.11); --danger-soft: rgba(196,61,58,.08);
+  --income: #1E9468; --expense: #D06A3F;
+  --tag-grey: #8A8F9C; --tag-green: #22A06B; --tag-orange: #E08A1E; --tag-red: #D94C4C;
+  --shadow-pop: 0 14px 40px rgba(20, 20, 30, .16), 0 1px 3px rgba(20, 20, 30, .08);
+}
+:root { --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-1); font: 13px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.i { width: 18px; height: 18px; flex: none; } .i-sm { width: 15px; height: 15px; flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-3); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- Workspace shell ---------- */
+.ws { display: grid; grid-template-columns: 76px minmax(0, 1fr) 320px; height: calc(100vh - 41px); }
+.ws.no-inspector { grid-template-columns: 76px minmax(0, 1fr); }
+.rail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; background: var(--surface); border-right: 1px solid var(--border); }
+.rail .mark { width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; margin-bottom: 12px; }
+.rail-btn { width: 60px; padding: 8px 0 6px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-3); display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; cursor: pointer; }
+.rail-btn:hover { background: var(--surface-3); color: var(--text-1); }
+.rail-btn[aria-current="page"] { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+.rail .spacer { flex: 1; }
+.center { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.bar { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex: none; }
+.bar h1 { margin: 0; font-size: 16px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+.year { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); font-weight: 600; font-size: 13px; cursor: pointer; }
+.cmdk { display: flex; align-items: center; gap: 8px; width: 320px; height: 32px; margin: 0 auto; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); color: var(--text-3); cursor: text; }
+.kbd { font-size: 11px; padding: 0 5px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; color: var(--text-3); background: var(--surface); line-height: 16px; }
+.cmdk .kbds { margin-left: auto; display: flex; gap: 3px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface-2); color: var(--text-1); font-weight: 550; cursor: pointer; white-space: nowrap; transition: background 120ms, border-color 120ms; }
+.btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.btn-ghost:hover { background: var(--surface-3); color: var(--text-1); border-color: transparent; }
+.btn-icon { width: 32px; padding: 0; justify-content: center; }
+.btn-danger-ghost { background: transparent; border-color: var(--border); color: var(--danger); }
+.sub-bar { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; border-bottom: 1px solid var(--border); flex: none; color: var(--text-2); font-size: 12px; }
+.sub-bar b { color: var(--text-1); font-variant-numeric: tabular-nums; font-weight: 600; }
+.sub-bar .sep { width: 1px; height: 16px; background: var(--border); }
+.sub-bar .right { margin-left: auto; display: flex; gap: 4px; }
+.seg { display: inline-flex; padding: 2px; border-radius: var(--r-sm); background: var(--surface-3); }
+.seg button { height: 24px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: var(--text-2); font-size: 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.scroll { flex: 1; min-height: 0; overflow: auto; }
+
+/* ---------- Dense grid ---------- */
+table.g { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 940px; font-size: 12px; }
+.g th, .g td { height: 32px; padding: 0 4px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--border); }
+.g thead th { position: sticky; top: 0; z-index: 3; background: var(--bg); color: var(--text-3); font-weight: 600; font-size: 11.5px; height: 30px; }
+.g .nm { position: sticky; left: 0; z-index: 2; background: inherit; text-align: left; min-width: 150px; padding-left: 8px; }
+.g thead .nm { z-index: 4; background: var(--bg); padding-left: 36px; }
+.g tbody tr { background: var(--bg); }
+.g tbody tr.e:hover { background: var(--surface-2); }
+.g tbody tr.e:hover .grip { opacity: 1; }
+.grip { display: inline-grid; place-items: center; width: 20px; color: var(--text-3); opacity: 0; cursor: grab; vertical-align: middle; }
+.ck { display: inline-grid; place-items: center; width: 20px; vertical-align: middle; }
+.ck input { margin: 0; width: 14px; height: 14px; accent-color: var(--accent); opacity: 0; }
+tr.e:hover .ck input, tr.e.sel .ck input { opacity: 1; }
+.g tr.grp td { background: var(--bg); font-weight: 600; color: var(--text-3); height: 34px; padding-top: 6px; }
+.g tr.grp td.nm { color: var(--text-1); }
+.g tr.grp td.nm button { border: 0; background: none; padding: 0; display: inline-flex; align-items: center; gap: 6px; font-weight: 650; cursor: pointer; color: inherit; }
+.g td.cur, .g th.cur { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
+.g th.cur { color: var(--accent-text); }
+.g td.em { color: var(--text-3); }
+.g td.sum { font-weight: 650; border-left: 1px solid var(--border); }
+.g td.avg, .g th.avg { color: var(--text-2); }
+.g .c { position: relative; cursor: default; }
+.g .c.tg { box-shadow: inset 0 -2px 0 var(--tag-c); }
+.g .c.focus { box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft); }
+.g .c.focus.tg { box-shadow: inset 0 0 0 2px var(--accent), inset 0 -4px 0 var(--tag-c); }
+.g tfoot tr { background: var(--surface); }
+.g tfoot td { position: sticky; bottom: 0; background: var(--surface); font-weight: 650; border-top: 1px solid var(--border-strong); border-bottom: 0; height: 36px; }
+.g tfoot td.nm { z-index: 3; }
+.status { display: flex; align-items: center; gap: 16px; height: 28px; padding: 0 16px; border-top: 1px solid var(--border); background: var(--surface); color: var(--text-3); font-size: 11.5px; flex: none; }
+.status .right { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+.status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 4px; }
+
+/* ---------- Inspector ---------- */
+.insp { display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); }
+.insp-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.insp-head .crumb { font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+.insp-head h2 { margin: 2px 0 0; font-size: 16px; font-weight: 650; }
+.insp-body { flex: 1; overflow: auto; }
+.sec { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.sec h3 { margin: 0 0 10px; font-size: 11.5px; font-weight: 600; color: var(--text-3); display: flex; align-items: center; justify-content: space-between; }
+.val-row { display: flex; gap: 8px; align-items: center; }
+.val { flex: 1; min-width: 0; width: 100%; height: 40px; font-size: 18px; font-weight: 650; text-align: right; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-2); font-variant-numeric: tabular-nums; outline: 0; }
+.val:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.hint { margin-top: 6px; font-size: 11.5px; color: var(--text-3); display: flex; gap: 8px; flex-wrap: wrap; }
+.hint button { border: 0; background: var(--surface-3); color: var(--text-2); border-radius: 4px; padding: 1px 6px; font-size: 11.5px; cursor: pointer; }
+.sw-row { display: flex; gap: 6px; margin-bottom: 10px; }
+.sw { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: var(--sw); display: grid; place-items: center; color: #fff; cursor: pointer; }
+.sw.none { background: var(--surface-2); color: var(--text-3); }
+.sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.inp { width: 100%; min-height: 34px; padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface-2); outline: 0; resize: vertical; }
+.inp:focus { border-color: var(--accent); }
+.lbl { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 4px; font-weight: 550; }
+.spark { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; height: 64px; align-items: end; position: relative; }
+.spark span { background: var(--surface-4); border-radius: 2px 2px 0 0; }
+.spark span.cur { background: var(--accent); }
+.spark .avgline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--text-3); }
+.spark-l { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-top: 3px; font-size: 10px; color: var(--text-3); text-align: center; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-top: 12px; }
+.facts dt { font-size: 11.5px; color: var(--text-3); }
+.facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.facts .up { color: var(--danger); }
+.insp-foot { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.insp-foot .spacer { flex: 1; }
+.saved { font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+.saved .i-sm { color: var(--success); }
+
+/* ---------- Command palette ---------- */
+.pal-scrim { position: fixed; inset: 41px 0 0 0; background: rgba(5, 5, 10, .5); z-index: 50; display: flex; justify-content: center; padding-top: 12vh; }
+[data-theme="light"] .pal-scrim { background: rgba(20, 20, 30, .28); }
+.pal { width: 620px; max-width: calc(100% - 32px); max-height: 520px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-pop); overflow: hidden; }
+.pal-in { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+.pal-in input { flex: 1; border: 0; background: transparent; font-size: 15px; outline: 0; }
+.pal-list { overflow: auto; padding: 6px; }
+.pal-g { font-size: 11.5px; color: var(--text-3); font-weight: 600; padding: 8px 10px 4px; }
+.pal-i { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--r-sm); color: var(--text-1); cursor: pointer; }
+.pal-i .i { color: var(--text-3); }
+.pal-i .meta { margin-left: auto; display: flex; gap: 6px; align-items: center; color: var(--text-3); font-size: 12px; }
+.pal-i.act { background: var(--accent-soft); }
+.pal-i.act .i { color: var(--accent-text); }
+.pal-i mark { background: none; color: var(--accent-text); font-weight: 650; }
+.pal-foot { display: flex; gap: 16px; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-3); }
+
+/* ---------- Reports ---------- */
+.rep { padding: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.kpi { padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.kpi dt { font-size: 12px; color: var(--text-3); }
+.kpi dd { margin: 2px 0 0; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 12px; font-weight: 500; color: var(--text-3); }
+.kpi .d b { font-weight: 600; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; }
+.card h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.card .desc { margin: 2px 0 12px; font-size: 12px; color: var(--text-3); }
+.span-3 { grid-column: span 3; } .span-2 { grid-column: span 2; } .span-1 { grid-column: span 1; } .span-4 { grid-column: span 4; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.legend i.line { height: 2px; vertical-align: 3px; }
+.hbar { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; margin-bottom: 10px; }
+.hbar .n { font-size: 13px; }
+.hbar .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.hbar .track { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.hbar .track span { display: block; height: 100%; background: var(--expense); border-radius: 3px; }
+.hbar .pct { color: var(--text-3); font-weight: 500; font-size: 12px; margin-left: 6px; }
+table.t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.t th { text-align: left; font-size: 11.5px; color: var(--text-3); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.t td { padding: 7px 4px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.t .r { text-align: right; }
+.stab { display: flex; align-items: center; gap: 8px; }
+.stab .track { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.stab .track span { display: block; height: 100%; background: var(--accent); }
+svg.chart text { fill: var(--text-3); font-size: 11px; font-family: var(--font); }
+svg.chart .grid-l { stroke: var(--border); }
+svg.chart .inc { fill: var(--income); }
+svg.chart .exp { fill: var(--expense); }
+svg.chart .net { stroke: var(--accent); fill: none; stroke-width: 2; }
+svg.chart .netdot { fill: var(--accent); }
+svg.chart .selband { fill: var(--accent-soft); }
+.mini-list { list-style: none; margin: 0; padding: 0; }
+.mini-list li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.mini-list li:last-child { border-bottom: 0; }
+
+@media (max-width: 1200px) { .ws { grid-template-columns: 76px minmax(0, 1fr); } .insp { display: none; } .cmdk { width: 220px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="mock-chrome">
+  <span class="mock-chrome-title">Concept C · Inspector <small>three-pane workspace, no modes, command palette</small></span>
+  <div class="mock-chrome-group" role="group" aria-label="Screen">
+    <button data-screen-link="inspector">Cell selected</button>
+    <button data-screen-link="multi">Multi-select</button>
+    <button data-screen-link="palette">Command palette</button>
+    <button data-screen-link="reports">Reports</button>
+  </div>
+  <div class="mock-chrome-spacer"></div>
+  <div class="mock-chrome-group" role="group" aria-label="Theme">
+    <button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button>
+  </div>
+  <a href="index.html">All concepts</a>
+</div>
+
+<section class="mock-screen" id="screen-inspector"></section>
+<section class="mock-screen" id="screen-multi" hidden></section>
+<section class="mock-screen" id="screen-palette" hidden></section>
+<section class="mock-screen" id="screen-reports" hidden></section>
+
+<div class="mock-notes">
+  <div data-notes="inspector">
+    <h2>Inspector – one place for everything about the selection</h2>
+    <ul>
+      <li><b>Three panes</b>: navigation rail (icon + label, §37), the grid, and a persistent inspector. The selection drives the inspector: cell → value, tag and entry facts; group → name, subtotal, entries; nothing → year summary.</li>
+      <li><span class="tag-new">Better</span><b>No Tags mode.</b> Tag colour and note are edited in the inspector for the focused cell at any time. Same data model (none/grey/green/orange/red + text).</li>
+      <li><span class="tag-new">Better</span><b>No Arrange mode on desktop.</b> A grip appears on row hover for drag-and-drop; keyboard alternative <code>Alt+↑/↓</code>. Touch devices keep the explicit Arrange mode.</li>
+      <li><span class="tag-new">Better</span><b>Entry facts</b> next to the value: average, highest month, same month last year (data the Reports view already loads) – helps decide if a number is right while entering it.</li>
+      <li>Auto-save on blur/Enter with a visible "Saved" indicator replaces silent saving (§16 feedback). Status bar shows selection sum, sync state and version.</li>
+      <li>Density: 32px rows, 12px tabular numbers – the whole year with Sum/Avg fits a 1440px screen with the inspector open (§35).</li>
+    </ul>
+  </div>
+  <div data-notes="multi" hidden>
+    <h2>Multi-select instead of Remove mode</h2>
+    <ul>
+      <li>Row checkboxes appear on hover; Shift-click selects a range. The inspector switches to a <b>bulk panel</b>: count, combined sum, <i>Move to group</i>, <i>Remove</i>.</li>
+      <li><span class="tag-new">Better</span><i>Move to group</i> for several entries at once – today this is one entry at a time in details. Uses the existing entry update call per item.</li>
+      <li>Removal still requires explicit confirmation with a specific label.</li>
+    </ul>
+  </div>
+  <div data-notes="palette" hidden>
+    <h2>Command palette (Ctrl/⌘ K)</h2>
+    <ul>
+      <li>Every action in MOPAY is reachable by name: create entry/group, jump to section, switch year, year operations, import/export, settings, lock, theme (§22 command palette).</li>
+      <li>Searching also matches entries and goals; choosing one selects it and opens the inspector.</li>
+      <li>Additive: buttons and menus stay, the palette is a shortcut. <code>/</code> still focuses table search.</li>
+    </ul>
+  </div>
+  <div data-notes="reports" hidden>
+    <h2>Reports – summary → trend → details (§21)</h2>
+    <ul>
+      <li>KPI row: income, expenses, net result, savings rate with change vs previous year.</li>
+      <li>One combined chart: income and expense bars per month with the net result as a line – replaces 12 mini cards. Clicking a month selects it and the inspector shows that month's breakdown.</li>
+      <li>"Where money went" uses horizontal bars instead of a donut – easier to compare and label (§21 visualise only when it helps).</li>
+      <li>Top entries and predictability stay, presented as compact tables.</li>
+    </ul>
+  </div>
+</div>
+
+<script src="shared/data.js"></script>
+<script src="shared/icons.js"></script>
+<script>
+const D = window.MOPAY_DEMO;
+const { fmt, esc, MONTHS, MONTHS_LONG, CURRENT_MONTH: CM } = D;
+
+function rail(active) {
+  return `<nav class="rail" aria-label="Primary">
+    <div class="mark">M</div>
+    ${[['expenses', 'Expenses'], ['incomes', 'Incomes'], ['savings', 'Savings'], ['reports', 'Reports']].map(([k, l]) =>
+      `<button class="rail-btn" ${k === active ? 'aria-current="page"' : ''}>${icon(k)}${l}</button>`).join('')}
+    <div class="spacer"></div>
+    <button class="rail-btn">${icon('calendar')}Years</button>
+    <button class="rail-btn">${icon('folder')}Data</button>
+    <button class="rail-btn">${icon('settings')}Settings</button>
+    <button class="rail-btn">${icon('lock')}Lock</button>
+  </nav>`;
+}
+
+function bar(title, extra = '') {
+  return `<div class="bar"><h1>${title} <button class="year" aria-label="Working year">2026 ${icon('chevron-down', 'i-sm')}</button></h1>
+    <label class="cmdk">${icon('search', 'i-sm')}<span>Search or run a command…</span><span class="kbds"><span class="kbd">Ctrl</span><span class="kbd">K</span></span></label>
+    ${extra}</div>`;
+}
+
+function grid(opts = {}) {
+  let b = '';
+  D.expenses.forEach((g) => {
+    const gt = D.groupTotals(g);
+    b += `<tr class="grp"><td class="nm"><span class="grip"></span><span class="ck"></span><button aria-expanded="true">${icon('chevron-down', 'i-sm')}${esc(g.name)}</button></td>${gt.map((x, i) => `<td class="${i === CM ? 'cur' : ''}">${x === null ? '' : fmt(x)}</td>`).join('')}<td class="sum">${fmt(D.rowSum(gt))}</td><td class="avg">${fmt(D.rowAvg(gt))}</td></tr>`;
+    g.entries.forEach((e) => {
+      const sel = opts.sel && opts.sel.includes(e.id);
+      b += `<tr class="e ${sel ? 'sel' : ''}" ${sel ? 'style="background:var(--accent-soft)"' : ''}><td class="nm"><span class="grip">${icon('grip', 'i-sm')}</span><span class="ck"><input type="checkbox" ${sel ? 'checked' : ''} aria-label="Select ${esc(e.name)}"></span>${esc(e.name)}</td>`;
+      e.v.forEach((x, i) => {
+        const t = e.tags && e.tags[i];
+        const f = opts.focus && opts.focus[0] === e.id && opts.focus[1] === i;
+        b += `<td class="c ${i === CM ? 'cur' : ''} ${x === null ? 'em' : ''} ${t ? 'tg' : ''} ${f ? 'focus' : ''}" ${t ? `style="--tag-c:var(--tag-${t.color})" title="${esc(t.text)}"` : ''}>${fmt(x)}</td>`;
+      });
+      b += `<td class="sum">${fmt(D.rowSum(e.v))}</td><td class="avg">${fmt(D.rowAvg(e.v))}</td></tr>`;
+    });
+  });
+  const mt = D.monthTotals(D.expenses);
+  return `<table class="g"><thead><tr><th class="nm">Entry</th>${MONTHS.map((m, i) => `<th class="${i === CM ? 'cur' : ''}">${m}</th>`).join('')}<th>Sum</th><th class="avg">Avg</th></tr></thead>
+    <tbody>${b}</tbody><tfoot><tr><td class="nm" style="padding-left:36px">Total</td>${mt.map((x, i) => `<td class="${i === CM ? 'cur' : ''}">${fmt(x)}</td>`).join('')}<td class="sum">${fmt(D.rowSum(mt))}</td><td class="avg">${fmt(D.rowAvg(mt))}</td></tr></tfoot></table>`;
+}
+
+function subBar() {
+  return `<div class="sub-bar"><span>9 entries · 3 groups</span><span class="sep"></span><span>Year to date <b>${fmt(D.rowSum(D.monthTotals(D.expenses)))}</b></span><span>Monthly avg <b>${fmt(D.rowAvg(D.monthTotals(D.expenses)))}</b></span>
+    <div class="right"><div class="seg" role="group" aria-label="Density"><button aria-pressed="false">Normal</button><button aria-pressed="true">Compact</button></div>
+    <button class="btn btn-ghost btn-icon" aria-label="Filter">${icon('filter', 'i-sm')}</button></div></div>`;
+}
+
+function status(sel) {
+  return `<div class="status"><span>${sel}</span><div class="right"><span><span class="dot"></span>All changes saved</span><span>Encrypted</span><span>v2.6.0</span></div></div>`;
+}
+
+function centerExpenses(opts, selText) {
+  return `<div class="center">${bar('Expenses', `<button class="btn btn-primary">${icon('plus', 'i-sm')}New entry</button><button class="btn btn-icon" aria-label="New group">${icon('folder', 'i-sm')}</button>`)}
+    ${subBar()}<div class="scroll">${grid(opts)}</div>${status(selText)}</div>`;
+}
+
+function inspectorCell() {
+  const e = D.expenses[0].entries[1];
+  const max = Math.max(...e.v.map((x) => x ?? 0));
+  const avg = D.rowAvg(e.v);
+  return `<aside class="insp" aria-label="Inspector">
+    <div class="insp-head"><div class="crumb">Home &amp; utilities ${icon('chevron-right', 'i-sm')} Electricity &amp; heating</div><h2>October 2026</h2></div>
+    <div class="insp-body">
+      <div class="sec"><h3>Value</h3>
+        <div class="val-row"><input class="val" value="210,00" aria-label="October value" inputmode="decimal"></div>
+        <div class="hint">Quick fill: <button>Sep 165,00</button><button>Avg ${fmt(avg)}</button><button>Clear</button></div>
+      </div>
+      <div class="sec"><h3>Tag <span class="kbd">T</span></h3>
+        <div class="sw-row" role="group" aria-label="Tag colour">
+          <button class="sw none" aria-label="No tag">${icon('x', 'i-sm')}</button><button class="sw" style="--sw:var(--tag-grey)" aria-label="Grey"></button><button class="sw" style="--sw:var(--tag-green)" aria-label="Green"></button><button class="sw" style="--sw:var(--tag-orange)" aria-pressed="true" aria-label="Orange">${icon('check', 'i-sm')}</button><button class="sw" style="--sw:var(--tag-red)" aria-label="Red"></button>
+        </div>
+        <label class="lbl" for="tnote">Note</label><textarea id="tnote" class="inp" rows="2">Higher than usual – check meter reading</textarea>
+      </div>
+      <div class="sec"><h3>Entry · 2026</h3>
+        <div class="spark">${e.v.map((x, i) => `<span class="${i === CM ? 'cur' : ''}" style="height:${x ? (x / max) * 100 : 2}%"></span>`).join('')}<div class="avgline" style="bottom:${(avg / max) * 100}%"></div></div>
+        <div class="spark-l">${MONTHS.map((m) => `<span>${m[0]}</span>`).join('')}</div>
+        <dl class="facts"><div><dt>Sum</dt><dd>${fmt(D.rowSum(e.v))}</dd></div><div><dt>Average</dt><dd>${fmt(avg)}</dd></div>
+          <div><dt>vs September</dt><dd class="up">▲ 27%</dd></div><div><dt>October 2025</dt><dd>195,00</dd></div></dl>
+      </div>
+      <div class="sec"><h3>Entry details</h3>
+        <label class="lbl" for="en">Name</label><input id="en" class="inp" value="Electricity &amp; heating" style="margin-bottom:10px">
+        <label class="lbl" for="eg">Group</label><select id="eg" class="inp" style="margin-bottom:10px"><option>Home &amp; utilities</option><option>Everyday essentials</option><option>Lifestyle</option><option>Ungrouped</option></select>
+        <label class="lbl" for="ec">Comment</label><textarea id="ec" class="inp" rows="2">Tariff G11, settlement every 2 months</textarea>
+      </div>
+    </div>
+    <div class="insp-foot"><span class="saved">${icon('check', 'i-sm')}Saved 09:14</span><span class="spacer"></span><button class="btn btn-danger-ghost">${icon('trash', 'i-sm')}Remove entry</button></div>
+  </aside>`;
+}
+
+function inspectorMulti() {
+  const sel = D.expenses[2].entries.slice(1);
+  const sum = sel.reduce((a, e) => a + D.rowSum(e.v), 0);
+  return `<aside class="insp" aria-label="Inspector">
+    <div class="insp-head"><div class="crumb">Selection</div><h2>2 entries selected</h2></div>
+    <div class="insp-body">
+      <div class="sec"><h3>Selected</h3><ul class="mini-list">${sel.map((e) => `<li><span>${esc(e.name)}</span><span>${fmt(D.rowSum(e.v))}</span></li>`).join('')}<li><b>Combined 2026</b><b>${fmt(sum)}</b></li></ul></div>
+      <div class="sec"><h3>Move to group</h3><div class="val-row"><select class="inp"><option>Everyday essentials</option><option>Home &amp; utilities</option><option>Ungrouped</option></select><button class="btn">Move</button></div></div>
+      <div class="sec"><h3>Remove</h3><p style="margin:0 0 10px;color:var(--text-2)">Deletes both entries with all monthly values and tags for 2026.</p><button class="btn btn-danger-ghost">${icon('trash', 'i-sm')}Remove 2 entries…</button></div>
+    </div>
+    <div class="insp-foot"><button class="btn btn-ghost">Clear selection <span class="kbd">Esc</span></button></div>
+  </aside>`;
+}
+
+function palette() {
+  const it = (ic, label, meta = '', act = false) => `<div class="pal-i ${act ? 'act' : ''}" role="option" ${act ? 'aria-selected="true"' : ''}>${icon(ic)}<span>${label}</span><span class="meta">${meta}</span></div>`;
+  return `<div class="pal-scrim"><div class="pal" role="dialog" aria-label="Command palette">
+    <div class="pal-in">${icon('search')}<input value="ex" aria-label="Command"><span class="kbd">Esc</span></div>
+    <div class="pal-list" role="listbox">
+      <div class="pal-g">Actions</div>
+      ${it('export', '<mark>Ex</mark>port data', '<span class="kbd">Ctrl</span><span class="kbd">E</span>', true)}
+      ${it('plus', 'New <mark>ex</mark>pense entry', '<span class="kbd">N</span>')}
+      ${it('folder', 'New <mark>ex</mark>pense group', '<span class="kbd">Shift</span><span class="kbd">N</span>')}
+      <div class="pal-g">Go to</div>
+      ${it('expenses', '<mark>Ex</mark>penses', '<span class="kbd">G</span><span class="kbd">E</span>')}
+      ${it('reports', 'Reports · Where money went (<mark>ex</mark>penses)')}
+      <div class="pal-g">Entries</div>
+      ${it('expenses', 'Electricity &amp; heating', 'Home &amp; utilities')}
+      <div class="pal-g">More commands</div>
+      ${it('calendar', 'Switch year to 2025')}${it('calendar', 'Year operations…')}${it('import', 'Import data…')}${it('settings', 'Settings')}${it('moon', 'Toggle theme')}${it('lock', 'Lock session', '<span class="kbd">L</span>')}
+    </div>
+    <div class="pal-foot"><span><span class="kbd">↑</span> <span class="kbd">↓</span> navigate</span><span><span class="kbd">Enter</span> run</span><span><span class="kbd">Esc</span> close</span></div>
+  </div></div>`;
+}
+
+function chart() {
+  const inc = D.monthTotals(D.incomes), exp = D.monthTotals(D.expenses);
+  const W = 760, H = 240, L = 44, B = 24, T = 10, max = 12000;
+  const bw = (W - L) / 12;
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  let s = '';
+  [0, 4000, 8000, 12000].forEach((v) => { s += `<line class="grid-l" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v / 1000}k</text>`; });
+  s += `<rect class="selband" x="${L + CM * bw + 2}" y="${T}" width="${bw - 4}" height="${H - T - B}" rx="4"/>`;
+  const pts = [];
+  MONTHS.forEach((m, i) => {
+    const x = L + i * bw + bw / 2;
+    if (inc[i] !== null) s += `<rect class="inc" x="${x - 13}" y="${y(inc[i])}" width="12" height="${y(0) - y(inc[i])}" rx="2"><title>${m} income ${fmt(inc[i])}</title></rect>`;
+    if (exp[i] !== null) s += `<rect class="exp" x="${x + 1}" y="${y(exp[i])}" width="12" height="${y(0) - y(exp[i])}" rx="2"><title>${m} expenses ${fmt(exp[i])}</title></rect>`;
+    if (inc[i] !== null && exp[i] !== null) pts.push([x, y(inc[i] - exp[i])]);
+    s += `<text x="${x}" y="${H - 6}" text-anchor="middle" ${i === CM ? 'style="fill:var(--accent-text);font-weight:700"' : ''}>${m}</text>`;
+  });
+  s += `<polyline class="net" points="${pts.map((p) => p.join(',')).join(' ')}"/>` + pts.map((p) => `<circle class="netdot" cx="${p[0]}" cy="${p[1]}" r="3"/>`).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Monthly income, expenses and net result for 2026">${s}</svg>`;
+}
+
+function reports() {
+  const inc = D.rowSum(D.monthTotals(D.incomes)), exp = D.rowSum(D.monthTotals(D.expenses));
+  const groups = D.expenses.map((g) => ({ n: g.name, v: D.rowSum(D.groupTotals(g)) })).sort((a, b) => b.v - a.v);
+  const top = D.expenses.flatMap((g) => g.entries).map((e) => ({ n: e.name, v: D.rowSum(e.v) })).sort((a, b) => b.v - a.v).slice(0, 5);
+  return `<div class="rep">
+    <dl class="kpi"><dt>Income</dt><dd>${fmt(inc)}</dd><div class="d"><b style="color:var(--success)">▲ 6,2%</b> vs 2025</div></dl>
+    <dl class="kpi"><dt>Expenses</dt><dd>${fmt(exp)}</dd><div class="d"><b style="color:var(--danger)">▲ 3,4%</b> vs 2025</div></dl>
+    <dl class="kpi"><dt>Net result</dt><dd style="color:var(--success)">${fmt(inc - exp, { signed: true })}</dd><div class="d">${Math.round(((inc - exp) / inc) * 100)}% of income kept</div></dl>
+    <dl class="kpi"><dt>Saved in goals</dt><dd>${fmt(D.goals.reduce((a, g) => a + D.goalBalance(g), 0))}</dd><div class="d">58% of 40 000,00 target</div></dl>
+    <div class="card span-4"><div style="display:flex;align-items:flex-start;gap:16px"><div><h2>The year month by month</h2><p class="desc">Income and expenses per month, line shows net result. Select a month for details.</p></div>
+      <div class="legend" style="margin-left:auto"><span><i style="background:var(--income)"></i>Income</span><span><i style="background:var(--expense)"></i>Expenses</span><span><i class="line" style="background:var(--accent)"></i>Net result</span></div></div>${chart()}</div>
+    <div class="card span-2"><h2>Where money went</h2><p class="desc">Expense groups, share of the year</p>
+      ${groups.map((g) => `<div class="hbar"><span class="n">${esc(g.n)}</span><span class="v">${fmt(g.v)}<span class="pct">${Math.round((g.v / exp) * 100)}%</span></span><span class="track"><span style="width:${(g.v / exp) * 100}%"></span></span></div>`).join('')}
+    </div>
+    <div class="card span-2"><h2>Top expense entries</h2><p class="desc">Largest yearly totals</p>
+      <table class="t"><thead><tr><th>#</th><th>Entry</th><th class="r">Share</th><th class="r">2026</th></tr></thead><tbody>
+      ${top.map((t, i) => `<tr><td class="muted">${i + 1}</td><td>${esc(t.n)}</td><td class="r muted">${((t.v / exp) * 100).toFixed(1).replace('.', ',')}%</td><td class="r">${fmt(t.v)}</td></tr>`).join('')}</tbody></table>
+    </div>
+  </div>`;
+}
+
+function inspectorMonth() {
+  const inc = D.monthTotals(D.incomes)[CM], exp = D.monthTotals(D.expenses)[CM];
+  return `<aside class="insp" aria-label="Inspector">
+    <div class="insp-head"><div class="crumb">Reports ${icon('chevron-right', 'i-sm')} Selected month</div><h2>October 2026</h2></div>
+    <div class="insp-body">
+      <div class="sec"><h3>Balance</h3><ul class="mini-list"><li><span>Income</span><span>${fmt(inc)}</span></li><li><span>Expenses</span><span>− ${fmt(exp)}</span></li><li><b>Net result</b><b style="color:var(--success)">${fmt(inc - exp, { signed: true })}</b></li></ul></div>
+      <div class="sec"><h3>Expenses by group</h3><ul class="mini-list">${D.expenses.map((g) => `<li><span>${esc(g.name)}</span><span>${fmt(D.groupTotals(g)[CM])}</span></li>`).join('')}</ul></div>
+      <div class="sec"><h3>Tagged in October</h3><ul class="mini-list"><li><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--tag-orange);margin-right:6px"></span>Electricity &amp; heating</span><span class="muted">check meter reading</span></li></ul></div>
+      <div class="sec"><h3>Compared with average</h3><dl class="facts"><div><dt>Expenses vs avg</dt><dd class="up">▲ 3,1%</dd></div><div><dt>Rank this year</dt><dd>5 of 11</dd></div></dl></div>
+    </div>
+    <div class="insp-foot"><button class="btn">${icon('expenses', 'i-sm')}Open October in Expenses</button></div>
+  </aside>`;
+}
+
+document.getElementById('screen-inspector').innerHTML = `<div class="ws">${rail('expenses')}${centerExpenses({ focus: [2, CM] }, 'Electricity &amp; heating · Oct · 210,00')}${inspectorCell()}</div>`;
+document.getElementById('screen-multi').innerHTML = `<div class="ws">${rail('expenses')}${centerExpenses({ sel: [8, 9] }, '2 entries selected · Sum 2026: ' + fmt(D.rowSum(D.expenses[2].entries[1].v) + D.rowSum(D.expenses[2].entries[2].v)))}${inspectorMulti()}</div>`;
+document.getElementById('screen-palette').innerHTML = `<div class="ws">${rail('expenses')}${centerExpenses({ focus: [2, CM] }, 'Electricity &amp; heating · Oct · 210,00')}${inspectorCell()}</div>${palette()}`;
+document.getElementById('screen-reports').innerHTML = `<div class="ws">${rail('reports')}<div class="center">${bar('Reports', `<button class="btn">${icon('export', 'i-sm')}Export</button>`)}<div class="scroll">${reports()}</div>${status('October selected')}</div>${inspectorMonth()}</div>`;
+
+MockupChrome.init();
+</script>
+</body>
+</html>

@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Api } from '../api';
 import { useAppStore } from '../store';
-import { Surface } from './Surface';
-import { SoftButton } from './SoftButton';
 import { formatCurrency, formatCurrencyPlain, parseCurrencyInput } from '../utils/currency';
 import { includesSearch, normalizeSearchText } from '../utils/search';
+import { Badge, Button, Callout, Dialog, IconButton, Menu } from './ui';
+
+// Savings as goal list + goal detail (plan Phase 6, docs/mockup_UI/final-ledger.html).
 
 type SavingsItem = {
   id: number;
@@ -42,12 +43,27 @@ const buildDrafts = (items: SavingsItem[]): DraftRow[] =>
 const formatSignedCurrency = (value: number) =>
   value > 0 ? `+${formatCurrency(value)}` : formatCurrency(value);
 
+const normalizeName = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+function goalFigures(goal: SavingsGoal) {
+  const values = goal.items.map((item) => Number(item.value ?? 0));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const target = typeof goal.targetValue === 'number' && goal.targetValue > 0 ? goal.targetValue : null;
+  return {
+    total,
+    target,
+    progress: target ? Math.min(100, Math.max(0, (total / target) * 100)) : null,
+    contributions: values.filter((value) => value > 0).reduce((sum, value) => sum + value, 0),
+    withdrawals: values.filter((value) => value < 0).reduce((sum, value) => sum + value, 0),
+  };
+}
+
 export function SavingsView() {
   const year = useAppStore((s) => s.year);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const demo = useAppStore((s) => s.demo);
   const openGoalModal = useAppStore((s) => s.openGoalModal);
-  const [expandedGoalId, setExpandedGoalId] = useState<number | null>(null);
+  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
 
   const savingsQuery = useQuery({
     queryKey: ['savings', year],
@@ -64,230 +80,314 @@ export function SavingsView() {
       || goal.items.some((item) => includesSearch(item.name, normalizedSearch))
     );
   }, [goals, normalizedSearch]);
-  const goalIdsKey = goals.map((goal) => goal.id).join(',');
 
   useEffect(() => {
-    setExpandedGoalId((current) => {
-      if (current !== null && goals.some((goal) => goal.id === current)) return current;
-      return null;
-    });
-  }, [goalIdsKey]);
-
-  useEffect(() => {
-    setExpandedGoalId(null);
+    setSelectedGoalId(null);
   }, [year]);
 
+  // The selected goal, or the first visible one (also after removal or filtering).
+  const selectedGoal = visibleGoals.find((goal) => goal.id === selectedGoalId) ?? visibleGoals[0] ?? null;
+
   if (!year) {
-    return (
-      <Surface variant="layer" className="savings-placeholder">
-        <p>Select a year to plan your savings goals.</p>
-      </Surface>
-    );
+    return <SavingsState message="Select a year to plan your savings goals." />;
   }
 
   if (savingsQuery.isLoading) {
-    return (
-      <Surface variant="layer" className="savings-placeholder">
-        <p>Loading your savings goals…</p>
-      </Surface>
-    );
+    return <SavingsState message="Loading your savings goals…" />;
   }
 
   if (!goals.length) {
     return (
-      <Surface variant="layer" className="savings-placeholder">
-        <div className="savings-empty-stack">
-          <p>
-            Set up your first goal to start tracking progress. Goals live next to your yearly
-            budget, so you can update them anytime.
-          </p>
-          <SoftButton type="button" onClick={() => openGoalModal()} disabled={!year || Boolean(demo)}>
-            Add goal
-          </SoftButton>
-        </div>
-      </Surface>
+      <SavingsState message="Set up your first goal to start tracking progress. Goals live next to your yearly budget, so you can update them anytime.">
+        {!demo && <Button variant="primary" icon="target-arrow" onClick={() => openGoalModal()}>Add goal</Button>}
+      </SavingsState>
     );
   }
 
   if (normalizedSearch && !visibleGoals.length) {
-    return (
-      <Surface variant="layer" className="savings-placeholder search-results-empty" role="status">
-        <p>No savings goals match “{searchQuery.trim()}”.</p>
-      </Surface>
-    );
+    return <SavingsState status message={`No savings goals match “${searchQuery.trim()}”.`} />;
   }
 
   return (
-    <div className="savings-accordion">
-      {visibleGoals.map((goal) => (
-        <GoalCard
-          key={goal.id}
-          year={year}
-          goal={goal}
-          expanded={normalizedSearch ? true : expandedGoalId === goal.id}
-          onToggle={() =>
-            setExpandedGoalId((current) => (current === goal.id ? null : goal.id))
-          }
-        />
-      ))}
+    <div className="goals-view mode-enter">
+      <div className="goals-layout">
+        <nav className="goals-list" aria-label="Goals">
+          <ul>
+            {visibleGoals.map((goal) => (
+              <li key={goal.id}>
+                <GoalListItem
+                  goal={goal}
+                  selected={goal.id === selectedGoal?.id}
+                  onSelect={() => setSelectedGoalId(goal.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </nav>
+        {selectedGoal && <GoalDetail key={selectedGoal.id} goal={selectedGoal} year={year} />}
+      </div>
     </div>
   );
 }
 
-function GoalCard({
-  goal,
-  year,
-  expanded,
-  onToggle,
-}: {
-  goal: SavingsGoal;
-  year: number;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+function SavingsState({ message, status = false, children }: { message: string; status?: boolean; children?: ReactNode }) {
+  return (
+    <div className="goals-state" role={status ? 'status' : undefined}>
+      <p>{message}</p>
+      {children}
+    </div>
+  );
+}
+
+function GoalListItem({ goal, selected, onSelect }: { goal: SavingsGoal; selected: boolean; onSelect: () => void }) {
+  const { total, target, progress } = goalFigures(goal);
+  return (
+    <button
+      type="button"
+      className="goals-list-item"
+      aria-current={selected ? 'true' : undefined}
+      aria-controls="goal-detail"
+      onClick={onSelect}
+    >
+      <span className="goals-list-name">
+        <span>{goal.name}</span>
+        {progress !== null && <span className="goals-list-pct">{progress.toFixed(0)}%</span>}
+      </span>
+      <span className={`goals-bar ${progress === null ? 'is-empty' : ''}`} aria-hidden="true">
+        <span style={{ width: `${progress ?? 0}%` }} />
+      </span>
+      <small>
+        {target !== null ? `${formatCurrency(total)} of ${formatCurrency(target)}` : `${formatCurrency(total)} · No target`}
+      </small>
+    </button>
+  );
+}
+
+function GoalDetail({ goal, year }: { goal: SavingsGoal; year: number }) {
   const qc = useQueryClient();
   const demo = useAppStore((s) => s.demo);
   const openGoalModal = useAppStore((s) => s.openGoalModal);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const actionsRef = useRef<HTMLDivElement>(null);
+  const headingId = useId();
+  const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const { total, target, progress, contributions, withdrawals } = goalFigures(goal);
 
-  useEffect(() => {
-    if (!confirmingDelete) return;
-    const tm = setTimeout(() => setConfirmingDelete(false), 4000);
-    return () => clearTimeout(tm);
-  }, [confirmingDelete]);
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['savings', year] });
 
-  useEffect(() => {
-    if (!confirmingDelete) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!actionsRef.current) return;
-      if (actionsRef.current.contains(event.target as Node)) return;
-      setConfirmingDelete(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [confirmingDelete]);
-
-  const totalValue = useMemo(
-    () => goal.items.reduce((sum, item) => sum + Number(item.value ?? 0), 0),
-    [goal.items]
-  );
-  const showProgress = typeof goal.targetValue === 'number' && goal.targetValue > 0;
-  const progressPct = showProgress && goal.targetValue
-    ? Math.min(100, Math.max(0, (totalValue / goal.targetValue) * 100))
-    : 0;
-
-  const invalidate = () =>
-    qc.invalidateQueries({
-      queryKey: ['savings', year],
-    });
-
-  async function handleDelete() {
-    await Api.savings.removeGoal(goal.id);
-    setConfirmingDelete(false);
-    await invalidate();
+  async function removeGoal() {
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await Api.savings.removeGoal(goal.id);
+      setConfirming(false);
+      await invalidate();
+    } catch {
+      setConfirming(false);
+      setRemoveError('Could not remove the goal. Try again.');
+    } finally {
+      setRemoving(false);
+    }
   }
 
-  async function handleAddRow() {
-    const result = await Api.savings.addItem(goal.id);
-    await invalidate();
-    return Number(result?.id);
-  }
-
-  const balanceLabel = showProgress
-    ? `${formatCurrency(totalValue)} / ${formatCurrency(goal.targetValue ?? 0)}`
-    : `${formatCurrency(totalValue)} / No target`;
+  const itemCount = goal.items.length;
 
   return (
-    <Surface
-      variant="layer"
-      compact
-      className={`goal-card goal-accordion-card ${expanded ? 'is-expanded' : ''}`}
-    >
-      <div className="goal-accordion-header">
-        <button
-          type="button"
-          className="goal-accordion-toggle"
-          aria-expanded={expanded}
-          aria-controls={`goal-panel-${goal.id}`}
-          onClick={onToggle}
-        >
-          <span className="goal-accordion-chevron" aria-hidden="true">›</span>
-          <span className="goal-accordion-title">{goal.name}</span>
-          <span className="goal-accordion-balance">{balanceLabel}</span>
-          <span className="goal-summary-progress" aria-hidden="true">
-            <span className="goal-progress-fill" style={{ width: `${progressPct}%` }} />
-          </span>
-          <span className={`goal-progress-pill ${showProgress ? '' : 'is-empty'}`}>
-            {showProgress ? `${progressPct.toFixed(0)}%` : '—'}
-          </span>
-        </button>
-
-        <div className="goal-card-actions" hidden={Boolean(demo)} ref={actionsRef}>
-          <button
-            type="button"
-            className="goal-action-icon ui-tooltip"
-            data-tooltip="Edit goal"
-            aria-label={`Edit ${goal.name}`}
-            onClick={() => openGoalModal(goal.id)}
-          >
-            <img src="/icons/ui/edit.svg" alt="" className="goal-action-icon-img" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`goal-action-icon ui-tooltip ${confirmingDelete ? 'is-warning' : ''}`}
-            data-tooltip={confirmingDelete ? 'Confirm remove' : 'Remove goal'}
-            aria-label={confirmingDelete ? `Confirm removal of ${goal.name}` : `Remove ${goal.name}`}
-            onClick={() => {
-              if (confirmingDelete) {
-                void handleDelete();
-                return;
-              }
-              setConfirmingDelete(true);
-            }}
-          >
-            <img
-              src={confirmingDelete ? '/icons/ui/check.svg' : '/icons/ui/trash.svg'}
-              alt=""
-              className="goal-action-icon-img"
-              aria-hidden="true"
-            />
-          </button>
+    <section id="goal-detail" className="goals-detail" aria-labelledby={headingId}>
+      <header className="goals-detail-head">
+        <div>
+          <h2 id={headingId}>{goal.name}</h2>
+          <p>{target !== null ? `Target ${formatCurrency(target)}` : 'No target'} · {year}</p>
         </div>
+        {!demo && (
+          <div className="goals-detail-actions">
+            <Button size="sm" icon="edit" onClick={() => openGoalModal(goal.id)}>Edit goal</Button>
+            <Menu
+              label="Goal actions"
+              ariaLabel="Goal actions"
+              icon="dots"
+              iconOnly
+              caret={false}
+              variant="ghost"
+              size="sm"
+              items={[{ label: 'Remove goal', icon: 'trash', danger: true, onSelect: () => setConfirming(true) }]}
+            />
+          </div>
+        )}
+      </header>
+
+      {removeError && <div className="goals-detail-message"><Callout tone="danger" role="alert">{removeError}</Callout></div>}
+
+      <div className="goals-progress">
+        <div className="goals-progress-row">
+          <p className={`goals-big-num ${total < 0 ? 'is-negative' : ''}`}>{formatCurrency(total)}</p>
+          <span>{target !== null ? `of ${formatCurrency(target)}` : 'No target'}</span>
+          {progress !== null && <strong className="goals-progress-pct">{progress.toFixed(0)}%</strong>}
+        </div>
+        {progress !== null && (
+          <div
+            className="goals-bar is-large"
+            role="progressbar"
+            aria-label="Progress toward target"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+          >
+            <span style={{ width: `${progress}%` }} />
+          </div>
+        )}
+        <dl className="goals-facts">
+          {target !== null && (
+            <div><dt>Remaining</dt><dd>{formatCurrency(Math.max(0, target - total))}</dd></div>
+          )}
+          <div><dt>Contributions</dt><dd>{formatCurrency(contributions)}</dd></div>
+          <div><dt>Withdrawals</dt><dd>{formatCurrency(withdrawals)}</dd></div>
+        </dl>
       </div>
 
-      {expanded && (
-        <div id={`goal-panel-${goal.id}`} className="goal-accordion-panel mode-enter">
-          <GoalItemsLedger
-            items={goal.items}
-            total={totalValue}
-            onRefresh={invalidate}
-            onAddRow={handleAddRow}
-          />
+      {demo
+        ? <p className="goals-readonly">Demo data is read only.</p>
+        : <QuickAddForm goalId={goal.id} onRefresh={invalidate} />}
+
+      <GoalItemsLedger goalName={goal.name} items={goal.items} total={total} onRefresh={invalidate} />
+
+      <Dialog
+        open={confirming}
+        title={`Remove ${goal.name}?`}
+        description="This cannot be undone."
+        size="sm"
+        onClose={() => setConfirming(false)}
+      >
+        <p className="goals-confirm-text">
+          {itemCount
+            ? `The goal and its ${itemCount === 1 ? 'item' : `${itemCount} items`} (balance ${formatCurrency(total)}) are removed.`
+            : 'The goal has no items.'}
+        </p>
+        <div className="ui-dialog-actions">
+          <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+          <Button variant="danger" icon="trash" loading={removing} onClick={() => void removeGoal()}>Remove goal</Button>
         </div>
-      )}
-    </Surface>
+      </Dialog>
+    </section>
+  );
+}
+
+// Two existing calls (create an empty item, then save it). If the second call
+// fails, the empty item is removed again so no silent blank item stays behind.
+function QuickAddForm({ goalId, onRefresh }: { goalId: number; onRefresh: () => Promise<unknown> }) {
+  const [note, setNote] = useState('');
+  const [amount, setAmount] = useState('');
+  const [kind, setKind] = useState<'contribution' | 'withdrawal'>('contribution');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const noteRef = useRef<HTMLInputElement>(null);
+  const formId = useId();
+  const canAdd = Boolean(note.trim() || amount.trim());
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!canAdd || busy) return;
+    setBusy(true);
+    setError(null);
+    const name = normalizeName(note);
+    const magnitude = amount.trim() ? Math.abs(parseCurrencyInput(amount)) : 0;
+    const value = magnitude === 0 ? 0 : kind === 'withdrawal' ? -magnitude : magnitude;
+    try {
+      let id: number;
+      try {
+        id = Number((await Api.savings.addItem(goalId))?.id);
+      } catch {
+        setError('Could not add the item. Try again.');
+        return;
+      }
+      if (!Number.isFinite(id)) {
+        setError('Could not add the item. Try again.');
+        await onRefresh();
+        return;
+      }
+      try {
+        await Api.savings.updateItem(id, { name, value });
+      } catch {
+        try {
+          await Api.savings.removeItem(id);
+          setError('Could not save the item, so it was not added. Try again.');
+        } catch {
+          setError('Could not save the item. An empty item was left in the list; edit or remove it.');
+        }
+        await onRefresh();
+        return;
+      }
+      setNote('');
+      setAmount('');
+      setKind('contribution');
+      await onRefresh();
+      noteRef.current?.focus();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="goals-add" aria-label="Add item" onSubmit={(event) => void submit(event)}>
+      <div className="goals-add-field">
+        <label htmlFor={`${formId}-note`}>Source or note</label>
+        <input
+          ref={noteRef}
+          id={`${formId}-note`}
+          className="ui-input"
+          value={note}
+          maxLength={80}
+          placeholder="e.g. October transfer"
+          onChange={(event) => setNote(event.target.value)}
+        />
+      </div>
+      <div className="goals-add-field">
+        <label htmlFor={`${formId}-amount`}>Amount</label>
+        <input
+          id={`${formId}-amount`}
+          className="ui-input goals-amount"
+          inputMode="decimal"
+          value={amount}
+          placeholder="0,00"
+          // The type below sets the sign, so a minus is not accepted here.
+          onChange={(event) => setAmount(event.target.value.replace(/[^\d\s,.]/g, ''))}
+        />
+      </div>
+      <Button type="submit" variant="primary" icon="square-plus" disabled={!canAdd} loading={busy}>Add item</Button>
+      <div className="goals-add-kind" role="radiogroup" aria-label="Type">
+        <label>
+          <input type="radio" name={`${formId}-kind`} checked={kind === 'contribution'} onChange={() => setKind('contribution')} />
+          Contribution
+        </label>
+        <label>
+          <input type="radio" name={`${formId}-kind`} checked={kind === 'withdrawal'} onChange={() => setKind('withdrawal')} />
+          Temporary withdrawal
+        </label>
+      </div>
+      {error && <div className="goals-add-error"><Callout tone="danger" role="alert">{error}</Callout></div>}
+    </form>
   );
 }
 
 function GoalItemsLedger({
+  goalName,
   items,
   total,
   onRefresh,
-  onAddRow,
 }: {
+  goalName: string;
   items: SavingsItem[];
   total: number;
   onRefresh: () => Promise<unknown>;
-  onAddRow: () => Promise<number>;
 }) {
   const demo = useAppStore((s) => s.demo);
   const [rows, setRows] = useState<DraftRow[]>(() => buildDrafts(items));
+  // A blank item (from an older version or a failed quick add) opens for editing.
   const [editingRowId, setEditingRowId] = useState<number | null>(
     () => demo ? null : items.find(isBlankItem)?.id ?? null
   );
   const [savingRowId, setSavingRowId] = useState<number | null>(null);
-  const [addingRow, setAddingRow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const editorNameRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -297,7 +397,6 @@ function GoalItemsLedger({
         row.id === editingRowId && editedDraft ? editedDraft : row
       );
     });
-
     if (editingRowId && !items.some((item) => item.id === editingRowId)) {
       setEditingRowId(null);
     }
@@ -313,7 +412,7 @@ function GoalItemsLedger({
       );
     });
     return () => cancelAnimationFrame(frame);
-  }, [editingRowId, rows.length]);
+  }, [editingRowId]);
 
   const updateRow = (id: number, patch: Partial<DraftRow>) => {
     setRows((current) =>
@@ -331,12 +430,13 @@ function GoalItemsLedger({
     });
   };
 
+  // Failures keep the editor open with the draft and show an error (plan Phase 6).
   async function persistRow(id: number) {
     if (savingRowId === id) return;
     const row = rows.find((candidate) => candidate.id === id);
     if (!row) return;
 
-    const trimmedName = row.nameDraft.replace(/\s+/g, ' ').trim();
+    const trimmedName = normalizeName(row.nameDraft);
     const cleanedValue = row.valueDraft.replace(/[^\d\s,.\-]/g, '');
     const hasValue = cleanedValue.trim().length > 0;
     setSavingRowId(id);
@@ -355,8 +455,11 @@ function GoalItemsLedger({
           valueDraft: hasValue ? formatCurrencyPlain(numericValue) : '',
         });
       }
+      setError(null);
       await onRefresh();
       setEditingRowId((current) => (current === id ? null : current));
+    } catch {
+      setError('Could not save the item. Try again.');
     } finally {
       setSavingRowId(null);
     }
@@ -366,182 +469,138 @@ function GoalItemsLedger({
     const original = items.find((item) => item.id === id);
     if (!original) return;
     if (isBlankItem(original)) {
-      await Api.savings.removeItem(id);
-      setEditingRowId((current) => (current === id ? null : current));
-      await onRefresh();
+      await removeRow(id);
       return;
     }
     resetRow(id);
+    setError(null);
     setEditingRowId((current) => (current === id ? null : current));
   }
 
   async function removeRow(id: number) {
-    await Api.savings.removeItem(id);
-    setEditingRowId((current) => (current === id ? null : current));
-    await onRefresh();
-  }
-
-  const handleValueChange = (id: number, next: string) => {
-    const sanitized = next.replace(/[^\d\s,.\-]/g, '');
-    updateRow(id, { valueDraft: sanitized });
-  };
-
-  async function addRow() {
-    if (addingRow) return;
-    setAddingRow(true);
     try {
-      if (editingRowId !== null) {
-        await persistRow(editingRowId);
-      }
-      const id = await onAddRow();
-      if (Number.isFinite(id)) setEditingRowId(id);
-    } finally {
-      setAddingRow(false);
+      await Api.savings.removeItem(id);
+      setError(null);
+      setEditingRowId((current) => (current === id ? null : current));
+      await onRefresh();
+    } catch {
+      setError('Could not remove the item. Try again.');
     }
   }
 
+  const editorKeys = (id: number) => (event: KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void persistRow(id);
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      void cancelEditing(id);
+    }
+  };
+
   return (
-    <div className="goal-ledger">
-      <div className="goal-ledger-head">
-        <span>Source or note</span>
-        <span>Amount</span>
-        <span className="sr-only">Actions</span>
-      </div>
+    <div className="goals-items-wrap">
+      {error && <div className="goals-detail-message"><Callout tone="danger" role="alert">{error}</Callout></div>}
+      <table className="goals-items">
+        <caption className="sr-only">Items of {goalName}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Source or note</th>
+            <th scope="col" className="is-num">Amount</th>
+            <th scope="col"><span className="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {!rows.length && (
+            <tr>
+              <td colSpan={3} className="goals-items-empty">
+                No savings activity yet. Add the first source or temporary withdrawal.
+              </td>
+            </tr>
+          )}
 
-      <div className="goal-ledger-rows">
-        {!rows.length && (
-          <p className="goal-ledger-empty">
-            No savings activity yet. Add the first source or temporary withdrawal.
-          </p>
-        )}
+          {rows.map((row) => {
+            const item = items.find((candidate) => candidate.id === row.id);
+            if (!item) return null;
+            const value = Number(item.value ?? 0);
+            const negative = value < 0;
 
-        {rows.map((row) => {
-          const item = items.find((candidate) => candidate.id === row.id);
-          if (!item) return null;
-          const value = Number(item.value ?? 0);
-          const negative = value < 0;
-          const editing = editingRowId === row.id;
-
-          if (editing) {
-            return (
-              <div
-                key={row.id}
-                className="goal-ledger-editor"
-                onBlurCapture={(event) => {
-                  const nextTarget = event.relatedTarget as Node | null;
-                  if (nextTarget && event.currentTarget.contains(nextTarget)) return;
-                  void persistRow(row.id);
-                }}
-              >
-                <textarea
-                  ref={editorNameRef}
-                  className="goal-input goal-description-input"
-                  value={row.nameDraft}
-                  placeholder="Source or note"
-                  maxLength={80}
-                  rows={2}
-                  onChange={(event) => updateRow(row.id, { nameDraft: event.target.value })}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      void persistRow(row.id);
-                    }
-                    if (event.key === 'Escape') {
-                      event.preventDefault();
-                      void cancelEditing(row.id);
-                    }
-                  }}
-                />
-                <div className="goal-ledger-value-editor">
-                  <input
-                    type="text"
-                    className="goal-input value"
-                    inputMode="decimal"
-                    value={row.valueDraft}
-                    placeholder="0,00"
-                    onChange={(event) => handleValueChange(row.id, event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
+            if (editingRowId === row.id) {
+              return (
+                <tr key={row.id} className="is-editing">
+                  <td colSpan={3}>
+                    <div
+                      className="goals-item-editor"
+                      role="group"
+                      aria-label="Edit item"
+                      onBlurCapture={(event) => {
+                        const nextTarget = event.relatedTarget as Node | null;
+                        if (nextTarget && event.currentTarget.contains(nextTarget)) return;
                         void persistRow(row.id);
-                      }
-                      if (event.key === 'Escape') {
-                        event.preventDefault();
-                        void cancelEditing(row.id);
-                      }
-                    }}
-                  />
-                  {row.valueDraft.trim().startsWith('-') && (
-                    <span className="goal-withdrawal-caption">Temporary withdrawal</span>
+                      }}
+                    >
+                      <textarea
+                        ref={editorNameRef}
+                        className="ui-input goals-note-input"
+                        aria-label="Source or note"
+                        value={row.nameDraft}
+                        placeholder="Source or note"
+                        maxLength={80}
+                        rows={1}
+                        onChange={(event) => updateRow(row.id, { nameDraft: event.target.value })}
+                        onKeyDown={editorKeys(row.id)}
+                      />
+                      <div className="goals-item-value">
+                        <input
+                          type="text"
+                          className="ui-input goals-amount"
+                          aria-label="Amount"
+                          inputMode="decimal"
+                          value={row.valueDraft}
+                          placeholder="0,00"
+                          onChange={(event) => updateRow(row.id, { valueDraft: event.target.value.replace(/[^\d\s,.\-]/g, '') })}
+                          onKeyDown={editorKeys(row.id)}
+                        />
+                        {row.valueDraft.trim().startsWith('-') && <Badge tone="warning">Temporary withdrawal</Badge>}
+                      </div>
+                      <div className="goals-item-actions is-visible">
+                        <IconButton icon="check" label="Save item" size="sm" disabled={savingRowId === row.id} onClick={() => void persistRow(row.id)} />
+                        <IconButton icon="x" label="Cancel item editing" size="sm" disabled={savingRowId === row.id} onClick={() => void cancelEditing(row.id)} />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              );
+            }
+
+            return (
+              <tr key={row.id}>
+                <td className="goals-item-name">
+                  <span>{item.name?.trim() || 'Untitled item'}</span>
+                  {negative && <Badge tone="warning">Temporary withdrawal</Badge>}
+                </td>
+                <td className={`is-num ${negative ? 'is-negative' : ''}`}>{formatSignedCurrency(value)}</td>
+                <td>
+                  {!demo && (
+                    <div className="goals-item-actions">
+                      <IconButton icon="edit" label={`Edit ${item.name || 'item'}`} size="sm" onClick={() => setEditingRowId(row.id)} />
+                      <IconButton icon="trash" label={`Remove ${item.name || 'item'}`} size="sm" onClick={() => void removeRow(row.id)} />
+                    </div>
                   )}
-                </div>
-                <div className="goal-ledger-actions" hidden={Boolean(demo)}>
-                  <button
-                    type="button"
-                    className="goal-row-action is-save ui-tooltip"
-                    data-tooltip="Save"
-                    aria-label="Save item"
-                    disabled={savingRowId === row.id}
-                    onClick={() => void persistRow(row.id)}
-                  >
-                    <img src="/icons/ui/check.svg" alt="" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="goal-row-action ui-tooltip"
-                    data-tooltip="Cancel"
-                    aria-label="Cancel item editing"
-                    disabled={savingRowId === row.id}
-                    onClick={() => void cancelEditing(row.id)}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
+                </td>
+              </tr>
             );
-          }
-
-          return (
-            <div key={row.id} className={`goal-ledger-row ${negative ? 'is-negative' : ''}`}>
-              <div className="goal-ledger-description">
-                <span>{item.name?.trim() || 'Untitled item'}</span>
-                {negative && <span className="goal-withdrawal-caption">Temporary withdrawal</span>}
-              </div>
-              <strong className="goal-ledger-amount">{formatSignedCurrency(value)}</strong>
-              <div className="goal-ledger-actions" hidden={Boolean(demo)}>
-                <button
-                  type="button"
-                  className="goal-row-action ui-tooltip"
-                  data-tooltip="Edit"
-                  aria-label={`Edit ${item.name || 'item'}`}
-                  onClick={() => setEditingRowId(row.id)}
-                >
-                  <img src="/icons/ui/edit.svg" alt="" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="goal-row-action ui-tooltip"
-                  data-tooltip="Remove"
-                  aria-label={`Remove ${item.name || 'item'}`}
-                  onClick={() => void removeRow(row.id)}
-                >
-                  <img src="/icons/ui/trash.svg" alt="" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="goal-ledger-footer">
-        <SoftButton type="button" variant="ghost" disabled={addingRow || Boolean(demo)} onClick={() => void addRow()}>
-          {addingRow ? 'Adding…' : '+ Add item'}
-        </SoftButton>
-        <div className="goal-ledger-total">
-          <span>Current balance</span>
-          <strong>{formatCurrency(total)}</strong>
-        </div>
-      </div>
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Current balance</th>
+            <td className="is-num">{formatCurrency(total)}</td>
+            <td />
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }

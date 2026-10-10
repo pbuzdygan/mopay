@@ -50,15 +50,21 @@ Key repository areas:
   - [`tagsMigration.js`](.../backend/tagsMigration.js): tag table migration
   - [`groupsMigration.js`](.../backend/groupsMigration.js): grouping migration
 - [`frontend/src/`](.../frontend/src)
-  - [`App.tsx`](.../frontend/src/App.tsx): app shell and global modals
+  - [`App.tsx`](.../frontend/src/App.tsx): app shell (desktop or mobile layout), views and global modals
   - [`api.ts`](.../frontend/src/api.ts): fetch wrapper and API bindings
   - [`store.ts`](.../frontend/src/store.ts): Zustand UI state
-  - [`components/TableView.tsx`](.../frontend/src/components/TableView.tsx): income/expense table, DnD, groups, tags
-  - [`components/SavingsView.tsx`](.../frontend/src/components/SavingsView.tsx): savings goals/items UI
-  - [`components/ReportsView.tsx`](.../frontend/src/components/ReportsView.tsx): reports UI
+  - [`components/shell/`](.../frontend/src/components/shell): sidebar, page header, working-year switch and shared navigation/search/edit-mode logic (`useShell.ts`, `useNarrow.ts`)
+  - [`components/mobile/`](.../frontend/src/components/mobile): top bar, bottom tab bar and More sheet below 960 px
+  - [`components/TableView.tsx`](.../frontend/src/components/TableView.tsx): Expenses/Incomes data, saves, DnD wiring and edit modes; renders the grid or the month list
+  - [`components/table/`](.../frontend/src/components/table): grid rows, summary strip, month list, inspector drawer/bottom sheet, mode banner and bulk bar, save-status hook
+  - [`components/OverviewView.tsx`](.../frontend/src/components/OverviewView.tsx): Overview (former Reports), computed by [`reports/analytics.ts`](.../frontend/src/reports/analytics.ts)
+  - [`components/SavingsView.tsx`](.../frontend/src/components/SavingsView.tsx): savings goal list, goal detail and items
+  - [`components/settings/SettingsView.tsx`](.../frontend/src/components/settings/SettingsView.tsx): Settings page
+  - [`components/ui/`](.../frontend/src/components/ui): base components (Button, IconButton, Input/Select/Textarea, Badge, Callout, Dialog, Menu, Segmented, Switch, Icon)
   - [`components/PinGuard.tsx`](.../frontend/src/components/PinGuard.tsx): PIN unlock overlay
   - [`components/ReleaseStatusProvider.tsx`](.../frontend/src/components/ReleaseStatusProvider.tsx): release metadata polling
-  - [`components/modals/`](.../frontend/src/components/modals): add/edit/import/export/settings flows
+  - [`components/modals/`](.../frontend/src/components/modals): add entry/group, savings goal, import/export, first-run year and encryption dialogs
+  - [`styles/`](.../frontend/src/styles): design tokens (`tokens.css`) and one stylesheet per area, imported by `global.css`
 - [`Dockerfile`](.../Dockerfile): multi-stage build and runtime image
 - [`docker-compose.yml`](.../docker-compose.yml): GHCR deployment example
 
@@ -233,24 +239,30 @@ Major endpoint groups:
 
 ### 7.1 Composition
 
-The frontend is a single-page React application bootstrapped by Vite.
+The frontend is a single-page React application bootstrapped by Vite. The UI follows the Final Ledger design ([mockup](mockup_UI/final-ledger.html), [UI design guidelines](../.ai/UI_DESIGN_GUIDELINES.md)).
 
-Main screens:
+Layouts (only one is rendered at a time, chosen by `useNarrow` at 960 px, so ids, controls and queries are never duplicated):
 
-- table view for incomes/expenses
-- savings view
-- reports view
+- desktop (960 px and wider): sidebar (working year, Overview, Expenses, Incomes, Savings with optional yearly totals and goal count (`showNavTotals`, off by default), Settings, Lock session, theme, version) and a page header with search, Edit menu and *New entry* split button
+- mobile (below 960 px): top bar (title, search icon, *Actions* menu), bottom tab bar (Overview, Expenses, Incomes, Savings, More) and a More sheet (Settings, working year, theme, Lock session, version)
+
+Views:
+
+- Overview (start page after load and unlock; internal tab key `reports`)
+- Expenses/Incomes: a semantic table with sticky header, name column and totals on desktop, a month list below 960 px; a non-modal inspector (drawer on desktop, bottom sheet on mobile) edits values, entry details and tags, each field saving on its own
+- Savings: goal list and goal detail with items
+- Settings page (display, security, years, import/export, about, help, year deletion), one section at a time chosen in its section menu; held as view state, not as a tab
+
+Styling uses CSS custom properties from `styles/tokens.css` (colours per theme, spacing, radii, type, motion, z-index) and plain CSS per area; Tailwind supplies the reset and a few utilities. Components use the base components in `components/ui` rather than ad-hoc button or field classes.
 
 Global modal flows include:
 
 - add entry
 - add group
-- comment editing
-- year operations
 - export
 - import
-- settings
-- savings goal editing
+- savings goal editing and removal
+- first-run year
 - encryption migration notice
 - encryption key mismatch recovery
 
@@ -263,11 +275,12 @@ Frontend state is split between:
 
 Examples of Zustand-managed state:
 
-- active tab and year
-- theme mode
-- edit mode
+- active section and working year (per normal/demo mode); `tab` is still written for rollback compatibility but no longer read
+- theme mode (`themeMode`: light, dark or system) and the resolved `theme`
+- Settings page visibility, the month of the mobile month list and a pending Overview month request (not persisted)
+- table density and search query
+- edit mode (Arrange or Remove) and the remove selection
 - PIN session flag
-- selected reports
 - modal visibility
 - release channel/version metadata
 - group-total display preference
@@ -306,7 +319,7 @@ Important constraints visible in the current implementation:
 - session storage is process-local and disappears on restart
 - import lock is process-local, so it only protects a single running backend instance
 - the backend is concentrated in one large server file, which increases maintenance cost
-- the main table UI is concentrated in one large component, which increases rendering and change risk
+- Expenses/Incomes data loading, saves and drag-and-drop wiring stay in `TableView.tsx`, which both the grid and the month list depend on
 - release checking depends on direct client-side access to GitHub APIs
 
 These are current characteristics of the system, not necessarily defects, but they should be considered in future refactors.

@@ -3,8 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Api } from "../../api";
 import { useAppStore } from "../../store";
 import { ModalBase } from "./ModalBase";
-import { FormSection } from "../FormSection";
-import { SoftButton } from "../SoftButton";
+import { Button, Callout, Input } from "../ui";
 
 export function AddGroupModal() {
   const qc = useQueryClient();
@@ -12,6 +11,8 @@ export function AddGroupModal() {
 
   const open = modals.addGroup;
   const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -25,14 +26,24 @@ export function AddGroupModal() {
   }, [open]);
 
   async function submit() {
-    if (!name.trim() || !year) return;
+    if (!name.trim() || !year || saving) return;
 
     const type = tab === "incomes" ? "income" : "expense";
-    await Api.entryGroups.add({
-      type,
-      year,
-      name: name.trim(),
-    });
+    setSaving(true);
+    setError(null);
+    try {
+      await Api.entryGroups.add({
+        type,
+        year,
+        name: name.trim(),
+      });
+    } catch {
+      // The dialog stays open with the typed name, so the same click retries.
+      setError("Could not add the group. Try again.");
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     setName("");
     closeModal("addGroup");
@@ -42,61 +53,47 @@ export function AddGroupModal() {
     });
   }
 
+  function close() {
+    closeModal("addGroup");
+    setName("");
+    setError(null);
+  }
+
   return (
     <ModalBase
       open={open}
       title={tab === "incomes" ? "Add income group" : "Add expense group"}
-      onClose={() => {
-        closeModal("addGroup");
-        setName("");
-      }}
+      onClose={close}
       size="sm"
       mobileAlign="top"
     >
-      <div className="space-y-3 sm:space-y-4">
-        <FormSection title="Group name">
-          <div className="field-stack">
-            <label className="field-label" htmlFor="group-name-input">
-              Name
-            </label>
-            <input
-              id="group-name-input"
-              ref={inputRef}
-              type="text"
-              className="input"
-              maxLength={40}
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submit();
-              }}
-            />
-            <p className="field-helper">You can rename groups later.</p>
-          </div>
-        </FormSection>
-
-        <div className="modal-footer-premium flex justify-end gap-2">
-          <SoftButton
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              closeModal("addGroup");
-              setName("");
-            }}
-          >
+      <form
+        className="dialog-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <Input
+          id="group-name-input"
+          ref={inputRef}
+          label="Name"
+          hint="You can rename groups later."
+          maxLength={40}
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        {error && <Callout tone="danger" role="alert">{error}</Callout>}
+        <div className="ui-dialog-actions">
+          <Button variant="ghost" onClick={close}>
             Cancel
-          </SoftButton>
-          <button
-            type="button"
-            className="btn"
-            disabled={!name.trim() || !year}
-            onClick={submit}
-          >
+          </Button>
+          <Button type="submit" variant="primary" disabled={!name.trim() || !year} loading={saving}>
             Add group
-          </button>
+          </Button>
         </div>
-      </div>
+      </form>
     </ModalBase>
   );
 }

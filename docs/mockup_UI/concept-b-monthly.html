@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept B · Monthly</title>
+<link rel="stylesheet" href="shared/chrome.css">
+<style>
+/* ---------- Design tokens (Concept B) ---------- */
+:root {
+  --bg: #F5F7FA; --surface: #FFFFFF; --surface-2: #F8FAFC; --surface-3: #EEF2F7;
+  --border: #E1E6ED; --border-strong: #C9D1DC;
+  --text-1: #172033; --text-2: #4E5A6E; --text-3: #657186;
+  --accent: #2F62D9; --accent-hover: #2552BE; --on-accent: #FFFFFF; --accent-soft: rgba(47, 98, 217, .09); --accent-text: #2856C4;
+  --focus: rgba(47, 98, 217, .45);
+  --success: #15805C; --warning: #A3660A; --danger: #C23A3A;
+  --success-soft: rgba(21,128,92,.10); --warning-soft: rgba(163,102,10,.12); --danger-soft: rgba(194,58,58,.09);
+  --income: #15805C; --expense: #C2563A;
+  --tag-grey: #8A94A6; --tag-green: #22A06B; --tag-orange: #E08A1E; --tag-red: #D94C4C;
+  --shadow-pop: 0 10px 30px rgba(15, 25, 45, .14), 0 1px 3px rgba(15, 25, 45, .08);
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #12161D; --surface: #191E27; --surface-2: #1F2530; --surface-3: #272E3A;
+  --border: #2B3240; --border-strong: #3A4352;
+  --text-1: #E6EAF0; --text-2: #A4AEBE; --text-3: #8792A4;
+  --accent: #6C9BF6; --accent-hover: #86AEF8; --on-accent: #0B1530; --accent-soft: rgba(108, 155, 246, .13); --accent-text: #8DB2FA;
+  --focus: rgba(108, 155, 246, .5);
+  --success: #4CC38A; --warning: #E3A54C; --danger: #F07070;
+  --success-soft: rgba(76,195,138,.12); --warning-soft: rgba(227,165,76,.14); --danger-soft: rgba(240,112,112,.12);
+  --income: #4CC38A; --expense: #F08A6C;
+  --shadow-pop: 0 14px 36px rgba(0, 0, 0, .5), 0 1px 3px rgba(0, 0, 0, .4);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-1); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.i { width: 18px; height: 18px; flex: none; } .i-sm { width: 16px; height: 16px; flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-3); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- Top bar ---------- */
+.topbar {
+  position: sticky; top: 41px; z-index: 20; display: flex; align-items: center; gap: 24px;
+  height: 56px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .02em; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; font-size: 15px; }
+.tabs { display: flex; gap: 4px; height: 100%; }
+.tab {
+  display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 12px; border: 0; background: none; cursor: pointer;
+  color: var(--text-2); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab:hover { color: var(--text-1); }
+.tab[aria-selected="true"] { color: var(--text-1); border-bottom-color: var(--accent); font-weight: 600; }
+.tab[aria-selected="true"] .i { color: var(--accent); }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; white-space: nowrap;
+  border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); color: var(--text-1);
+  font-weight: 550; cursor: pointer; transition: background 150ms, border-color 150ms;
+}
+.btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.btn-ghost:hover { background: var(--surface-3); color: var(--text-1); border-color: transparent; }
+.btn-icon { width: 36px; padding: 0; justify-content: center; }
+.btn-sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.select { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px 0 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); font-weight: 600; cursor: pointer; }
+.search-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; width: 220px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); color: var(--text-3); cursor: text; }
+.kbd { margin-left: auto; font-size: 11px; padding: 0 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--surface); }
+
+/* ---------- Page ---------- */
+.page { max-width: 1440px; margin: 0 auto; padding: 24px; }
+.page-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.month-step { display: flex; align-items: center; gap: 4px; }
+.month-step h1 { margin: 0 6px; font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; min-width: 210px; }
+.month-step h1 small { display: block; font-size: 13px; font-weight: 500; color: var(--text-3); letter-spacing: 0; }
+.seg { display: inline-flex; padding: 3px; border-radius: var(--r-md); background: var(--surface-3); gap: 2px; }
+.seg button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); font-weight: 550; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.head-actions { margin-left: auto; display: flex; gap: 8px; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+
+/* Month list */
+.month-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.ml-head, .ml-row { display: grid; grid-template-columns: minmax(180px, 1fr) 110px 150px 88px 36px; gap: 12px; align-items: center; padding: 0 16px; }
+.ml-head { height: 36px; font-size: 12px; font-weight: 600; color: var(--text-3); border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.ml-head span:nth-child(n+2) { text-align: right; }
+.ml-group { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; font-size: 13px; font-weight: 650; }
+.ml-group .sub { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-2); font-weight: 600; }
+.ml-group .filled { font-size: 12px; font-weight: 500; color: var(--text-3); }
+.ml-row { min-height: 52px; border-bottom: 1px solid var(--border); }
+.ml-row:last-child { border-bottom: 0; }
+.ml-row:hover { background: var(--surface-2); }
+.ml-name { min-width: 0; }
+.ml-name b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-name .note { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.ml-name .note i { width: 8px; height: 8px; border-radius: 2px; background: var(--tag-c); display: inline-block; }
+.ml-prev { text-align: right; color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.amount {
+  width: 100%; height: 36px; padding: 0 10px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600;
+  border: 1px solid transparent; border-radius: var(--r-sm); background: var(--surface-2); outline: 0;
+}
+.ml-row:hover .amount { border-color: var(--border); background: var(--surface); }
+.amount:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
+.amount.is-empty { background: transparent; border: 1px dashed var(--border-strong); font-weight: 400; }
+.delta { text-align: right; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.delta.up { color: var(--danger); } .delta.down { color: var(--success); } .delta.flat { color: var(--text-3); font-weight: 500; }
+.suggest { display: flex; justify-content: flex-end; }
+.ml-foot { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface-2); border-top: 1px solid var(--border); font-weight: 650; }
+.ml-foot .spacer { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 12px; font-weight: 600; background: var(--accent-soft); color: var(--accent-text); border: 0; cursor: pointer; white-space: nowrap; }
+
+/* Side panel */
+.side { position: sticky; top: 121px; display: flex; flex-direction: column; gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px; }
+.panel h2 { margin: 0 0 12px; font-size: 14px; font-weight: 650; }
+.kv { display: grid; grid-template-columns: 1fr auto; row-gap: 8px; font-variant-numeric: tabular-nums; }
+.kv dt { color: var(--text-2); display: flex; align-items: center; gap: 8px; }
+.kv dd { margin: 0; text-align: right; font-weight: 600; }
+.kv .total { padding-top: 10px; border-top: 1px solid var(--border); font-size: 16px; color: var(--text-1); }
+.sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.progress { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin: 8px 0 4px; }
+.progress span { display: block; height: 100%; background: var(--accent); }
+.small { font-size: 12px; color: var(--text-3); }
+.attn { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.attn li { display: flex; gap: 10px; font-size: 13px; color: var(--text-2); }
+.attn .i-sm { margin-top: 2px; }
+.attn b { color: var(--text-1); font-weight: 600; }
+.months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; align-items: end; height: 64px; }
+.months button { border: 0; padding: 0; cursor: pointer; border-radius: 3px 3px 0 0; background: var(--surface-3); }
+.months button.cur { background: var(--accent); }
+.months button.future { background: transparent; border: 1px dashed var(--border-strong); border-bottom: 0; }
+.months-l { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; margin-top: 4px; font-size: 10px; text-align: center; color: var(--text-3); }
+.months-l .cur { color: var(--accent-text); font-weight: 700; }
+
+/* Year grid */
+.ytable-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: auto; }
+table.y { width: 100%; min-width: 1100px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.y th, .y td { height: 38px; padding: 0 6px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.y thead th { position: sticky; top: 0; background: var(--surface); font-size: 12px; color: var(--text-3); font-weight: 600; border-bottom: 1px solid var(--border); }
+.y thead th button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 4px 6px; border-radius: 4px; }
+.y thead th button:hover { background: var(--surface-3); color: var(--text-1); }
+.y thead th.cur button { background: var(--accent); color: var(--on-accent); }
+.y .name { text-align: left; position: sticky; left: 0; background: inherit; min-width: 170px; padding-left: 16px; }
+.y tbody tr { background: var(--surface); }
+.y tbody tr.e:hover { background: var(--surface-2); }
+.y tbody tr.e td { border-bottom: 1px solid var(--border); }
+.y tr.g td { height: 44px; padding-top: 10px; font-size: 12px; color: var(--text-3); font-weight: 600; border-bottom: 1px solid var(--border); vertical-align: bottom; padding-bottom: 6px; }
+.y tr.g td.name { color: var(--text-1); font-size: 13px; }
+.y td.cur { background: var(--accent-soft); }
+.y td.empty { color: var(--text-3); }
+.y td.sum { font-weight: 650; border-left: 1px solid var(--border); }
+.y td.avg, .y th.avg { color: var(--text-2); }
+.y tfoot tr { background: var(--surface-2); }
+.y tfoot tr.net { background: var(--surface); }
+.y tfoot td { border-top: 1px solid var(--border-strong); font-weight: 650; height: 42px; background: var(--surface-2); }
+.y tfoot tr.net td { font-weight: 600; color: var(--text-2); background: var(--surface); border-top: 0; }
+.y tfoot tr.net td.pos { color: var(--success); }
+.y .tg { position: relative; }
+.y .tg::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 6px; height: 2px; border-radius: 1px; background: var(--tag-c); }
+
+/* Phones */
+.phones { display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; padding: 8px 0 24px; }
+.phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.phone-wrap > p { margin: 0; font-size: 13px; color: var(--text-2); font-weight: 600; }
+.phone {
+  position: relative; width: 360px; height: 740px; border-radius: 36px; overflow: hidden;
+  background: var(--bg); border: 8px solid #0d0f14; box-shadow: 0 20px 50px rgba(0,0,0,.18);
+  display: flex; flex-direction: column;
+}
+.ph-status { height: 28px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 0 22px; font-size: 12px; font-weight: 600; }
+.ph-top { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px 10px; }
+.ph-top h2 { margin: 0; font-size: 18px; flex: 1; text-align: center; }
+.ph-top h2 small { display: block; font-size: 11px; color: var(--text-3); font-weight: 500; }
+.ph-body { flex: 1; overflow: hidden; padding: 0 12px; }
+.ph-sum { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; margin-bottom: 12px; }
+.ph-sum div { background: var(--surface); padding: 8px 10px; }
+.ph-sum dt { font-size: 11px; color: var(--text-3); }
+.ph-sum dd { margin: 0; font-weight: 650; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ph-group { font-size: 12px; font-weight: 650; color: var(--text-2); display: flex; justify-content: space-between; padding: 8px 4px 6px; }
+.ph-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.ph-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 12px; border-bottom: 1px solid var(--border); }
+.ph-row:last-child { border-bottom: 0; }
+.ph-row .n { flex: 1; min-width: 0; }
+.ph-row .n b { display: block; font-weight: 500; font-size: 14px; }
+.ph-row .n span { display: block; font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-row .v { font-weight: 650; font-variant-numeric: tabular-nums; }
+.ph-row .v.empty { color: var(--accent-text); font-weight: 600; font-size: 13px; }
+.ph-tabbar { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); height: 64px; padding-bottom: 8px; background: var(--surface); border-top: 1px solid var(--border); }
+.ph-tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10.5px; color: var(--text-3); }
+.ph-tabbar button[aria-selected="true"] { color: var(--accent-text); font-weight: 600; }
+.ph-scrim { position: absolute; inset: 0; background: rgba(10, 14, 22, .42); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 18px 18px 0 0; padding: 8px 16px 20px; box-shadow: var(--shadow-pop); }
+.sheet .grab { width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 0 auto 12px; }
+.sheet h3 { margin: 0; font-size: 17px; }
+.sheet .sub { margin: 2px 0 14px; font-size: 13px; color: var(--text-3); }
+.big-input { width: 100%; height: 56px; font-size: 24px; font-weight: 650; text-align: right; padding: 0 14px; border: 2px solid var(--accent); border-radius: var(--r-md); background: var(--surface); font-variant-numeric: tabular-nums; outline: 0; }
+.quick { display: flex; gap: 8px; margin: 10px 0 14px; flex-wrap: wrap; }
+.field-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin: 0 0 6px; }
+.swatches { display: flex; gap: 8px; margin-bottom: 12px; }
+.swatch { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--sw); display: grid; place-items: center; color: #fff; }
+.swatch.none { background: var(--surface); color: var(--text-3); }
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.input { width: 100%; min-height: 44px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); outline: 0; }
+.sheet-actions { display: flex; gap: 8px; margin-top: 16px; }
+.sheet-actions .btn { height: 44px; flex: 1; justify-content: center; }
+.menu-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.menu-list li button { display: flex; align-items: center; gap: 12px; width: 100%; height: 48px; padding: 0 4px; border: 0; background: none; text-align: left; font-size: 15px; border-bottom: 1px solid var(--border); }
+.menu-list li:last-child button { border-bottom: 0; }
+.menu-list .meta { margin-left: auto; font-size: 13px; color: var(--text-3); }
+
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } .side { position: static; } .search-btn { width: 40px; } .search-btn span, .search-btn .kbd { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="mock-chrome">
+  <span class="mock-chrome-title">Concept B · Monthly <small>top navigation + month-first workflow</small></span>
+  <div class="mock-chrome-group" role="group" aria-label="Screen">
+    <button data-screen-link="month">Month view</button>
+    <button data-screen-link="year">Year view</button>
+    <button data-screen-link="mobile">Mobile</button>
+  </div>
+  <div class="mock-chrome-spacer"></div>
+  <div class="mock-chrome-group" role="group" aria-label="Theme">
+    <button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button>
+  </div>
+  <a href="index.html">All concepts</a>
+</div>
+
+<header class="topbar" id="topbar"></header>
+
+<section class="mock-screen" id="screen-month"></section>
+<section class="mock-screen" id="screen-year" hidden></section>
+<section class="mock-screen" id="screen-mobile" hidden></section>
+
+<div class="mock-notes">
+  <div data-notes="month">
+    <h2>Month view – the routine task first</h2>
+    <ul>
+      <li><b>Observation:</b> the recurring job in MOPAY is "enter this month's bills and salary, then check the balance". Today it happens in a 12-column grid where the current month is one narrow column among twelve (§30 function before style).</li>
+      <li><span class="tag-new">Better</span><b>Month view</b> (default for Expenses/Incomes): one row per entry with previous month for reference, an always-editable amount field and change vs previous month. Writes use the same per-month <code>PATCH /entries/:id</code> as the grid.</li>
+      <li><span class="tag-new">Better</span><b>Empty cells suggest last month's value</b> (<i>Use 300,00</i>) and <i>Fill empty from September</i> fills all blanks in one step – client-side only, no API change. Optional; can be dropped without affecting the rest.</li>
+      <li><b>Side panel</b>: month balance (income − expenses), how many entries are filled, things needing attention (tag notes, unusual changes, empty entries) and a 12-month strip that doubles as month navigation.</li>
+      <li>Tags show their note under the entry name, so information is readable without hovering (§18 – not only colour, not only tooltip).</li>
+      <li><b>Top navigation</b> (§11): 4 sections as tabs, global search with <code>/</code>, year selector, menu (Year operations, Import, Export, Settings), lock and theme. All existing actions remain; Arrange / Remove / Tags live in the <i>⋯</i> menu next to <i>New</i>.</li>
+    </ul>
+  </div>
+  <div data-notes="year" hidden>
+    <h2>Year view – kept, simplified</h2>
+    <ul>
+      <li>The full 12-month grid stays one click away (<i>Month | Year</i> toggle, remembered per user) for annual review, imports and bulk corrections.</li>
+      <li>Month headers are buttons: clicking <i>Oct</i> opens the month view for October.</li>
+      <li>Group rows become light section headings with subtotals; the footer adds <b>net result per month</b> (income − expenses) on the Expenses tab, data already available to Reports.</li>
+      <li>Tags render as a coloured underline under the value – no cell background change, number stays readable.</li>
+    </ul>
+  </div>
+  <div data-notes="mobile" hidden>
+    <h2>Mobile – designed, not shrunk (§17)</h2>
+    <ul>
+      <li>The month view is naturally a list, so phones no longer need a horizontally scrolling 14-column table.</li>
+      <li>Bottom tab bar for the 4 sections plus <i>More</i> (Year operations, Import, Export, Settings, Lock, theme, version) – 44px+ touch targets.</li>
+      <li>Tapping an entry opens a <b>bottom sheet</b>: large numeric field (16px+ prevents iOS zoom, existing requirement), quick values (last month, average), tag colour and note, link to entry details. Replaces separate cell edit, Tag mode and context panel on touch.</li>
+    </ul>
+  </div>
+</div>
+
+<script src="shared/data.js"></script>
+<script src="shared/icons.js"></script>
+<script>
+const D = window.MOPAY_DEMO;
+const { fmt, esc, MONTHS, MONTHS_LONG, CURRENT_MONTH: CM } = D;
+// Concept B illustrates an unfilled entry: Subscriptions has no October value yet.
+const EXP = JSON.parse(JSON.stringify(D.expenses));
+EXP[2].entries[1].v[CM] = null;
+const INC = D.incomes;
+
+document.getElementById('topbar').innerHTML = `
+  <div class="brand"><span class="brand-mark">M</span>MOPAY</div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    ${[['expenses', 'Expenses'], ['incomes', 'Incomes'], ['savings', 'Savings'], ['reports', 'Reports']].map(([k, l], i) =>
+      `<button class="tab" role="tab" aria-selected="${i === 0}">${icon(k)}${l}</button>`).join('')}
+  </nav>
+  <div class="top-right">
+    <label class="search-btn">${icon('search', 'i-sm')}<span>Search entries</span><span class="kbd">/</span></label>
+    <button class="select" aria-label="Working year">2026 ${icon('chevron-down', 'i-sm')}</button>
+    <button class="btn btn-ghost btn-icon" aria-label="Menu: year operations, import, export, settings">${icon('menu')}</button>
+    <button class="btn btn-ghost btn-icon" aria-label="Lock session">${icon('lock')}</button>
+    <button class="btn btn-ghost btn-icon" aria-label="Toggle theme" data-theme-toggle>${icon('moon')}</button>
+  </div>`;
+document.querySelector('[data-theme-toggle]').addEventListener('click', () => {
+  const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; MockupChrome.syncThemeButtons();
+});
+
+function head(view) {
+  return `<div class="page-head">
+    <div class="month-step">
+      <button class="btn btn-ghost btn-icon" aria-label="Previous month">${icon('chevron-left')}</button>
+      <h1>${view === 'month' ? 'October 2026' : 'Year 2026'}<small>Expenses · ${view === 'month' ? '8 of 9 entries filled' : '9 entries in 3 groups'}</small></h1>
+      <button class="btn btn-ghost btn-icon" aria-label="Next month">${icon('chevron-right')}</button>
+    </div>
+    <div class="seg" role="group" aria-label="View">
+      <button aria-pressed="${view === 'month'}">${icon('list', 'i-sm')}Month</button>
+      <button aria-pressed="${view === 'year'}">${icon('table', 'i-sm')}Year</button>
+    </div>
+    <div class="head-actions">
+      ${view === 'month' ? `<button class="btn">${icon('copy', 'i-sm')}Fill empty from September</button>` : ''}
+      <button class="btn btn-ghost btn-icon" aria-label="Arrange, remove, tags">${icon('dots')}</button>
+      <button class="btn btn-primary">${icon('plus', 'i-sm')}New${icon('chevron-down', 'i-sm')}</button>
+    </div>
+  </div>`;
+}
+
+function monthTotal(groups, m) { return D.monthTotals(groups)[m] ?? 0; }
+
+function monthView() {
+  let rows = '';
+  EXP.forEach((g) => {
+    const filled = g.entries.filter((e) => e.v[CM] !== null).length;
+    const sub = g.entries.reduce((a, e) => a + (e.v[CM] ?? 0), 0);
+    rows += `<div class="ml-group">${esc(g.name)} <span class="filled">${filled}/${g.entries.length} filled</span><span class="sub">${fmt(sub)}</span></div>`;
+    g.entries.forEach((e) => {
+      const cur = e.v[CM], prev = e.v[CM - 1];
+      const tag = e.tags && e.tags[CM];
+      let delta = '';
+      if (cur !== null && prev) {
+        const d = ((cur - prev) / prev) * 100;
+        delta = Math.abs(d) < 0.5 ? '<span class="delta flat">no change</span>' : `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(0)}%</span>`;
+      } else if (cur === null) {
+        delta = `<span class="suggest"><button class="chip" title="Use September value">Use ${fmt(prev)}</button></span>`;
+      } else delta = '<span class="delta flat">—</span>';
+      rows += `<div class="ml-row">
+        <div class="ml-name"><b>${esc(e.name)}</b>${tag ? `<span class="note" style="--tag-c:var(--tag-${tag.color})"><i></i>${esc(tag.text)}</span>` : (e.comment ? `<span class="note">${icon('comment', 'i-sm')}${esc(e.comment)}</span>` : '')}</div>
+        <div class="ml-prev">${fmt(prev)}</div>
+        <div><input class="amount ${cur === null ? 'is-empty' : ''}" value="${cur === null ? '' : fmt(cur).replace(/ /g, ' ')}" placeholder="–" aria-label="${esc(e.name)} October" inputmode="decimal"></div>
+        ${delta}
+        <button class="btn btn-ghost btn-icon btn-sm" style="width:30px" aria-label="Entry details">${icon('dots', 'i-sm')}</button>
+      </div>`;
+    });
+  });
+  const totalExp = monthTotal(EXP, CM), totalInc = monthTotal(INC, CM);
+  const strip = MONTHS.map((m, i) => {
+    const t = D.monthTotals(EXP)[i];
+    const max = 5200;
+    return `<button class="${i === CM ? 'cur' : ''} ${t === null ? 'future' : ''}" style="height:${t ? (t / max) * 100 : 30}%" aria-label="${MONTHS_LONG[i]} ${fmt(t)}"></button>`;
+  }).join('');
+  return `<div class="page">${head('month')}
+    <div class="layout">
+      <div class="month-list">
+        <div class="ml-head"><span style="text-align:left">Entry</span><span>September</span><span>October</span><span>Change</span><span></span></div>
+        ${rows}
+        <div class="ml-foot">October total<span class="spacer"></span><span class="num">${fmt(totalExp)}</span><span class="muted num" style="font-weight:500;font-size:13px">Sep ${fmt(monthTotal(EXP, CM - 1))}</span></div>
+      </div>
+      <aside class="side">
+        <div class="panel"><h2>October balance</h2>
+          <dl class="kv">
+            <dt><span class="sw" style="background:var(--income)"></span>Income</dt><dd>${fmt(totalInc)}</dd>
+            <dt><span class="sw" style="background:var(--expense)"></span>Expenses</dt><dd>− ${fmt(totalExp)}</dd>
+            <dt class="total">Net result</dt><dd class="total" style="color:var(--success)">${fmt(totalInc - totalExp, { signed: true })}</dd>
+          </dl>
+          <div class="progress" aria-label="Filled entries"><span style="width:${(8 / 9) * 100}%"></span></div>
+          <div class="small">8 of 9 expense entries · 4 of 4 income entries filled</div>
+        </div>
+        <div class="panel"><h2>Needs attention</h2>
+          <ul class="attn">
+            <li style="--c:var(--warning)"><span style="color:var(--warning)">${icon('alert', 'i-sm')}</span><span><b>Electricity &amp; heating</b> is 27% higher than September. Tag note: "check meter reading".</span></li>
+            <li><span style="color:var(--accent-text)">${icon('info', 'i-sm')}</span><span><b>Subscriptions</b> has no October value yet. September was 85,00.</span></li>
+          </ul>
+        </div>
+        <div class="panel"><h2>2026 by month</h2>
+          <div class="months">${strip}</div>
+          <div class="months-l">${MONTHS.map((m, i) => `<span class="${i === CM ? 'cur' : ''}">${m[0]}</span>`).join('')}</div>
+          <div class="small" style="margin-top:8px">Select a month to open it. Dashed = no data yet.</div>
+        </div>
+      </aside>
+    </div></div>`;
+}
+
+function yearView() {
+  let body = '';
+  EXP.forEach((g) => {
+    const gt = D.groupTotals(g);
+    body += `<tr class="g"><td class="name">${esc(g.name)}</td>${gt.map((x, i) => `<td class="${i === CM ? 'cur' : ''}">${x === null ? '' : fmt(x)}</td>`).join('')}<td class="sum">${fmt(D.rowSum(gt))}</td><td class="avg">${fmt(D.rowAvg(gt))}</td></tr>`;
+    g.entries.forEach((e) => {
+      body += `<tr class="e"><td class="name">${esc(e.name)}</td>${e.v.map((x, i) => {
+        const t = e.tags && e.tags[i];
+        return `<td class="${i === CM ? 'cur' : ''} ${x === null ? 'empty' : ''} ${t ? 'tg' : ''}" ${t ? `style="--tag-c:var(--tag-${t.color})" title="${esc(t.text)}"` : ''}>${fmt(x)}</td>`;
+      }).join('')}<td class="sum">${fmt(D.rowSum(e.v))}</td><td class="avg">${fmt(D.rowAvg(e.v))}</td></tr>`;
+    });
+  });
+  const te = D.monthTotals(EXP), ti = D.monthTotals(INC);
+  return `<div class="page">${head('year')}
+    <div class="ytable-wrap"><table class="y">
+      <thead><tr><th class="name">Entry</th>${MONTHS.map((m, i) => `<th class="${i === CM ? 'cur' : ''}"><button>${m}</button></th>`).join('')}<th>Sum</th><th class="avg">Avg</th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot>
+        <tr><td class="name">Total expenses</td>${te.map((x, i) => `<td class="${i === CM ? 'cur' : ''}">${fmt(x)}</td>`).join('')}<td class="sum">${fmt(D.rowSum(te))}</td><td class="avg">${fmt(D.rowAvg(te))}</td></tr>
+        <tr class="net"><td class="name">Net result</td>${te.map((x, i) => { const n = ti[i] !== null && x !== null ? ti[i] - x : null; return `<td class="${n > 0 ? 'pos' : ''}">${n === null ? '–' : fmt(n, { signed: true })}</td>`; }).join('')}<td class="sum">${fmt(D.rowSum(ti) - D.rowSum(te), { signed: true })}</td><td></td></tr>
+      </tfoot>
+    </table></div></div>`;
+}
+
+function phoneShell(inner, tabbar = true, overlay = '') {
+  return `<div class="phone"><div class="ph-status"><span>9:41</span><span>●●● 5G</span></div>${inner}
+    ${tabbar ? `<nav class="ph-tabbar">${[['expenses', 'Expenses'], ['incomes', 'Incomes'], ['savings', 'Savings'], ['reports', 'Reports'], ['menu', 'More']].map(([k, l], i) => `<button aria-selected="${i === 0}">${icon(k)}${l}</button>`).join('')}</nav>` : ''}
+    ${overlay}</div>`;
+}
+
+function phoneList() {
+  const totalExp = monthTotal(EXP, CM), totalInc = monthTotal(INC, CM);
+  return `<div class="ph-top"><button class="btn btn-ghost btn-icon" aria-label="Previous month">${icon('chevron-left')}</button><h2>October<small>Expenses · 2026</small></h2><button class="btn btn-ghost btn-icon" aria-label="Next month">${icon('chevron-right')}</button></div>
+  <div class="ph-body">
+    <dl class="ph-sum"><div><dt>Income</dt><dd>${fmt(totalInc, { decimals: 0 })}</dd></div><div><dt>Expenses</dt><dd>${fmt(totalExp, { decimals: 0 })}</dd></div><div><dt>Net</dt><dd style="color:var(--success)">${fmt(totalInc - totalExp, { signed: true, decimals: 0 })}</dd></div></dl>
+    ${EXP.slice(0, 3).map((g) => `<div class="ph-group"><span>${esc(g.name)}</span><span class="num">${fmt(g.entries.reduce((a, e) => a + (e.v[CM] ?? 0), 0))}</span></div>
+      <div class="ph-list">${g.entries.map((e) => `<div class="ph-row"><div class="n"><b>${esc(e.name)}</b><span>Sep ${fmt(e.v[CM - 1])}${e.tags && e.tags[CM] ? ' · ' + esc(e.tags[CM].text) : ''}</span></div>
+        ${e.v[CM] === null ? '<span class="v empty">Add value</span>' : `<span class="v">${fmt(e.v[CM])}</span>`}</div>`).join('')}</div>`).join('')}
+  </div>`;
+}
+
+function phoneSheet() {
+  return `<div class="ph-scrim"></div><div class="sheet" role="dialog" aria-labelledby="sh-t">
+    <div class="grab"></div>
+    <h3 id="sh-t">Electricity &amp; heating</h3><p class="sub">October 2026 · Home &amp; utilities</p>
+    <input class="big-input" value="210,00" inputmode="decimal" aria-label="Amount">
+    <div class="quick"><button class="chip">Sep 165,00</button><button class="chip">Avg 197,73</button><button class="chip">Clear value</button></div>
+    <span class="field-label">Tag</span>
+    <div class="swatches"><button class="swatch none" aria-label="No tag">${icon('x', 'i-sm')}</button><button class="swatch" style="--sw:var(--tag-grey)" aria-label="Grey"></button><button class="swatch" style="--sw:var(--tag-green)" aria-label="Green"></button><button class="swatch" style="--sw:var(--tag-orange)" aria-pressed="true" aria-label="Orange">${icon('check', 'i-sm')}</button><button class="swatch" style="--sw:var(--tag-red)" aria-label="Red"></button></div>
+    <label class="field-label" for="sn">Note</label><input id="sn" class="input" value="Check meter reading">
+    <div class="sheet-actions"><button class="btn">Entry details</button><button class="btn btn-primary">Save</button></div>
+  </div>`;
+}
+
+function phoneMore() {
+  return `<div class="ph-scrim"></div><div class="sheet" role="dialog" aria-label="More">
+    <div class="grab"></div>
+    <ul class="menu-list">
+      <li><button>${icon('calendar')}Year operations<span class="meta">2026</span></button></li>
+      <li><button>${icon('import')}Import data</button></li>
+      <li><button>${icon('export')}Export data</button></li>
+      <li><button>${icon('settings')}Settings</button></li>
+      <li><button>${icon('moon')}Dark theme<span class="meta">Off</span></button></li>
+      <li><button>${icon('lock')}Lock session</button></li>
+    </ul>
+    <div class="small" style="text-align:center">MOPAY v2.6.0 · up to date</div>
+  </div>`;
+}
+
+document.getElementById('screen-month').innerHTML = monthView();
+document.getElementById('screen-year').innerHTML = yearView();
+document.getElementById('screen-mobile').innerHTML = `<div class="page"><div class="phones">
+  <div class="phone-wrap"><p>Month list</p>${phoneShell(phoneList())}</div>
+  <div class="phone-wrap"><p>Edit value + tag (bottom sheet)</p>${phoneShell(phoneList(), true, phoneSheet())}</div>
+  <div class="phone-wrap"><p>More menu</p>${phoneShell(phoneList(), true, phoneMore())}</div>
+</div></div>`;
+
+MockupChrome.init();
+</script>
+</body>
+</html>

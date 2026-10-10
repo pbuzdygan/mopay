@@ -1,0 +1,116 @@
+/* Settings page (plan Phase 7, docs/mockup_UI/final-ledger.html). The `prefs-`
+   prefix avoids the legacy `.settings-*` dialog rules in global.css. */
+.prefs {
+  container: prefs / inline-size;
+  font-family: var(--font);
+  color: var(--text-1);
+}
+.prefs-layout { display: block; }
+.prefs-nav { display: flex; gap: 2px; overflow-x: auto; margin-bottom: var(--sp-16); }
+.prefs-nav button {
+  flex: none;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+.prefs-nav button:hover { background: var(--surface-3); color: var(--text-1); }
+.prefs-nav button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.prefs-nav button.is-danger { color: var(--danger); }
+/* The current section is the only one shown; mark it like the sidebar's current page. */
+.prefs-nav button[aria-current='true'] { background: var(--accent-soft); color: var(--accent-text); font-weight: var(--fw-semibold); }
+.prefs-nav button.is-danger[aria-current='true'] { background: var(--danger-soft); color: var(--danger); }
+
+.prefs-sections { display: flex; flex-direction: column; gap: var(--sp-20); min-width: 0; max-width: 820px; }
+.prefs-section { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); scroll-margin-top: var(--sp-24); }
+.prefs-section > h2 { margin: 0; padding: var(--sp-16) var(--sp-20) 2px; font-size: var(--fs-lead); font-weight: var(--fw-bold); }
+.prefs-section > h2:focus { outline: none; }
+.prefs-section > h2:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-sm); }
+.prefs-section.is-danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.prefs-section.is-danger > h2 { color: var(--danger); }
+.prefs-intro { margin: 0; padding: 0 var(--sp-20) 6px; font-size: var(--fs-small); color: var(--text-3); }
+.prefs-section > h2 + .prefs-row,
+.prefs-section > h2 + .prefs-note { margin-top: 10px; }
+
+.prefs-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-12) var(--sp-24); padding: 14px var(--sp-20); border-top: 1px solid var(--border); }
+.prefs-row.is-stack { flex-direction: column; align-items: stretch; }
+.prefs-row.is-stack .prefs-row-text { flex: none; }
+.prefs-row-text { display: flex; flex-direction: column; flex: 1 1 260px; min-width: 0; }
+.prefs-row-title { font-weight: var(--fw-semibold); }
+.prefs-row-description { font-size: var(--fs-small); color: var(--text-2); }
+.prefs-row-control { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); min-width: 0; }
+.prefs-row-control:empty { display: none; }
+.prefs-note { padding: var(--sp-12) var(--sp-20) var(--sp-16); border-top: 1px solid var(--border); }
+
+.prefs-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); }
+.prefs-state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); font-weight: var(--fw-semibold); white-space: nowrap; }
+.prefs-state.is-success { color: var(--success); }
+.prefs-state.is-danger { color: var(--danger); }
+.prefs-state.is-muted { color: var(--text-2); }
+.prefs-state.is-accent { color: var(--accent-text); }
+a.prefs-state { text-decoration: underline; text-underline-offset: 2px; }
+
+.prefs-inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-8) var(--sp-12); }
+.prefs-inline-form .ui-field { flex: 0 1 260px; }
+.prefs-inline-form .prefs-year-input { flex: 0 0 120px; }
+.prefs-message { flex: 1 0 100%; margin: 0; font-size: var(--fs-small); font-weight: var(--fw-medium); }
+.prefs-message.is-success { color: var(--success); }
+.prefs-message.is-danger { color: var(--danger); }
+
+.prefs-delete { display: flex; flex-direction: column; gap: var(--sp-12); }
+.prefs-delete .ui-callout p { margin-bottom: var(--sp-8); }
+.prefs-year-list { display: flex; flex-direction: column; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-md); }
+.prefs-year-list label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 var(--sp-12); border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; cursor: pointer; }
+.prefs-year-list label:first-of-type { border-top: 0; }
+.prefs-year-list label.is-disabled { color: var(--text-3); cursor: not-allowed; }
+.prefs-year-list input { width: 16px; height: 16px; margin: 0; accent-color: var(--danger); }
+.prefs-tag { padding: 1px 6px; border-radius: 4px; background: var(--surface-3); font-size: var(--fs-caption); font-weight: var(--fw-semibold); color: var(--text-2); }
+
+/* Help: one table per group of keyboard shortcuts. */
+.prefs-help { display: flex; flex-direction: column; gap: var(--sp-20); }
+.prefs-keys { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.prefs-keys caption { padding-bottom: var(--sp-8); text-align: left; }
+.prefs-keys caption > span { display: block; }
+.prefs-keys tr { border-top: 1px solid var(--border); }
+.prefs-keys th[scope='row'],
+.prefs-keys td { padding: var(--sp-8) 0; vertical-align: top; text-align: left; }
+.prefs-keys th[scope='row'] { width: 40%; padding-right: var(--sp-16); font-weight: var(--fw-regular); color: var(--text-2); }
+.prefs-keys td { color: var(--text-1); }
+.prefs-keys kbd {
+  display: inline-block;
+  min-width: 22px;
+  margin: 0 2px 2px 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  line-height: 18px;
+  text-align: center;
+}
+.prefs-keys-or { margin: 0 2px; color: var(--text-3); white-space: pre; }
+
+@container prefs (max-width: 520px) {
+  .prefs-keys tr { display: flex; flex-direction: column; padding: var(--sp-8) 0; }
+  .prefs-keys th[scope='row'],
+  .prefs-keys td { width: auto; padding: 2px 0; }
+}
+
+@container prefs (min-width: 760px) {
+  .prefs-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 28px; align-items: start; }
+  .prefs-nav { position: sticky; top: var(--sp-24); flex-direction: column; overflow: visible; margin: 0; }
+}
+
+/* Editable text stays at 16px where mobile browsers zoom on focus (T-013). */
+@media (max-width: 959px) {
+  .prefs .ui-input { font-size: 16px; }
+}

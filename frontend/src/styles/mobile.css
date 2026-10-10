@@ -1,0 +1,182 @@
+/* Mobile layout below 960 px (plan Phase 8, docs/mockup_UI/final-ledger.html,
+   phone screens): top bar, bottom tab bar, More sheet and the month list. The
+   components only render below 960 px (useNarrow). */
+:root { --mtabs-h: 60px; }
+
+.app-mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  padding-top: env(safe-area-inset-top, 0px);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-family: var(--font);
+}
+@media (max-width: 959px) {
+  .app-main { padding-bottom: calc(var(--mtabs-h) + env(safe-area-inset-bottom, 0px) + var(--sp-24)); }
+}
+
+/* Top bar */
+.mtop { display: flex; align-items: center; gap: var(--sp-8); min-height: 52px; padding: var(--sp-4) var(--sp-8) var(--sp-4) var(--sp-16); color: var(--text-1); }
+.mtop-title { flex: 1; min-width: 0; margin: 0; font-size: 18px; font-weight: var(--fw-bold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtop-title span { color: var(--text-3); font-weight: var(--fw-medium); }
+.mtop-actions { display: flex; align-items: center; gap: var(--sp-4); }
+.mtop .ui-button-icon { width: 44px; height: 44px; }
+.mtop .ui-button { min-height: 44px; }
+.mtop .ui-menu > .ui-button { min-width: 44px; min-height: 44px; }
+.mtop-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-width: 0;
+  height: 40px;
+  padding: 0 var(--sp-12);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.mtop-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mtop-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text-1); font: inherit; font-size: 16px; }
+
+/* Bottom tab bar */
+.mtabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: calc(var(--mtabs-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-family: var(--font);
+}
+.mtabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.mtabs button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtabs button[aria-current="page"] { color: var(--accent-text); font-weight: var(--fw-semibold); }
+.mtabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; border-radius: var(--r-md); }
+/* Landscape phones: icon and label side by side in a lower bar (T-013 landscape). */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root { --mtabs-h: 48px; }
+  .mtabs button { flex-direction: row; gap: 6px; font-size: 12px; }
+  .mtop { min-height: 48px; }
+}
+
+/* More sheet */
+.more-list { margin: 0 calc(-1 * var(--sp-4)); padding: 0; list-style: none; }
+.more-list > li { border-bottom: 1px solid var(--border); }
+.more-list > li:last-child { border-bottom: 0; }
+.more-item { display: flex; align-items: center; gap: var(--sp-12); width: 100%; min-height: 52px; padding: 0 var(--sp-4); border: 0; background: none; color: var(--text-1); font-size: 15px; text-align: left; cursor: pointer; }
+.more-item small { margin-left: auto; font-size: var(--fs-small); color: var(--text-3); }
+.more-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-sm); }
+.more-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12); min-height: 52px; padding: var(--sp-8) var(--sp-4); }
+.more-label { font-size: 15px; }
+.more-row .year-switch-root { margin: 0; min-width: 140px; }
+.more-row .ui-segmented button { min-height: 40px; }
+.more-version { display: flex; justify-content: center; padding-top: var(--sp-12); }
+
+/* Month list */
+.mlist-view { display: flex; flex-direction: column; gap: var(--sp-12); font-family: var(--font); color: var(--text-1); }
+.mlist-stepper { display: flex; align-items: center; gap: var(--sp-8); }
+.mlist-stepper .ui-button-icon { width: 44px; height: 44px; flex: none; }
+.mlist-stepper h2 { flex: 1; margin: 0; font-size: 18px; font-weight: var(--fw-bold); text-align: center; }
+.mlist-stepper h2 small { display: block; font-size: var(--fs-caption); font-weight: var(--fw-medium); color: var(--text-3); }
+.mlist-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--border); }
+.mlist-summary > div { min-width: 0; padding: var(--sp-8) 10px; background: var(--surface); }
+.mlist-summary dt { font-size: 11px; color: var(--text-3); }
+.mlist-summary dd { margin: 0; font-size: var(--fs-body); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mlist-summary dd.is-positive { color: var(--success); }
+.mlist-summary dd.is-negative { color: var(--danger); }
+
+.mlist { display: flex; flex-direction: column; gap: var(--sp-12); }
+.mlist-group { display: flex; flex-direction: column; gap: 6px; }
+.mlist-group.is-dragging { position: relative; z-index: 2; opacity: .9; }
+.mlist-group-head { display: flex; align-items: center; gap: var(--sp-4); min-height: 44px; padding: 0 var(--sp-4); font-size: var(--fs-small); color: var(--text-2); }
+.mlist-collapse,
+.mlist-handle { display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; margin: 0 -6px; border: 0; border-radius: var(--r-sm); background: none; color: var(--text-3); cursor: pointer; }
+.mlist-handle { cursor: grab; touch-action: none; color: var(--text-2); }
+.mlist-group-name { min-width: 0; min-height: 44px; padding: 0 var(--sp-8); border: 0; background: none; color: var(--text-1); font: inherit; font-weight: var(--fw-semibold); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+span.mlist-group-name { display: inline-flex; align-items: center; cursor: default; }
+.mlist-count { padding: 0 6px; border-radius: 4px; background: var(--surface-3); font-size: 11px; font-weight: var(--fw-semibold); color: var(--text-2); }
+.mlist-group-total { margin-left: auto; padding-right: var(--sp-8); font-weight: var(--fw-semibold); color: var(--text-1); font-variant-numeric: tabular-nums; }
+.mlist-check { flex: none; width: 20px; height: 20px; margin: 12px; accent-color: var(--danger); }
+.mlist-group.is-selected > .mlist-group-head { color: var(--danger); }
+
+.mlist-rows { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.mlist-item { position: relative; display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--surface); }
+.mlist-item:last-child { border-bottom: 0; }
+.mlist-item.is-tagged::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--tag-c); }
+.mlist-item.is-active { background: var(--accent-soft); }
+.mlist-item.is-selected { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+.mlist-item.is-dragging { z-index: 2; box-shadow: var(--shadow-pop); }
+.mlist-item > .mlist-handle,
+.mlist-item > .mlist-check { margin-left: var(--sp-4); }
+.mlist-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 6px var(--sp-12);
+  border: 0;
+  background: none;
+  color: var(--text-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mlist-row:disabled { cursor: default; opacity: 1; }
+.mlist-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-md); }
+.mlist-row-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mlist-row-name { display: flex; align-items: center; gap: 6px; font-size: var(--fs-body); font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.mlist-comment { color: var(--text-3); }
+.mlist-row-sub { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mlist-row-value { flex: none; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.mlist-row-value.is-empty { color: var(--text-3); font-weight: var(--fw-medium); }
+.mlist-empty { padding: var(--sp-24) var(--sp-16); border: 1px dashed var(--border-strong); border-radius: var(--r-lg); color: var(--text-2); text-align: center; }
+
+/* Demo status above the top bar. */
+.app-mobile-header .demo-banner {
+  padding: 6px var(--sp-16);
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--warning);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-size: var(--fs-small);
+}
+.app-mobile-header .demo-banner span { color: var(--text-2); }
+
+/* The search field has its own close button. */
+.mtop-search input::-webkit-search-cancel-button { display: none; }
+
+/* The Remove bar stays above the tab bar. */
+@media (max-width: 959px) {
+  .ledger-bulk-bar { align-self: stretch; bottom: calc(var(--mtabs-h) + env(safe-area-inset-bottom, 0px) + var(--sp-8)); }
+}
+
+/* The inspector sheet sits above the tab bar, so navigation stays available. */
+@media (max-width: 959px) {
+  .ledger-insp {
+    bottom: calc(var(--mtabs-h) + env(safe-area-inset-bottom, 0px));
+    max-height: min(75vh, calc(100dvh - var(--mtabs-h) - env(safe-area-inset-bottom, 0px) - 96px));
+  }
+}

@@ -2,18 +2,12 @@
 // MOPAY_PLAYWRIGHT_MODULE, or install Playwright separately for local checks.
 // No backend, real session, financial data or outbound requests are used.
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { resolve, sep } from 'node:path';
+import { writeFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { randomInt, randomBytes } from 'node:crypto';
-import { browserSecurityHeaders } from '../../backend/browserSecurity.js';
+import { chromium, hooks, sectionControlsSelector, serveAsset, ui } from './ui-helpers.mjs';
 
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.MOPAY_PLAYWRIGHT_MODULE || 'playwright');
-const dist = process.env.MOPAY_UI_DIST ? resolve(process.env.MOPAY_UI_DIST) : resolve(import.meta.dirname, '../dist');
 const layouts = {};
-const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 
 async function fixture(route) {
   const url = new URL(route.request().url());
@@ -32,16 +26,7 @@ async function fixture(route) {
     assert.ok(url.pathname in responses, `Unexpected API call: ${url.pathname}`);
     return route.fulfill({ json: responses[url.pathname] });
   }
-  const file = resolve(dist, '.' + (url.pathname === '/' ? '/index.html' : url.pathname));
-  assert.ok(file.startsWith(dist + sep));
-  try {
-    const body = await readFile(file);
-    const extension = file.slice(file.lastIndexOf('.'));
-    await route.fulfill({ body, headers: browserSecurityHeaders, contentType: mime[extension] || 'application/octet-stream' });
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    await route.fulfill({ status: 404, body: '' });
-  }
+  return serveAsset(route, url);
 }
 
 // Sample actual computed opacity on animation frames, including ancestors.
@@ -94,6 +79,7 @@ async function capture(page, name) {
     await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/${name}.png` });
   }
   if (process.env.MOPAY_UI_METRICS) {
+    // Deliberately class-based: these metrics compare the old design during migration.
     layouts[name] = await page.evaluate(() => [...document.querySelectorAll(
       '.app-container, .mainbar-shell, .table-content, .table-row-premium, .reports-story-hero, .savings-table, .modal-card-premium, .table-context-panel, .pin-guard-card, .btn, .input',
     )].filter(node => node.getBoundingClientRect().width && node.getBoundingClientRect().height).map(node => {
@@ -144,25 +130,28 @@ for (const mobile of [false, true]) {
           localStorage.setItem('theme', JSON.stringify(theme));
         }, { theme });
         await page.goto('http://mopay.test/');
-        await page.locator('#pin-guard-input').waitFor();
+        await ui.pinInput(page).waitFor();
         await page.waitForTimeout(600);
-        const card = await page.locator('.pin-guard-card').boundingBox();
+        const card = await page.locator(hooks.pinCard).boundingBox();
         assert.ok(card.x >= 0 && card.y >= 0 && card.x + card.width <= (mobile ? 390 : 1440), 'PIN card stays inside viewport');
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-pin`);
         await page.getByRole('button', { name: 'Enter', exact: true }).focus();
         await page.keyboard.press('Control+k');
-        assert.equal(await page.locator('.mainbar-search-input:focus').count(), 0, 'Shortcut cannot focus the app behind PIN');
-        await page.locator('#pin-guard-input').fill('0000');
-        await page.getByRole('button', { name: 'Enter', exact: true }).click();
+        assert.equal(await page.locator('input[type="search"]:focus').count(), 0, 'Shortcut cannot focus the app behind PIN');
+        await ui.unlock(page, '0000');
         await page.getByText('Wrong PIN', { exact: true }).waitFor();
-        assert.equal(await page.locator('.pin-guard-overlay').count(), 1);
-        await page.locator('#pin-guard-input').waitFor({ state: 'visible' });
+        assert.equal(await ui.pinDialog(page).count(), 1);
+        await ui.pinInput(page).waitFor({ state: 'visible' });
         await page.waitForTimeout(1900);
-        await page.locator('#pin-guard-input').fill(pin);
-        monotonic(await sample(page, '.pin-guard-card', () => page.getByRole('button', { name: 'Enter', exact: true }).click(), true), -1);
-        await page.locator('.pin-guard-overlay').waitFor({ state: 'detached' });
+        await ui.pinInput(page).fill(pin);
+        monotonic(await sample(page, hooks.pinCard, () => page.getByRole('button', { name: 'Enter', exact: true }).click(), true), -1);
+        await ui.pinDialog(page).waitFor({ state: 'detached' });
         await page.waitForTimeout(400);
-        assert.equal(await page.locator('.pin-guard-overlay').count(), 0, 'Successful login does not reinsert PIN overlay');
+        assert.equal(await ui.pinDialog(page).count(), 0, 'Successful login does not reinsert PIN overlay');
+        // Unlocking always opens Overview (plan D1).
+        await ui.annualTotals(page).waitFor();
+        assert.equal(await ui.currentSection(page), 'Overview');
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Test groceries', { exact: true }).waitFor();
         assert.deepEqual(errors, []);
         assert.deepEqual(await page.evaluate(() => window.cspViolations), [], 'Existing UI produces no CSP violations');
@@ -202,32 +191,33 @@ for (const mobile of [false, true]) {
           sessionStorage.setItem('pin-token', 'synthetic-ui-test');
         }, { theme, viewMode });
         await page.goto('http://mopay.test/');
+        await ui.annualTotals(page).waitFor();
+        assert.equal(await ui.currentSection(page), 'Overview', 'App starts on Overview (plan D1)');
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Test groceries', { exact: true }).waitFor();
         await page.waitForTimeout(500);
 
         for (const tab of ['Incomes', 'Expenses', 'Incomes', 'Expenses']) {
-          const frames = await sample(page, '.table-content', () =>
-            page.getByRole('tab', { name: tab }).click(), true);
+          const frames = await sample(page, hooks.table, () =>
+            ui.openSection(page, tab), true);
           assert.ok(frames.every(value => value === 1), 'Table must stay fully opaque');
           await page.getByText(tab === 'Incomes' ? 'Test salary' : 'Test groceries', { exact: true }).waitFor();
         }
-        const rapidFrames = await sample(page, '.table-content', () => page.evaluate(async () => {
+        const rapidFrames = await sample(page, hooks.table, () => page.evaluate(async (selector) => {
           for (const label of ['Incomes', 'Expenses', 'Incomes', 'Expenses']) {
-            [...document.querySelectorAll('[role="tab"]')].find(node => node.textContent.trim() === label).click();
+            [...document.querySelectorAll(selector)].find(node => node.getClientRects().length && node.textContent.trim().startsWith(label)).click();
             await new Promise(resolve => setTimeout(resolve, 30));
           }
-        }), true);
+        }, sectionControlsSelector), true);
         assert.ok(rapidFrames.every(value => value === 1), 'Rapid switches must not dim the table');
 
         // Persist both tables as collapsed, then sample what the browser actually paints.
         for (const tab of ['Incomes', 'Expenses']) {
-          await page.getByRole('tab', { name: tab, exact: true }).click();
-          await page.getByRole('button', { name: 'Collapse group', exact: true }).click();
+          await ui.openSection(page, tab);
+          await ui.collapseGroup(page).click();
         }
-        const expandedGroup = '.group-collapse-button[aria-expanded="true"]';
         for (const tab of ['Incomes', 'Expenses', 'Savings', 'Expenses']) {
-          const frames = await sample(page, expandedGroup, () =>
-            page.getByRole('tab', { name: tab, exact: true }).click());
+          const frames = await sample(page, hooks.expandedGroup, () => ui.openSection(page, tab));
           assert.ok(frames.length > 5 && frames.every(value => value === 0),
             'Saved collapsed groups must never paint expanded during menu switches');
         }
@@ -236,23 +226,28 @@ for (const mobile of [false, true]) {
           localStorage.setItem('group-collapsed:expense:2025', JSON.stringify({ 'g:10': true, ungrouped: true }));
         });
         for (const year of ['2025', '2026']) {
-          await page.locator('.year-trigger:visible').click();
-          const frames = await sample(page, expandedGroup, () =>
+          await ui.openYearSwitch(page);
+          const frames = await sample(page, hooks.expandedGroup, () =>
             page.getByRole('option', { name: year, exact: true }).click());
           assert.ok(frames.length > 5 && frames.every(value => value === 0),
             'Saved collapsed groups must never paint expanded during year switches');
-          await page.getByRole('button', { name: 'Expand group', exact: true }).waitFor();
+          await ui.expandGroup(page).waitFor();
         }
         for (const tab of ['Incomes', 'Expenses']) {
-          await page.getByRole('tab', { name: tab, exact: true }).click();
-          await page.getByRole('button', { name: 'Expand group', exact: true }).click();
+          await ui.openSection(page, tab);
+          await ui.expandGroup(page).click();
           await page.getByText(tab === 'Incomes' ? 'Test salary' : 'Test groceries', { exact: true }).waitFor();
         }
 
         for (const [section, item] of [['Expenses', 'Test groceries'], ['Incomes', 'Test salary'], ['Savings', 'Synthetic savings']]) {
-          await page.getByRole('tab', { name: section, exact: true }).click();
-          await page.getByText(item, { exact: true }).waitFor();
-          const search = page.locator('.mainbar-search-input:visible');
+          await ui.openSection(page, section);
+          await ui.viewItem(page, section, item).waitFor();
+          const search = ui.search(page);
+          // Below 960 px the field is behind an icon (D13); the first shortcut opens it.
+          if (mobile) {
+            assert.equal(await search.count(), 0);
+            await page.keyboard.press('/');
+          }
           assert.equal(await search.count(), 1);
           for (const key of ['/', 'Control+k', 'Meta+k']) {
             await search.evaluate(node => node.blur());
@@ -260,92 +255,106 @@ for (const mobile of [false, true]) {
             assert.equal(await search.evaluate(node => node === document.activeElement), true);
           }
           await search.fill('No matching synthetic fixture');
-          await page.getByText(item, { exact: true }).waitFor({ state: 'hidden' });
+          await ui.viewItem(page, section, item).waitFor({ state: 'hidden' });
           await search.fill(item);
-          await page.getByText(item, { exact: true }).waitFor();
+          await ui.viewItem(page, section, item).waitFor();
           await search.press('/');
           assert.equal(await search.inputValue(), item + '/');
           await search.press('Escape');
-          assert.equal(await search.inputValue(), '');
-          assert.equal(await search.evaluate(node => node === document.activeElement), false);
+          if (mobile) {
+            // Escape clears the search and closes the field.
+            await search.waitFor({ state: 'detached' });
+            await ui.viewItem(page, section, item).waitFor();
+          } else {
+            assert.equal(await search.inputValue(), '');
+            assert.equal(await search.evaluate(node => node === document.activeElement), false);
+          }
           await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-search-${section.toLowerCase()}`);
         }
-        await page.getByRole('tab', { name: 'Reports', exact: true }).click();
-        const disabledSearch = page.locator('.mainbar-search-input:visible');
-        assert.equal(await disabledSearch.isDisabled(), true);
+        await ui.openSection(page, 'Overview');
+        // Overview has no search on either layout (plan F03).
+        assert.equal(await ui.search(page).count(), 0);
+        assert.equal(await page.getByRole('button', { name: 'Search', exact: true }).count(), 0);
         await page.keyboard.press('Control+k');
-        assert.equal(await disabledSearch.evaluate(node => node === document.activeElement), false);
-        await page.getByRole('tab', { name: 'Expenses', exact: true }).click();
+        assert.equal(await page.locator('input[type="search"]:focus').count(), 0);
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Test groceries', { exact: true }).waitFor();
 
         if (mobile) {
           for (const viewport of [{ width: 320, height: 844 }, { width: 390, height: 844 }, { width: 767, height: 844 }, { width: 900, height: 400 }]) {
             await page.setViewportSize(viewport);
             await page.waitForTimeout(200);
-            const row = page.locator('.mainbar-mobile-top-row');
-            const year = await row.locator('.year-trigger').boundingBox();
-            const menu = await row.getByRole('button', { name: 'Menu', exact: true }).boundingBox();
-            const search = await row.locator('.mainbar-search-input').boundingBox();
-            const lock = await row.getByRole('button', { name: 'Lock session' }).boundingBox();
-            const themeButton = await row.getByRole('button', { name: 'Toggle theme' }).boundingBox();
-            await capture(page, `mobile-${theme}-${viewport.width}-search-row`);
-            const layout = JSON.stringify({ viewport, year, menu, search, lock, themeButton });
-            assert.ok(year.x + year.width <= menu.x && menu.x + menu.width <= search.x && search.x + search.width <= lock.x && lock.x + lock.width <= themeButton.x, layout);
-            assert.ok(search.width >= 60 && themeButton.x + themeButton.width <= viewport.width, 'Search fits between menu and lock without toolbar overflow: ' + layout);
-            assert.ok(Math.abs(menu.y - search.y) < 7 && Math.abs(lock.y - search.y) < 7, 'Controls share one row');
-            assert.equal(await page.locator('.mainbar-search-input:visible').count(), 1);
+            // Mobile layout (plan Phase 8): top bar and bottom tab bar fit every
+            // width, have 44 px targets and no page overflow; / opens the search.
+            // (Replaces the former toolbar row check of T-013.)
+            const nav = page.getByRole('navigation', { name: 'Primary' });
+            const tabs = await nav.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()).map(({ x, y, width, height }) => ({ x, y, width, height })));
+            const actions = await page.getByRole('banner').getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()).map(({ x, y, width, height }) => ({ x, y, width, height })));
+            const layout = JSON.stringify({ viewport, tabs, actions });
+            assert.equal(tabs.length, 5, layout);
+            assert.ok(tabs.every(box => box.height >= 44 && box.width >= 44 && box.y === tabs[0].y && box.x >= 0 && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height), 'Tab bar fits in one row: ' + layout);
+            assert.ok(actions.length >= 2 && actions.every(box => box.height >= 44 && box.x + box.width <= viewport.width && Math.abs(box.y - actions[0].y) < 2), 'Top bar actions share one row: ' + layout);
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), 0, 'No horizontal page overflow');
+            await capture(page, `mobile-${theme}-${viewport.width}-bars`);
             await page.keyboard.press('/');
-            assert.equal(await row.locator('.mainbar-search-input').evaluate(node => node === document.activeElement), true);
+            assert.equal(await ui.search(page).evaluate(node => node === document.activeElement), true);
+            const searchBox = await ui.search(page).boundingBox();
+            assert.ok(searchBox.width >= 120 && searchBox.x + searchBox.width <= viewport.width, 'Search field fits: ' + JSON.stringify(searchBox));
             await page.keyboard.press('Escape');
+            await ui.search(page).waitFor({ state: 'detached' });
             await capture(page, `mobile-${theme}-${viewport.width}-search-row`);
           }
           await page.setViewportSize({ width: 390, height: 844 });
         }
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-table`);
-        for (const section of ['Savings', 'Reports']) {
-          await page.getByRole('tab', { name: section }).click();
-          if (section === 'Savings') await page.getByText('Synthetic savings', { exact: true }).waitFor();
-          else await page.locator('.reports-story-hero').waitFor();
+        for (const section of ['Savings', 'Overview']) {
+          await ui.openSection(page, section);
+          if (section === 'Savings') await ui.goal(page, 'Synthetic savings').waitFor();
+          else await ui.annualTotals(page).waitFor();
           await page.waitForTimeout(500);
           await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-${section.toLowerCase()}`);
         }
-        await page.getByRole('tab', { name: 'Expenses' }).click();
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Test groceries', { exact: true }).waitFor();
         await page.waitForTimeout(350);
 
-        const openEntry = async () => {
-          await page.locator('.context-new-button:visible').click();
-          await page.getByRole('button', { name: 'Entry', exact: true }).click();
-        };
-        const modal = '.modal-overlay-premium';
-        monotonic(await sample(page, '.modal-card-premium', openEntry, true), 1);
-        assert.equal(await page.locator(modal).evaluate(node => getComputedStyle(node).backdropFilter), 'none');
+        const openEntry = () => ui.openNew(page, 'Entry');
+        monotonic(await sample(page, hooks.dialog, openEntry, true), 1);
+        assert.equal(await page.locator(hooks.dialogBackdrop).evaluate(node => getComputedStyle(node).backdropFilter), 'none');
         await page.locator('#entry-name-input').fill('Draft');
         await page.keyboard.press('Control+k');
         assert.equal(await page.locator('#entry-name-input').evaluate(node => node === document.activeElement), true);
         await page.locator('#entry-name-input').press('/');
         assert.equal(await page.locator('#entry-name-input').inputValue(), 'Draft/');
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-modal`);
-        await page.locator(`${modal} .btn-ghost-premium`).focus();
+        await ui.closeDialog(page).focus();
         await page.keyboard.press('/');
-        assert.equal(await page.locator('.mainbar-search-input:focus').count(), 0, 'Shortcut cannot steal focus from an open modal');
-        monotonic(await sample(page, '.modal-card-premium', () => page.locator(`${modal} .btn-ghost-premium`).click(), true), -1);
+        assert.equal(await page.locator('input[type="search"]:focus').count(), 0, 'Shortcut cannot steal focus from an open modal');
+        monotonic(await sample(page, hooks.dialog, () => ui.closeDialog(page).click(), true), -1);
         await openEntry();
-        await page.locator(`${modal} .btn-ghost-premium`).click();
+        await ui.closeDialog(page).click();
         await openEntry();
         await page.waitForTimeout(300);
-        assert.equal(await page.locator(modal).count(), 1, 'Rapid reopen leaves one overlay');
-        await page.locator(`${modal} .btn-ghost-premium`).click();
-        await page.locator(modal).waitFor({ state: 'detached' });
+        assert.equal(await page.locator(hooks.dialogBackdrop).count(), 1, 'Rapid reopen leaves one overlay');
+        assert.equal(await ui.dialog(page).count(), 1, 'Rapid reopen leaves one dialog');
+        await ui.closeDialog(page).click();
+        await ui.dialog(page).waitFor({ state: 'detached' });
 
+        // Inspector drawer (plan Phase 4): fades in and out monotonically, has no
+        // scrim or dialog layer, and Escape closes it.
         for (const target of ['Test groceries', 'Test group']) {
-          monotonic(await sample(page, '.table-context-panel', () => page.getByText(target, { exact: true }).click()), 1);
-          assert.equal(await page.locator('.table-context-backdrop').evaluate(node => getComputedStyle(node).backdropFilter), 'none');
-          const box = await page.locator('.table-context-panel').boundingBox();
+          monotonic(await sample(page, hooks.inspector, () => ui.openDetails(page, target)), 1);
+          assert.equal(await page.locator(`${hooks.dialog}, ${hooks.dialogBackdrop}`).count(), 0, 'Inspector is not modal');
+          const box = await ui.details(page).boundingBox();
           assert.ok(box.x >= 0 && box.y >= 0, 'Details stay within the viewport');
           await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-${target === 'Test group' ? 'group' : 'entry'}`);
-          monotonic(await sample(page, '.table-context-panel', () => page.keyboard.press('Escape')), -1);
+          monotonic(await sample(page, hooks.inspector, () => page.keyboard.press('Escape')), -1);
         }
+        // Selecting a cell opens the inspector; Escape closes it and focus returns to the cell.
+        monotonic(await sample(page, hooks.inspector, () => ui.selectCell(page, 'Test groceries', 'Jan')), 1);
+        await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-cell`);
+        monotonic(await sample(page, hooks.inspector, () => page.keyboard.press('Escape')), -1);
+        assert.equal(await ui.cell(page, 'Test groceries', 'Jan').evaluate(node => node === document.activeElement), true);
         assert.deepEqual(errors, [], 'No uncaught browser errors');
       } finally {
         await browser.close();
@@ -395,52 +404,67 @@ for (const mobile of [false, true]) {
         });
         await page.goto('http://mopay.test/');
         await page.getByText('Could not load application mode.', { exact: false }).waitFor();
-        assert.equal(await page.locator('.context-new-button').count(), 0);
+        assert.equal(await ui.newButton(page).count(), 0);
         assert.equal(await page.getByText('Demo PIN:', { exact: false }).count(), 0);
         metadataFails = false;
         await page.getByRole('button', { name: 'Retry', exact: true }).click();
         await page.getByText('Demo PIN: 1234', { exact: false }).waitFor();
         assert.equal(await page.getByText('Private groceries', { exact: true }).count(), 0);
-        await page.locator('#pin-guard-input').fill('1234');
-        await page.getByRole('button', { name: 'Enter', exact: true }).click();
-        await page.locator('.pin-guard-overlay').waitFor({ state: 'detached' });
+        await ui.unlock(page, '1234');
+        await ui.pinDialog(page).waitFor({ state: 'detached' });
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Demo groceries', { exact: true }).waitFor();
-        assert.equal(await page.locator('.demo-banner').count(), 1);
-        assert.equal(await page.locator('.context-new-button, .context-actions-button').count(), 0);
-        await page.locator('.table-value').first().click();
-        assert.equal(await page.locator('.table-input').count(), 0);
-        await page.getByText('Demo groceries', { exact: true }).click();
-        await page.locator('.table-context-panel').waitFor();
-        assert.equal(await page.locator('.table-context-panel input').evaluate(node => node.readOnly), true);
-        assert.equal(await page.getByRole('button', { name: 'Save changes', exact: true }).count(), 0);
+        assert.equal(await ui.demoBanner(page).count(), 1);
+        assert.equal(await ui.newButton(page).count() + await ui.editMenu(page).count(), 0);
+        // Demo: the inspector opens read-only, without any input or remove action.
+        await ui.selectCell(page, 'Demo groceries', 'Jan');
+        await ui.details(page).getByText('Demo data is read only.', { exact: true }).waitFor();
+        await ui.editCell(page, 'Demo groceries', 'Jan');
+        assert.equal(await page.getByRole('textbox').count(), 0, 'Demo values cannot be edited');
+        await ui.closeDetails(page).click();
+        await ui.details(page).waitFor({ state: 'detached' });
+        if (!mobile) {
+          // Read only: Enter on a focused cell opens the inspector instead of an editor.
+          await ui.editCell(page, 'Demo groceries', 'Jan');
+          await ui.details(page).getByText('Demo data is read only.', { exact: true }).waitFor();
+          await ui.closeDetails(page).click();
+          await ui.details(page).waitFor({ state: 'detached' });
+        }
+        await ui.openDetails(page, 'Demo groceries');
+        await ui.details(page).getByText('Demo data is read only.', { exact: true }).waitFor();
+        assert.equal(await ui.details(page).getByRole('textbox').count() + await ui.details(page).getByRole('combobox').count(), 0);
+        assert.equal(await ui.details(page).getByRole('button', { name: /^Remove/ }).count(), 0);
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-demo-details`);
-        await page.locator('.table-context-close').click();
-        await page.locator('.table-context-panel').waitFor({ state: 'detached' });
-        for (const name of ['Incomes', 'Savings', 'Reports', 'Expenses']) {
-          await page.getByRole('tab', { name, exact: true }).click();
+        await ui.closeDetails(page).click();
+        await ui.details(page).waitFor({ state: 'detached' });
+        for (const name of ['Incomes', 'Savings', 'Overview', 'Expenses']) {
+          await ui.openSection(page, name);
           if (name === 'Savings') {
-            await page.getByText('Synthetic savings', { exact: true }).click();
+            await ui.openGoal(page, 'Synthetic savings');
             await page.getByText('Synthetic contribution', { exact: true }).waitFor();
             assert.equal(await page.getByRole('button', { name: /^Edit |^Remove / }).count(), 0);
-            assert.equal(await page.getByRole('button', { name: '+ Add item', exact: true }).isDisabled(), true);
+            assert.equal(await page.getByRole('button', { name: 'Goal actions', exact: true }).count(), 0);
+            // Demo: no quick add form, only an explanation (previously a disabled "+ Add item").
+            assert.equal(await ui.addItemForm(page).count(), 0);
+            await ui.goalDetail(page, 'Synthetic savings').getByText('Demo data is read only.', { exact: true }).waitFor();
           }
         }
-        await page.locator('.mainbar-search-input:visible').fill('Demo groceries');
+        await (await ui.openSearch(page)).fill('Demo groceries');
         await page.getByText('Demo groceries', { exact: true }).waitFor();
-        await page.locator('.mainbar-search-input:visible').press('Escape');
-        await page.getByRole('button', { name: 'Collapse group', exact: true }).click();
+        await ui.search(page).press('Escape');
+        await ui.collapseGroup(page).click();
         await page.getByText('Demo groceries', { exact: true }).waitFor({ state: 'hidden' });
-        await page.getByRole('button', { name: 'Expand group', exact: true }).click();
+        await ui.expandGroup(page).click();
         await capture(page, `${mobile ? 'mobile' : 'desktop'}-${theme}-demo-table`);
         demo = false; validToken = '';
         await page.reload();
-        await page.locator('#pin-guard-input').waitFor();
-        assert.equal(await page.locator('.demo-banner').count(), 0);
+        await ui.pinInput(page).waitFor();
+        assert.equal(await ui.demoBanner(page).count(), 0);
         assert.equal(await page.getByText('Demo groceries', { exact: true }).count(), 0);
-        await page.locator('#pin-guard-input').fill('87654321');
-        await page.getByRole('button', { name: 'Enter', exact: true }).click();
+        await ui.unlock(page, '87654321');
+        await ui.openSection(page, 'Expenses');
         await page.getByText('Private groceries', { exact: true }).waitFor();
-        assert.equal(await page.locator('.year-trigger:visible').innerText().then(text => text.includes('2025')), true);
+        assert.equal(await ui.workingYear(page), 'Working year 2025');
         demo = true; validToken = '';
         await page.reload();
         await page.getByText('Demo PIN: 1234', { exact: false }).waitFor();

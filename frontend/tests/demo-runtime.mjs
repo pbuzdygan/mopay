@@ -7,9 +7,7 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.MOPAY_PLAYWRIGHT_MODULE || 'playwright');
+import { chromium, ui } from './ui-helpers.mjs';
 const backend = path.resolve(import.meta.dirname, '../../backend');
 
 test('real demo dataset renders desktop/mobile Expenses, Incomes, Savings and Reports', { timeout: 30000 }, async () => {
@@ -35,29 +33,39 @@ test('real demo dataset renders desktop/mobile Expenses, Incomes, Savings and Re
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       await page.goto(origin);
       await page.getByText('Demo PIN: 1234', { exact: false }).waitFor();
-      await page.locator('#pin-guard-input').fill('1234');
-      await page.getByRole('button', { name: 'Enter', exact: true }).click();
-      await page.locator('.pin-guard-overlay').waitFor({ state: 'detached' });
+      await ui.unlock(page, '1234');
+      await ui.pinDialog(page).waitFor({ state: 'detached' });
+      await ui.annualTotals(page).waitFor();
+      assert.equal(await ui.currentSection(page), 'Overview');
+      await ui.openSection(page, 'Expenses');
       await page.getByText('Rent', { exact: true }).waitFor();
-      assert.equal(await page.locator('.table-group-row').count(), 8);
-      await page.getByRole('button', { name: 'Collapse group', exact: true }).first().click();
+      // Every group row, including Ungrouped, has exactly one collapse control.
+      assert.equal(await ui.collapseGroup(page).count(), 8);
+      await ui.collapseGroup(page).first().click();
       await page.getByText('Rent', { exact: true }).waitFor({ state: 'hidden' });
-      await page.getByRole('tab', { name: 'Incomes', exact: true }).click();
+      await ui.openSection(page, 'Incomes');
       await page.getByText('Main salary', { exact: true }).waitFor();
-      await page.getByRole('tab', { name: 'Savings', exact: true }).click();
-      await page.getByText('Emergency fund', { exact: true }).click();
+      await ui.openSection(page, 'Savings');
+      await ui.openGoal(page, 'Emergency fund');
       await page.getByText('Contribution 1', { exact: true }).waitFor();
-      await page.getByRole('tab', { name: 'Reports', exact: true }).click();
-      await page.locator('.reports-story-hero').waitFor();
+      await ui.openSection(page, 'Overview');
+      await ui.annualTotals(page).waitFor();
       if (process.env.MOPAY_SCREENSHOTS) await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/real-demo-${mobile ? 'mobile' : 'desktop'}-reports.png` });
-      await page.getByRole('tab', { name: 'Expenses', exact: true }).click();
+      await ui.openSection(page, 'Expenses');
       await page.getByText('Groceries', { exact: true }).waitFor();
       if (process.env.MOPAY_SCREENSHOTS) await page.screenshot({ path: `${process.env.MOPAY_SCREENSHOTS}/real-demo-${mobile ? 'mobile' : 'desktop'}-expenses.png` });
-      await page.getByRole('button', { name: 'Menu', exact: true }).click();
-      assert.equal(await page.getByRole('button', { name: 'Year operations', exact: true }).count(), 0);
-      assert.equal(await page.getByRole('button', { name: 'Import data', exact: true }).count(), 0);
-      await page.getByRole('button', { name: 'Export data', exact: true }).click();
-      await page.locator('.year-tile').first().click();
+      // Settings: no year creation, deletion or import in demo mode, each explained; export works.
+      // Each section is its own sub-page, so every check opens its section first.
+      await ui.openSettings(page);
+      assert.equal(await (await ui.showSettingsSection(page, 'Danger zone')).getByRole('checkbox').count(), 0);
+      const years = await ui.showSettingsSection(page, 'Years');
+      await years.getByText('Demo data is read only. Years cannot be created or deleted.', { exact: true }).waitFor();
+      assert.equal(await years.getByRole('button', { name: 'Add year', exact: true }).count(), 0);
+      const data = await ui.showSettingsSection(page, 'Import & export');
+      await data.getByText('Import is not available in demo mode.', { exact: true }).waitFor();
+      assert.equal(await data.getByRole('button', { name: 'Import…', exact: true }).count(), 0);
+      await data.getByRole('button', { name: 'Export…', exact: true }).click();
+      await ui.dialog(page, 'Export data').getByRole('button', { name: /^\d{4}$/ }).first().click();
       const download = page.waitForEvent('download');
       await page.getByRole('button', { name: /^Export \d/ }).click();
       assert.equal((await download).suggestedFilename(), 'mopay_export.xlsx');

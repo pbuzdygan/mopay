@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react';
 import { ModalBase } from './ModalBase';
 import { useAppStore } from '../../store';
 import { Api } from '../../api';
-import { FormSection } from '../FormSection';
-import { SoftButton } from '../SoftButton';
+import { Button, Callout, Icon } from '../ui';
 
 export function ExportModal(){
   const { modals, closeModal } = useAppStore();
@@ -23,8 +22,10 @@ export function ExportModal(){
     }
   }, [open]);
 
+  // Success messages fade after 5 s; errors stay until the next action or until
+  // the dialog closes, so a failure is not missed while the user looks away.
   useEffect(() => {
-    if (!message) return;
+    if (message?.type !== 'ok') return;
     const tm = setTimeout(() => setMessage(null), 5000);
     return () => clearTimeout(tm);
   }, [message]);
@@ -48,67 +49,45 @@ export function ExportModal(){
     <ModalBase
       open={open}
       title="Export data"
-      //subtitle="Export your data for backup or analysis. Nothing is sent anywhere."
-      icon={<img src="/icons/ui/table-export.svg" alt="" className="modal-header-icon-svg" aria-hidden="true" />}
+      icon={<Icon name="table-export" />}
       onClose={() => closeModal("export")}
       size="md"
     >
-      <div className="space-y-3 sm:space-y-4 modal-compact-mobile">
-        <FormSection
-          //label="Data scope"
-          title="Choose years to export"
-          //description="Download selected years as JSON backups."
-        >
-          <div className="selection-card year-selection-grid">
+      <div className="dialog-form">
+        <div role="group" aria-labelledby="export-years-label" className="dialog-years-field">
+          <p id="export-years-label" className="ui-field-label">Choose years to export</p>
+          <div className="dialog-years">
             {years.map((y) => (
               <button
                 key={y}
                 type="button"
-                className={`year-tile ${sel.includes(y) ? 'is-selected' : ''}`}
+                className="dialog-year"
                 aria-pressed={sel.includes(y)}
                 onClick={() => setSel((p) => (p.includes(y) ? p.filter((v) => v !== y) : [...p, y]))}
               >
                 {y}
               </button>
             ))}
-            {!years.length && (
-              <div className="selection-empty">
-                No years available.
-              </div>
-            )}
+            {!years.length && <p className="dialog-years-empty">No years available.</p>}
           </div>
-
-          <div className="flex flex-wrap gap-2 justify-between">
-            <SoftButton
-              type="button"
-              variant="ghost"
-              onClick={() => setSel([])}
-              disabled={!sel.length || isExporting}
-            >
-              Clear selection
-            </SoftButton>
-            <button
-              type="button"
-              className="btn min-w-[140px]"
-              disabled={!sel.length || isExporting}
-              onClick={doExport}
-            >
-              {isExporting ? 'Exporting...' : `Export ${sel.length ? `${sel.length}` : ''}`}
-            </button>
-          </div>
-        </FormSection>
-
-        <div className="modal-footer-premium flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-h-[34px]">
-            {message && (
-              <div className={`feedback-badge ${message.type === 'ok' ? 'ok' : 'err'}`}>
-                {message.text}
-              </div>
-            )}
-          </div>
-          <SoftButton variant="ghost" onClick={()=>closeModal('export')}>
-            Close
-          </SoftButton>
+        </div>
+        {message && (
+          <Callout tone={message.type === 'ok' ? 'success' : 'danger'} role={message.type === 'ok' ? 'status' : 'alert'}>
+            {message.text}
+          </Callout>
+        )}
+        <div className="ui-dialog-actions dialog-actions-split">
+          <Button variant="ghost" onClick={() => setSel([])} disabled={!sel.length || isExporting}>
+            Clear selection
+          </Button>
+          <span className="dialog-actions-end">
+            <Button variant="ghost" onClick={() => closeModal('export')}>
+              Close
+            </Button>
+            <Button variant="primary" icon="table-export" disabled={!sel.length} loading={isExporting} onClick={doExport}>
+              {`Export ${sel.length ? `${sel.length}` : ''}`}
+            </Button>
+          </span>
         </div>
       </div>
     </ModalBase>
