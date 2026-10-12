@@ -71,12 +71,15 @@
   z-index: var(--z-menu);
   max-height: 280px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
   box-shadow: var(--shadow-pop);
 }
+/* Opens upwards when there is more room above (see YearSwitch fitList). */
+.year-switch-list.is-up { top: auto; bottom: calc(100% + 4px); }
 .year-switch-option {
   display: flex;
   align-items: center;

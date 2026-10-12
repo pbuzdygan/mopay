@@ -223,12 +223,19 @@
 }
 @container overview (max-width: 399px) {
   .overview-months { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .overview-kpis { grid-template-columns: minmax(0, 1fr); }
-  .overview-kpi { border-left: 0; }
-  .overview-kpi:nth-child(n + 2) { border-top: 1px solid var(--border); }
+  /* Phones keep the KPIs in a 2x2 grid; smaller type keeps amounts on one line. */
+  .overview-kpi { padding: 10px var(--sp-12); }
+  .overview-kpi dt { font-size: var(--fs-caption); }
+  .overview-kpi .overview-kpi-value { font-size: 17px; }
+  .overview-kpi-note { font-size: 11px; }
   .overview-stability { grid-template-columns: minmax(0, 1fr) auto; }
   .overview-stability .overview-track { grid-column: 1 / -1; grid-row: 2; }
   .overview-stats { grid-template-columns: minmax(0, 1fr); }
   .overview-stats > div { flex-direction: row; justify-content: space-between; gap: var(--sp-8); padding: var(--sp-8) 0 0; border-left: 0; text-align: left; }
   .overview-stats dt { order: 0; }
+}
+@container overview (max-width: 259px) {
+  .overview-kpis { grid-template-columns: minmax(0, 1fr); }
+  .overview-kpi { border-left: 0; }
+  .overview-kpi:nth-child(n + 2) { border-top: 1px solid var(--border); }
 }
