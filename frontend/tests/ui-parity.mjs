@@ -1558,7 +1558,10 @@ for (const theme of ['light', 'dark']) {
   }));
 }
 
-test('mobile light: tab bar, More sheet, search and actions (F01–F03, F34, F35, D13, D14)', () => openApp({ mobile: true, theme: 'light', section: null }, async ({ page, api, errors }) => {
+// Twenty years make the working-year list longer than the space in the More sheet.
+const manyYears = Array.from({ length: 20 }, (_, index) => 2007 + index);
+
+test('mobile light: tab bar, More sheet, search and actions (F01–F03, F34, F35, D13, D14)', () => openApp({ mobile: true, theme: 'light', section: null, years: manyYears }, async ({ page, api, errors }) => {
   let w = 0;
   // F01: bottom tab bar instead of the sidebar, Overview first and current.
   const nav = page.getByRole('navigation', { name: 'Primary' });
@@ -1570,6 +1573,32 @@ test('mobile light: tab bar, More sheet, search and actions (F01–F03, F34, F35
   // F03: Overview has no search.
   assert.equal(await ui.search(page).count(), 0);
   assert.equal(await page.getByRole('button', { name: 'Search', exact: true }).count(), 0);
+  // 2.0.1: the four KPIs form a 2x2 grid on a phone.
+  const kpis = await Promise.all(['Income', 'Expenses', 'Net result', 'Saved in goals'].map(term => ui.overviewKpi(page, term).boundingBox()));
+  assert.ok(kpis[0].y === kpis[1].y && kpis[2].y === kpis[3].y && kpis[2].y > kpis[0].y && kpis[0].x === kpis[2].x && kpis[1].x > kpis[0].x, JSON.stringify(kpis));
+
+  // 2.0.1: the year list fits in the More sheet and scrolls on its own down to the oldest year.
+  await ui.openYearSwitch(page);
+  const years = page.getByRole('listbox', { name: 'Available years' });
+  const fit = await years.evaluate(list => {
+    const sheet = list.closest('[role="dialog"]').getBoundingClientRect();
+    const scroller = [...document.querySelectorAll('[role="dialog"] *')].filter(node => node !== list
+      && /auto|scroll/.test(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight + 1);
+    return { listBottom: list.getBoundingClientRect().bottom, sheetBottom: sheet.bottom, scrolls: list.scrollHeight > list.clientHeight, otherScrollers: scroller.length };
+  });
+  assert.ok(fit.listBottom <= fit.sheetBottom && fit.scrolls && fit.otherScrollers === 0, JSON.stringify(fit));
+  await page.keyboard.press('End');
+  const oldest = years.getByRole('option', { name: '2007', exact: true });
+  await expectFocused(oldest);
+  const visible = await oldest.evaluate(option => {
+    const box = option.getBoundingClientRect();
+    const list = option.parentElement.getBoundingClientRect();
+    return box.top >= list.top && box.bottom <= list.bottom;
+  });
+  assert.ok(visible, 'The oldest year is visible inside the list');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await ui.more(page).waitFor({ state: 'detached' });
 
   // F02/F35: working year and theme in the More sheet.
   await ui.selectYear(page, 2025);
@@ -1614,6 +1643,15 @@ test('mobile light: tab bar, More sheet, search and actions (F01–F03, F34, F35
   // Settings opens from More, which is then the current item.
   await ui.openSettings(page);
   assert.equal(await ui.currentSection(page), 'More');
+  // 2.0.1: with Compact density the page still ends above the tab bar.
+  const density = ui.settingsSection(page, 'Display').getByRole('group', { name: 'Table density', exact: true });
+  await density.getByRole('button', { name: 'Compact', exact: true }).click();
+  const clearance = await page.getByRole('main').evaluate(main => ({
+    padding: parseFloat(getComputedStyle(main).paddingBottom),
+    tabBar: document.querySelector('nav[aria-label="Primary"]').getBoundingClientRect().height,
+  }));
+  assert.ok(clearance.padding >= clearance.tabBar, JSON.stringify(clearance));
+  await density.getByRole('button', { name: 'Normal', exact: true }).click();
   await ui.openSection(page, 'Savings');
   assert.equal(await ui.currentSection(page), 'Savings');
   await page.getByRole('button', { name: 'New goal', exact: true }).waitFor();

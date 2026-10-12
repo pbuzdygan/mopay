@@ -197,6 +197,13 @@ html[data-view='compact'] {
 
   html[data-view='compact'] .app-main {
     padding-top: 0.75rem !important;
+  }
+}
+
+/* Below 960 px the bottom padding reserves room for the fixed tab bar
+   (mobile.css), so Compact must not reduce it there. */
+@media (min-width: 960px) and (max-width: 1023px) {
+  html[data-view='compact'] .app-main {
     padding-bottom: 0.75rem !important;
   }
 }

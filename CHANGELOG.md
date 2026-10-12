@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.0.1
+
+Mobile layout fixes (below 960 px). Data, API, database, encryption, configuration, Docker setup and XLSX formats are unchanged; no migration is required.
+
+### Improvements
+- Overview shows Income, Expenses, Net result and Saved in goals in a 2×2 grid on phones instead of four stacked rows; the content is unchanged and the labels and amounts are slightly smaller, so the month overview starts higher on the screen (one column only below 260 px)
+
+### Bug fix
+- with Compact table density the end of every page (for example the last Expenses entry) was hidden under the bottom tab bar and could not be scrolled into view; the space for the tab bar is now kept in both densities
+- the working-year list in *More* was taller than the space left in the sheet, so the oldest years could only be reached by scrolling the whole sheet; the list now fits the visible space (opening upwards when there is more room above) and scrolls on its own to the last year without moving the sheet
+
+### Upgrade notes
+- no data, database, API, encryption-key or configuration migration; rollback: run the v2.0.0 image
+
 ## v2.0.0
 
 New Final Ledger user interface. Data, API, database, encryption, configuration, Docker setup and XLSX formats are unchanged; no migration is required.
