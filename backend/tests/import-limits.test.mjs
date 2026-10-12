@@ -84,9 +84,9 @@ test('archive entry and worksheet cardinality limits apply before ExcelJS', asyn
 
 test('oversized row, column, range, sheet IDs and XML depth are rejected', async () => {
   for (const replacement of [
-    '<worksheet><sheetData><row r="5001"/></sheetData></worksheet>',
-    '<worksheet><sheetData><row r="1"><c r="BM1"/></row></sheetData></worksheet>',
-    '<worksheet><dimension ref="A1:XFD1048576"/></worksheet>',
+    '<worksheet><sheetData><row r="5001"><c><v>1</v></c></row></sheetData></worksheet>',
+    '<worksheet><sheetData><row r="1"><c r="BM1"><v>1</v></c></row></sheetData></worksheet>',
+    '<worksheet><sheetData><row r="1"><c r="A1048576"><v>1</v></c></row></sheetData></worksheet>',
     '<worksheet><mergeCells><mergeCell ref="A1:BL5000"/></mergeCells></worksheet>',
     '<worksheet>' + '<nested>'.repeat(33) + '</nested>'.repeat(33) + '</worksheet>',
   ]) {
@@ -102,17 +102,35 @@ test('oversized row, column, range, sheet IDs and XML depth are rejected', async
 
 test('explicit cell and repeated row budgets cannot be bypassed with duplicate addresses', async () => {
   for (const data of [
-    '<worksheet><sheetData><row r="1">' + '<c r="A1"/>'.repeat(limits.cells + 1) + '</row></sheetData></worksheet>',
-    '<worksheet><sheetData>' + '<row r="1"/>'.repeat(limits.rows + 1) + '</sheetData></worksheet>',
+    '<worksheet><sheetData><row r="1">' + '<c r="A1"><v>1</v></c>'.repeat(limits.cells + 1) + '</row></sheetData></worksheet>',
+    '<worksheet><sheetData>' + '<row r="1"><c><v>1</v></c></row>'.repeat(limits.rows + 1) + '</sheetData></worksheet>',
   ]) {
     const buffer = await modified(zip => zip.file('xl/worksheets/sheet1.xml', data));
     await assert.rejects(checkImportArchive(buffer), { code: 'IMPORT_LIMIT_EXCEEDED' });
   }
   const sparse = await modified(zip => {
-    const xml = '<worksheet><dimension ref="A1:A5000"/></worksheet>';
+    const xml = '<worksheet><sheetData><row r="5000"><c r="A5000"><v>1</v></c></row></sheetData></worksheet>';
     for (let i = 1; i <= 3; i++) zip.file(`xl/worksheets/sheet${i}.xml`, xml);
   });
   await assert.rejects(checkImportArchive(sparse), { code: 'IMPORT_LIMIT_EXCEEDED' });
+});
+
+test('rows without values and dimensions (LibreOffice after row deletion) are dropped before checks', async () => {
+  // LibreOffice writes valueless rows up to row 1048576 and a matching dimension.
+  const trailing = ['1048573', '1048574', '1048575', '1048576']
+    .map(row => `<row r="${row}" customFormat="false" ht="12.8" hidden="false"></row>`).join('');
+  const file = await modified(async zip => {
+    const xml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+    zip.file('xl/worksheets/sheet1.xml', xml
+      .replace(/<dimension [^>]*\/>/, '<dimension ref="A1:N1048576"/>')
+      .replace('</sheetData>', `<row r="2"><c r="B2" s="1"/></row>${'<row r="9"/>'.repeat(limits.rows + 1)}${trailing}</sheetData>`));
+  });
+  const checked = await JSZip.loadAsync(await checkImportArchive(file));
+  const xml = await checked.file('xl/worksheets/sheet1.xml').async('string');
+  assert.doesNotMatch(xml, /<dimension|r="1048576"|r="9"|r="2"/);
+  const workbook = await loadImportWorkbook(file.toString('base64'));
+  assert.equal(workbook.worksheets[0].rowCount, 1);
+  assert.equal(workbook.worksheets[0].getCell('A1').value, 'Mopay Import Template');
 });
 
 test('DTD, traversal, corrupt archives and malformed base64 are rejected', async () => {

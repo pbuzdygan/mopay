@@ -9,7 +9,24 @@ type ImportApiBody = {
   error?: string;
   message?: string;
   years?: unknown;
+  issues?: unknown;
+  issueCount?: unknown;
 };
+
+// Template problems/warnings reported by the server with their location.
+type ImportIssue = { sheet?: string; cell?: string; message: string };
+
+type ImportYear = {
+  year: number;
+  exists: boolean;
+  overwrite: boolean;
+  incomes?: number;
+  expenses?: number;
+  groups?: number;
+  goals?: number;
+};
+
+type ImportMessage = { type: 'ok' | 'err'; text: string; issues?: ImportIssue[]; hiddenIssues?: number };
 
 type ParsedImportError =
   | { kind: 'overwrite_required'; years: number[]; message: string }
@@ -18,6 +35,7 @@ type ParsedImportError =
   | { kind: 'auth'; message: string }
   | { kind: 'key_mismatch'; message: string }
   | { kind: 'validation_invalid_file'; message: string }
+  | { kind: 'invalid_template'; message: string; issues: ImportIssue[]; hiddenIssues: number }
   | { kind: 'other'; message: string };
 
 function asImportApiBody(value: unknown): ImportApiBody {
@@ -28,6 +46,24 @@ function parseYears(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => Number(item)).filter((item) => Number.isInteger(item));
 }
+
+function parseIssues(value: unknown): ImportIssue[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === 'object' && typeof item.message === 'string')
+    .map((item) => ({
+      message: item.message,
+      sheet: typeof item.sheet === 'string' ? item.sheet : undefined,
+      cell: typeof item.cell === 'string' ? item.cell : undefined,
+    }));
+}
+
+const issueLocation = (issue: ImportIssue) =>
+  [issue.sheet && `Sheet ${issue.sheet}`, issue.cell].filter(Boolean).join(', ');
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+const isXlsxName = (name: string) => /\.xlsx$/i.test(name.trim());
 
 function parseImportError(error: unknown): ParsedImportError {
   if (!(error instanceof ApiError)) {
@@ -63,8 +99,18 @@ function parseImportError(error: unknown): ParsedImportError {
       message: message || 'Encryption key mismatch detected. Restore previous key or reset data before import.',
     };
   }
+  if (code === 'INVALID_TEMPLATE') {
+    const issues = parseIssues(body.issues);
+    const issueCount = typeof body.issueCount === 'number' ? body.issueCount : issues.length;
+    return {
+      kind: 'invalid_template',
+      message: message || 'The file does not match the import template.',
+      issues,
+      hiddenIssues: Math.max(0, issueCount - issues.length),
+    };
+  }
   if (code === 'INVALID_FILE' || code === 'INVALID_NAME' || code === 'MISSING_DATA') {
-    return { kind: 'validation_invalid_file', message: 'Invalid template structure. Check Guide' };
+    return { kind: 'validation_invalid_file', message: message || 'Invalid template file. Check Guide' };
   }
   return { kind: 'other', message: message || 'Import failed. Please check the template and try again.' };
 }
@@ -74,11 +120,12 @@ export function ImportModal() {
   const open = modals.import;
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [message, setMessage] = useState<null | { type: 'ok' | 'err'; text: string }>(null);
+  const [message, setMessage] = useState<null | ImportMessage>(null);
+  const [warnings, setWarnings] = useState<ImportIssue[]>([]);
   const [isValidating, setIsValidating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [payload, setPayload] = useState<null | { name: string; data: string }>(null);
-  const [years, setYears] = useState<Array<{ year: number; exists: boolean; overwrite: boolean }>>([]);
+  const [years, setYears] = useState<ImportYear[]>([]);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   // Success messages fade after 5 s; errors stay until the next action or until
   // the dialog closes, so a failure is not missed while the user looks away.
@@ -95,6 +142,7 @@ export function ImportModal() {
       setIsImporting(false);
       setPayload(null);
       setYears([]);
+      setWarnings([]);
       setConfirmOverwrite(false);
     }
   }, [open]);
@@ -131,13 +179,15 @@ export function ImportModal() {
     if (!file) return;
     setMessage(null);
     setYears([]);
+    setWarnings([]);
     setPayload(null);
     setConfirmOverwrite(false);
 
-    if (file.name !== 'mopay_import_template.xlsx') {
+    // Any file name is fine (e.g. "mopay_import_template (1).xlsx"); the server checks the content.
+    if (!isXlsxName(file.name)) {
       setMessage({
         type: 'err',
-        text: 'Invalid import template. Check Guide',
+        text: 'Select an .xlsx file based on the Mopay import template. Check Guide',
       });
       return;
     }
@@ -146,12 +196,12 @@ export function ImportModal() {
       setIsValidating(true);
       const data = await toBase64(file);
       const result = await Api.validateImportTemplate({ name: file.name, data });
-      const nextYears = (result?.years ?? []).map((item: { year: number; exists: boolean }) => ({
-        year: item.year,
-        exists: item.exists,
+      const nextYears = (result?.years ?? []).map((item: Omit<ImportYear, 'overwrite'>) => ({
+        ...item,
         overwrite: false,
       }));
       setYears(nextYears);
+      setWarnings(parseIssues(result?.warnings));
       setPayload({ name: file.name, data });
       setMessage({
         type: 'ok',
@@ -159,13 +209,13 @@ export function ImportModal() {
       });
     } catch (error) {
       const parsed = parseImportError(error);
-      if (parsed.kind === 'sqlite_busy' || parsed.kind === 'auth' || parsed.kind === 'key_mismatch') {
-        setMessage({ type: 'err', text: parsed.message });
+      if (parsed.kind === 'invalid_template') {
+        setMessage({ type: 'err', text: parsed.message, issues: parsed.issues, hiddenIssues: parsed.hiddenIssues });
+      } else if (parsed.kind === 'other' && !(error instanceof ApiError && typeof error.body?.message === 'string')) {
+        // Unknown failures without a server explanation keep the generic hint.
+        setMessage({ type: 'err', text: 'Invalid template structure. Check Guide' });
       } else {
-        setMessage({
-          type: 'err',
-          text: 'Invalid template structure. Check Guide',
-        });
+        setMessage({ type: 'err', text: parsed.message });
       }
     } finally {
       setIsValidating(false);
@@ -200,6 +250,7 @@ export function ImportModal() {
         text: `Import completed. Imported ${result.imported?.length ?? 0}, skipped ${result.skipped?.length ?? 0}.`,
       });
       setYears([]);
+      setWarnings([]);
       setPayload(null);
       setConfirmOverwrite(false);
     } catch (err) {
@@ -214,8 +265,8 @@ export function ImportModal() {
         setMessage({ type: 'err', text: parsed.message });
         return;
       }
-      if (parsed.kind === 'import_in_progress' || parsed.kind === 'sqlite_busy' || parsed.kind === 'auth' || parsed.kind === 'key_mismatch') {
-        setMessage({ type: 'err', text: parsed.message });
+      if (parsed.kind === 'invalid_template') {
+        setMessage({ type: 'err', text: parsed.message, issues: parsed.issues, hiddenIssues: parsed.hiddenIssues });
         return;
       }
       setMessage({ type: 'err', text: parsed.message });
@@ -287,6 +338,21 @@ export function ImportModal() {
             })}
             {!years.length && <p className="dialog-years-empty">Import a template</p>}
           </div>
+          {years.some((item) => typeof item.incomes === 'number') && (
+            <ul className="dialog-import-counts">
+              {years.map((item) => (
+                <li key={item.year}>
+                  <strong>{item.year}</strong>{' '}
+                  {[
+                    plural(item.incomes ?? 0, 'income'),
+                    plural(item.expenses ?? 0, 'expense'),
+                    plural(item.groups ?? 0, 'group'),
+                    plural(item.goals ?? 0, 'savings goal'),
+                  ].join(', ')}
+                </li>
+              ))}
+            </ul>
+          )}
           <ul className="dialog-legend">
             <li><span className="dialog-year is-existing" aria-hidden="true" />Exists in DB - default skip. Overwrite by marking.</li>
             <li><span className="dialog-year is-new" aria-hidden="true" />Ready to import.</li>
@@ -296,6 +362,29 @@ export function ImportModal() {
         {message && (
           <Callout tone={message.type === 'ok' ? 'success' : 'danger'} role={message.type === 'ok' ? 'status' : 'alert'}>
             {message.text}
+            {message.issues && message.issues.length > 0 && (
+              <ul className="dialog-import-issues">
+                {message.issues.map((issue, index) => (
+                  <li key={index}>
+                    {issueLocation(issue) && <strong>{issueLocation(issue)}: </strong>}
+                    {issue.message}
+                  </li>
+                ))}
+                {(message.hiddenIssues ?? 0) > 0 && <li>…and {message.hiddenIssues} more</li>}
+              </ul>
+            )}
+          </Callout>
+        )}
+        {warnings.length > 0 && (
+          <Callout tone="warning" title="Check before importing">
+            <ul className="dialog-import-issues">
+              {warnings.map((warning, index) => (
+                <li key={index}>
+                  {warning.sheet && <strong>Sheet {warning.sheet}: </strong>}
+                  {warning.message}
+                </li>
+              ))}
+            </ul>
           </Callout>
         )}
         {overwriteYears.length > 0 && (
