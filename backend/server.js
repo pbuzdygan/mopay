@@ -9,6 +9,7 @@ import { config } from './runtimeConfig.js';
 import { completeStartup } from './demoState.js';
 import ExcelJS from 'exceljs';
 import { loadImportWorkbook } from './importParser.js';
+import { parseImportTemplate, templateErrorBody } from './importTemplate.js';
 import { exportYearsToWorkbook, exportImportTemplateWorkbook } from './export.js';
 import { encryptNumber, decryptToNumber, KEY_FINGERPRINT } from './encryption.js';
 import { runEncryptionMigration, evaluateEncryptionState, repairEncryptionState } from './migration.js';
@@ -287,86 +288,6 @@ const normalizeEntryMonthValue = (month, value) => {
   return { ok: true, value: parsed };
 };
 
-const getCellText = (value) => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'object') {
-    if ('richText' in value) return value.richText.map((chunk) => chunk.text).join('').trim();
-    if ('text' in value) return String(value.text).trim();
-    if ('result' in value) return getCellText(value.result);
-  }
-  return '';
-};
-
-const getCellNumber = (value) => {
-  if (value === null || value === undefined) return 0;
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const cleaned = value.replace(/\s+/g, '').replace(',', '.');
-    const parsed = Number(cleaned);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  if (typeof value === 'object') {
-    if ('result' in value) return getCellNumber(value.result);
-    if ('text' in value) return getCellNumber(value.text);
-  }
-  return 0;
-};
-
-const getCellNumberOrNull = (value) => {
-  const text = getCellText(value);
-  if (text === '-' || text === '–') return null;
-  if (text === '') return 0;
-  return getCellNumber(value);
-};
-
-const normalizeHex = (value) => {
-  if (typeof value !== 'string') return null;
-  let hex = value.replace('#', '').trim();
-  if (hex.length === 8) hex = hex.slice(2);
-  if (hex.length !== 6) return null;
-  return hex.toUpperCase();
-};
-
-const TAG_COLOR_HEX_TO_NAME = new Map([
-  ['D9D9D9', 'grey'],
-  ['FF0000', 'red'],
-  ['FFC000', 'orange'],
-  ['92D050', 'green'],
-]);
-
-const getNoteText = (note) => {
-  if (!note) return '';
-  if (typeof note === 'string') return note.trim();
-  if (typeof note === 'object') {
-    if ('text' in note) return String(note.text ?? '').trim();
-    if (Array.isArray(note.texts)) return note.texts.map((chunk) => chunk.text ?? '').join('').trim();
-    if (Array.isArray(note.richText)) return note.richText.map((chunk) => chunk.text ?? '').join('').trim();
-  }
-  return '';
-};
-
-const getCellFillHex = (cell) => {
-  const fill = cell?.fill;
-  if (!fill || fill.type !== 'pattern') return null;
-  const color = fill.fgColor;
-  if (!color) return null;
-  const raw = color.argb || color.value || color.rgb;
-  const hex = normalizeHex(raw);
-  if (!hex || hex === 'FFFFFF') return null;
-  return hex;
-};
-
-const parseTagFromCell = (cell) => {
-  const noteText = getNoteText(cell?.note);
-  const fillHex = getCellFillHex(cell);
-  const color = fillHex ? TAG_COLOR_HEX_TO_NAME.get(fillHex) ?? 'grey' : null;
-  if (!color && !noteText) return null;
-  const resolvedColor = color ?? (noteText ? 'grey' : 'none');
-  return { color: resolvedColor, text: noteText };
-};
-
 function respondImportLimit(res, error) {
   const status = {
     IMPORT_LIMIT_EXCEEDED: 413,
@@ -384,129 +305,11 @@ function respondImportLimit(res, error) {
   return true;
 }
 
-const parseImportWorkbook = async (data) => {
-  const wb = await loadImportWorkbook(data);
-  const sheets = wb.worksheets;
-  if (!sheets.length) {
-    const err = new Error('NO_SHEETS');
-    err.code = 'NO_SHEETS';
-    throw err;
-  }
-  const sheetNamePattern = /^\d{4}$/;
-  const entries = [];
-  for (const sheet of sheets) {
-    if (!sheetNamePattern.test(sheet.name)) {
-      const err = new Error('INVALID_SHEET_NAME');
-      err.code = 'INVALID_SHEET_NAME';
-      throw err;
-    }
-    const cellValue = sheet.getCell(1, 1).value;
-    const text = getCellText(cellValue);
-    if (text !== 'Mopay Import Template') {
-      const err = new Error('INVALID_HEADER');
-      err.code = 'INVALID_HEADER';
-      throw err;
-    }
-    entries.push({ year: Number(sheet.name), sheet });
-  }
-  return entries;
-};
-
-const findSectionRow = (sheet, label) => {
-  let rowIndex = null;
-  sheet.getColumn(1).eachCell((cell, rowNumber) => {
-    if (getCellText(cell.value) === label) rowIndex = rowNumber;
-  });
-  return rowIndex;
-};
-
-const GROUP_PREFIX = 'Group:';
-const buildEndMarker = (sectionLabel) => `End of ${sectionLabel}`;
-
-const parseEntriesSection = (sheet, label, type, yearId) => {
-  const sectionRow = findSectionRow(sheet, label);
-  if (!sectionRow) return [];
-  const data = [];
-  let currentGroupName = null; // null => Ungrouped
-  const endMarker = buildEndMarker(label);
-  const commentColumnIndex = 14;
-  let row = sectionRow + 2;
-  while (row <= sheet.rowCount) {
-    const nameText = getCellText(sheet.getCell(row, 1).value);
-    if (nameText === 'Total' || nameText === endMarker) break;
-    if (nameText?.startsWith(GROUP_PREFIX)) {
-      let rest = nameText.slice(GROUP_PREFIX.length);
-      if (rest.startsWith(' ')) rest = rest.slice(1);
-      const groupName = clampText(rest, 40);
-      currentGroupName = groupName || null;
-      data.push({ kind: 'group', type, name: currentGroupName || 'Ungrouped', yearId });
-      row += 1;
-      continue;
-    }
-
-    const tags = {};
-    const months = MONTH_COLUMNS.map((month, idx) => {
-      const cell = sheet.getCell(row, 2 + idx);
-      const tag = parseTagFromCell(cell);
-      if (tag) tags[month] = tag;
-      return getCellNumberOrNull(cell.value);
-    });
-    const comment = getCellText(sheet.getCell(row, commentColumnIndex).value);
-    if (nameText) {
-      data.push({
-        kind: 'entry',
-        type,
-        name: clampText(nameText, 80),
-        comment: clampText(comment, 240),
-        months,
-        yearId,
-        groupName: currentGroupName || 'Ungrouped',
-        tags,
-      });
-    }
-    row += 1;
-  }
-  return data;
-};
-
-const parseSavingsSection = (sheet) => {
-  const savingsRow = findSectionRow(sheet, 'Savings');
-  if (!savingsRow) return [];
-  const endMarkerRow = findSectionRow(sheet, 'End of Savings');
-  const startCols = [1, 4, 7, 10];
-  const goals = [];
-  const lastRow = endMarkerRow ? endMarkerRow - 1 : sheet.rowCount;
-  for (let row = savingsRow + 2; row <= lastRow; row += 1) {
-    for (const startCol of startCols) {
-      const title = getCellText(sheet.getCell(row, startCol).value);
-      if (!title || title === 'Target' || title === 'Name' || title === 'Total') continue;
-      const targetLabel = getCellText(sheet.getCell(row + 1, startCol).value);
-      const headerLabel = getCellText(sheet.getCell(row + 2, startCol).value);
-      const valueHeader = getCellText(sheet.getCell(row + 2, startCol + 1).value);
-      if (targetLabel !== 'Target' || headerLabel !== 'Name' || valueHeader !== 'Value') continue;
-
-      const targetValue = getCellNumber(sheet.getCell(row + 1, startCol + 1).value);
-      const items = [];
-      for (let r = row + 3; r <= sheet.rowCount; r += 1) {
-        const nameText = getCellText(sheet.getCell(r, startCol).value);
-        if (nameText === 'Total' || nameText === 'End of Savings') break;
-        const value = getCellNumber(sheet.getCell(r, startCol + 1).value);
-        // Empty rows are ignored; the section ends at 'End of Savings' marker.
-        if (!nameText && value === 0) continue;
-        items.push({
-          name: clampText(nameText || '', 80),
-          value,
-        });
-      }
-      goals.push({
-        name: clampText(title, 80),
-        targetValue,
-        items,
-      });
-    }
-  }
-  return goals;
-};
+const IMPORT_FILE_NAME_MAX = 255;
+// The browser-provided name is only a type hint (content is fully checked), so
+// any .xlsx name is accepted, e.g. "mopay_import_template (1).xlsx".
+const isImportFileName = (name) =>
+  typeof name === 'string' && name.length <= IMPORT_FILE_NAME_MAX && /\.xlsx$/i.test(name.trim());
 
 const clearYearData = (yearId) => {
   const entryIds = db.prepare('SELECT id FROM entries WHERE year_id=?').all(yearId).map((row) => row.id);
@@ -1267,29 +1070,31 @@ app.get('/api/import/template', async (_req,res,next)=>{
 app.post('/api/import/validate', async (req,res)=>{
   if (guardKeyMismatch(res)) return;
   const { name, data } = req.body || {};
-  if (name !== 'mopay_import_template.xlsx') {
-    return res.status(400).json({ ok: false, error: 'INVALID_NAME' });
+  if (!isImportFileName(name)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_NAME', message: 'Select an .xlsx file based on the Mopay import template.' });
   }
   if (!data || typeof data !== 'string') {
     return res.status(400).json({ ok: false, error: 'MISSING_DATA' });
   }
 
   try {
-    const sheets = await parseImportWorkbook(data);
-    const years = sheets.map(({ year }) => year);
+    const parsed = parseImportTemplate(await loadImportWorkbook(data));
+    if (!parsed.ok) return res.status(400).json(templateErrorBody(parsed));
+    const years = parsed.years.map(({ year }) => year);
     const existing = years.length
       ? db.prepare(`SELECT year FROM years WHERE year IN (${years.map(() => '?').join(',')})`).all(...years)
       : [];
     const existingSet = new Set(existing.map((row) => row.year));
     res.json({
       ok: true,
-      years: years.map((year) => ({ year, exists: existingSet.has(year) })),
+      years: parsed.years.map(({ year, counts }) => ({ year, exists: existingSet.has(year), ...counts })),
+      warnings: parsed.warnings,
     });
   } catch (err) {
     if (respondImportLimit(res, err)) return;
     if (isSqliteBusyError(err)) return respondSqliteBusy(res);
     console.error('Import template validation failed', err);
-    res.status(400).json({ ok: false, error: 'INVALID_FILE' });
+    res.status(400).json({ ok: false, error: 'INVALID_FILE', message: 'The file could not be read as an XLSX workbook. Save it again as .xlsx and retry.' });
   }
 });
 
@@ -1303,8 +1108,8 @@ app.post('/api/import', async (req,res)=>{
     });
   }
   const { name, data, overwriteYears, importYears } = req.body || {};
-  if (name !== 'mopay_import_template.xlsx') {
-    return res.status(400).json({ ok: false, error: 'INVALID_NAME' });
+  if (!isImportFileName(name)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_NAME', message: 'Select an .xlsx file based on the Mopay import template.' });
   }
   if (!data || typeof data !== 'string') {
     return res.status(400).json({ ok: false, error: 'MISSING_DATA' });
@@ -1322,7 +1127,9 @@ app.post('/api/import', async (req,res)=>{
 
   try {
     importInProgress = true;
-    const allSheets = await parseImportWorkbook(data);
+    const parsed = parseImportTemplate(await loadImportWorkbook(data));
+    if (!parsed.ok) return res.status(400).json(templateErrorBody(parsed));
+    const allSheets = parsed.years;
     const workbookYears = allSheets.map(({ year }) => year);
     const yearsToImport = importYearSet.size ? workbookYears.filter((y) => importYearSet.has(y)) : workbookYears;
     const sheets = allSheets.filter(({ year }) => yearsToImport.includes(year));
@@ -1346,7 +1153,7 @@ app.post('/api/import', async (req,res)=>{
     };
 
     const importTx = db.transaction(() => {
-      for (const { year, sheet } of sheets) {
+      for (const { year, incomes, expenses, goals } of sheets) {
         const exists = existingSet.has(year);
         const shouldOverwrite = overwriteSet.has(year);
         if (exists && !shouldOverwrite) {
@@ -1381,16 +1188,16 @@ app.post('/api/import', async (req,res)=>{
           'INSERT INTO entry_groups(type,name,year_id,sort_index) VALUES (?,?,?,?)'
         );
 
-        const importEntriesForType = (sectionLabel, entryType) => {
-          const items = parseEntriesSection(sheet, sectionLabel, entryType, yearRow.id);
+        const importEntriesForType = (items, entryType) => {
           const groupIdByName = new Map();
           let groupSort = 0;
           const entrySortByGroup = new Map(); // key: groupId (number) or null
           let currentGroupId = null;
 
           const ensureGroupId = (groupName) => {
+            // The template parser already maps "Ungrouped" and empty names to null.
             const normalized = clampText(groupName ?? '', 40);
-            if (!normalized || normalized === 'Ungrouped') return null;
+            if (!normalized) return null;
             if (groupIdByName.has(normalized)) return groupIdByName.get(normalized);
             groupSort += 1;
             const info = insertGroup.run(entryType, normalized, yearRow.id, groupSort);
@@ -1410,9 +1217,9 @@ app.post('/api/import', async (req,res)=>{
             const nextSort = (entrySortByGroup.get(sortKey) ?? 0) + 1;
             entrySortByGroup.set(sortKey, nextSort);
             const info = insertEntry.run(
-              item.type,
+              entryType,
               item.name,
-              item.yearId,
+              yearRow.id,
               currentGroupId,
               item.comment || null,
               ...months,
@@ -1430,10 +1237,9 @@ app.post('/api/import', async (req,res)=>{
           }
         };
 
-        importEntriesForType('Incomes', 'income');
-        importEntriesForType('Expenses', 'expense');
+        importEntriesForType(incomes, 'income');
+        importEntriesForType(expenses, 'expense');
 
-        const goals = parseSavingsSection(sheet);
         const insertGoal = db.prepare(
           'INSERT INTO savings_goals(year_id, name, target_value, sort_index) VALUES (?,?,?,?)'
         );

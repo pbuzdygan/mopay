@@ -216,7 +216,58 @@ test('export deduplicates valid years and template remains a readable XLSX', asy
     method: 'POST', body: { name: 'mopay_import_template.xlsx', data },
   });
   assert.equal(validated.status, 200);
-  assert.deepEqual(validated.body.years, [{ year: 2028, exists: false }]);
+  assert.deepEqual(validated.body.years, [{ year: 2028, exists: false, incomes: 2, expenses: 2, groups: 2, goals: 1 }]);
+  assert.match(validated.body.warnings[0].message, /template example rows will be imported/);
+});
+
+test('template without example group imports ungrouped rows; structure errors name the cell', async () => {
+  const template = await request('/api/import/template');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(Buffer.from(await template.arrayBuffer()));
+  const sheet = workbook.worksheets[0];
+  const rowOf = (text, from = 1) => {
+    for (let row = from; row <= sheet.rowCount; row++) if (sheet.getCell(row, 1).value === text) return row;
+    throw new Error(text);
+  };
+  // Delete "Group: Example name" with its example entry in both sections, as a user would.
+  sheet.spliceRows(rowOf('Group: Example name'), 2);
+  sheet.spliceRows(rowOf('Group: Example name'), 2);
+  const income = sheet.getRow(rowOf('Example Ungrouped Income'));
+  income.getCell(1).value = 'Salary';
+  income.getCell(2).value = 4200;
+  const expense = sheet.getRow(rowOf('Example Ungrouped Expense'));
+  expense.getCell(1).value = 'Rent';
+  expense.getCell(3).value = '1 250,50';
+  const encode = async () => Buffer.from(await workbook.xlsx.writeBuffer()).toString('base64');
+
+  // Unrenamed sheet: a precise, bounded issue instead of a generic failure.
+  const unrenamed = await json('/api/import/validate', { method: 'POST', body: { name: 'mopay_import_template.xlsx', data: await encode() } });
+  assert.equal(unrenamed.status, 400);
+  assert.equal(unrenamed.body.error, 'INVALID_TEMPLATE');
+  assert.deepEqual(unrenamed.body.issues, [{ sheet: 'YYYY', message: 'rename sheet "YYYY" to the year it contains, for example 2026' }]);
+
+  sheet.name = '2031';
+  const body = { name: 'mopay_import_template (1).xlsx', data: await encode(), importYears: [2031], overwriteYears: [] };
+  const validated = await json('/api/import/validate', { method: 'POST', body });
+  assert.equal(validated.status, 200);
+  assert.deepEqual(validated.body.years, [{ year: 2031, exists: false, incomes: 1, expenses: 1, groups: 0, goals: 1 }]);
+  const imported = await json('/api/import', { method: 'POST', body });
+  assert.equal(imported.status, 200);
+  assert.deepEqual(imported.body.imported, [2031]);
+  const incomes = (await json('/api/entries?type=income&year=2031')).body.entries;
+  assert.deepEqual(incomes.map(entry => [entry.name, entry.groupId, entry.Jan]), [['Salary', null, 4200]]);
+  const expenses = (await json('/api/entries?type=expense&year=2031')).body.entries;
+  assert.deepEqual(expenses.map(entry => [entry.name, entry.groupId, entry.Feb]), [['Rent', null, 1250.5]]);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM entry_groups g JOIN years y ON y.id=g.year_id WHERE y.year=2031").get().n, 0);
+
+  // Invalid amount: rejected before any write, with the offending cell.
+  sheet.name = '2032';
+  expense.getCell(4).value = '12 zł';
+  const rejected = await json('/api/import', { method: 'POST', body: { ...body, data: await encode(), importYears: [2032] } });
+  assert.equal(rejected.status, 400);
+  assert.equal(rejected.body.issues[0].cell, `D${expense.number}`);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM years WHERE year=2032').get().n, 0);
+  assert.equal((await json('/api/import/validate', { method: 'POST', body: { ...body, name: 'budget.csv' } })).body.error, 'INVALID_NAME');
 });
 
 test('download build/write failures return safe errors; partial streams abort without crashing', async () => {

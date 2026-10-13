@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.0.2
+
+XLSX import fixes. Data, database, encryption, configuration, Docker setup and the template layout are unchanged; no migration is required.
+
+### Improvements
+- the import dialog lists what is wrong with a file and where (sheet and cell, for example *Sheet 2026, D12: Mar amount "12 zł" is not a number*) instead of the general "Invalid template structure. Check Guide"
+- after a file is checked, the dialog shows how many incomes, expenses, groups and savings goals each year contains, and a warning when template example rows (*Group: Example name*, *Example Income* …) are still in the file and would be imported
+- any `.xlsx` file name is accepted, for example `mopay_import_template (1).xlsx` after a second download; the file content is checked as before
+- the template example group and rows are optional: entries can be placed only under *Group: Ungrouped*, or without any group header; `Group:` and `Ungrouped` are recognised in any letter case
+
+### Bug fix
+- a template saved in LibreOffice after deleting rows (for example the *Group: Example name* rows) was rejected with "The file exceeds import limits" (in v2.0.1: "Invalid template structure"), because LibreOffice adds empty rows at the very end of the sheet; such empty rows are now ignored
+- deleting a section's end row (for example *End of Incomes*) no longer makes the following sections be read as incomes; deleting the column header row no longer skips the first entry
+- amounts that cannot be read (text, dates, formulas without a calculated value) and rows with amounts but no name were imported as 0 or dropped without notice; they are now reported with their cell address and nothing is imported until they are fixed
+- savings goal tables placed below each other in the same column are imported as separate goals
+
+### Upgrade notes
+- files with unreadable amounts that v2.0.1 imported as 0 are now rejected with the cell list; correct the cells and import again
+- no data, database, API, encryption-key or configuration migration; rollback: run the v2.0.1 image
+
 ## v2.0.1
 
 Mobile layout fixes (below 960 px). Data, API, database, encryption, configuration, Docker setup and XLSX formats are unchanged; no migration is required.

@@ -65,6 +65,19 @@ function checkXml(buffer, worksheet, counts) {
   }
 }
 
+// LibreOffice writes rows without values up to the last sheet row (1048576)
+// after rows are deleted, and a matching <dimension>. Such rows carry no data,
+// so they and the optional dimension element are removed before any budget
+// check; all checks then run on exactly the bytes ExcelJS receives, so a row
+// that does hold a value beyond the row limit is still rejected.
+const EMPTY_ROW = /<row\b[^>]*?(?:\/>|>(?:\s*<c\b[^>]*?\/>)*\s*<\/row>)/g;
+const DIMENSION = /<dimension\b[^>]*?\/>/g;
+function compactWorksheet(content) {
+  const xml = content.toString('utf8');
+  const compacted = xml.replace(EMPTY_ROW, '').replace(DIMENSION, '');
+  return compacted.length === xml.length ? content : Buffer.from(compacted, 'utf8');
+}
+
 // No files are extracted. Metadata checks are followed by actual inflated-byte
 // accounting so forged ZIP lengths cannot bypass the budget.
 export async function checkImportArchive(buffer) {
@@ -100,7 +113,7 @@ export async function checkImportArchive(buffer) {
       chunks.push(chunk);
     }
     if (size !== file.uncompressedSize) throw importError('INVALID_FILE');
-    const content = Buffer.concat(chunks);
+    const content = worksheet ? compactWorksheet(Buffer.concat(chunks)) : Buffer.concat(chunks);
     if (xml) checkXml(content, worksheet, counts);
     canonical.file(file.path, content);
   }

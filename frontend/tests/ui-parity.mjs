@@ -67,7 +67,16 @@ function createApi({ encryption = { encryptionEnabled: false, keyMismatch: false
     if (method === 'GET' && path === '/api/import/template') return route.fulfill({ body: Buffer.from('synthetic template'), contentType: XLSX });
     if (method === 'POST' && path === '/api/export') return route.fulfill({ body: Buffer.from('synthetic export'), contentType: XLSX });
     // Import: the workbook is synthetic; validation reports 2026 as existing and 2027 as new.
-    if (method === 'POST' && path === '/api/import/validate') return ok({ ok: true, years: [{ year: 2026, exists: true }, { year: 2027, exists: false }] });
+    if (method === 'POST' && path === '/api/import/validate') {
+      return ok({
+        ok: true,
+        years: [
+          { year: 2026, exists: true, incomes: 1, expenses: 12, groups: 2, goals: 0 },
+          { year: 2027, exists: false, incomes: 3, expenses: 0, groups: 0, goals: 1 },
+        ],
+        warnings: [{ sheet: '2027', message: 'template example rows will be imported as real data: group "Example name". Delete them if not needed.' }],
+      });
+    }
     if (method === 'POST' && path === '/api/import') {
       state.years = [...new Set([...state.years, ...body.importYears])].sort();
       return ok({ ok: true, imported: body.importYears, skipped: [] });
@@ -1291,14 +1300,34 @@ for (const context of [{ mobile: false, theme: 'light' }, { mobile: true, theme:
       await dialog.getByRole('button', { name: 'Import', exact: true }).click();
       await (await chooser).setFiles({ name: fileName, mimeType: XLSX, buffer: workbook });
     };
-    // A file that is not the template is rejected before anything is uploaded.
-    await chooseFile('budget.xlsx');
-    await dialog.getByRole('alert').filter({ hasText: 'Invalid import template. Check Guide' }).waitFor();
+    // A file that is not an XLSX workbook is rejected before anything is uploaded.
+    await chooseFile('budget.csv');
+    await dialog.getByRole('alert').filter({ hasText: 'Select an .xlsx file based on the Mopay import template. Check Guide' }).waitFor();
     await expectNoWrite(api, w);
+    // v2.0.2: a renamed copy (second download) is uploaded; structure problems are listed with their location.
+    api.failNext('POST', /^\/api\/import\/validate$/, 400, {
+      ok: false,
+      error: 'INVALID_TEMPLATE',
+      message: 'The file cannot be imported: 2 problems found.',
+      issues: [
+        { sheet: 'YYYY', message: 'rename sheet "YYYY" to the year it contains, for example 2026' },
+        { sheet: '2027', cell: 'D12', message: 'Mar amount "12 zł" is not a number' },
+      ],
+      issueCount: 2,
+    });
+    await chooseFile('mopay_import_template (1).xlsx');
+    w = await expectWrite(api, w, 'POST', '/api/import/validate', { name: 'mopay_import_template (1).xlsx', data: workbook.toString('base64') });
+    const problems = dialog.getByRole('alert').filter({ hasText: 'The file cannot be imported: 2 problems found.' });
+    await problems.getByText('Sheet YYYY: rename sheet "YYYY" to the year it contains, for example 2026', { exact: true }).waitFor();
+    await problems.getByText('Sheet 2027, D12: Mar amount "12 zł" is not a number', { exact: true }).waitFor();
+    await screenshot(page, `${name}-import-issues`);
     // The template is validated: new years are imported, existing ones skipped unless marked.
     await chooseFile('mopay_import_template.xlsx');
     w = await expectWrite(api, w, 'POST', '/api/import/validate', { name: 'mopay_import_template.xlsx', data: workbook.toString('base64') });
     await dialog.getByRole('status').filter({ hasText: 'Template verified. Review the years above.' }).waitFor();
+    await dialog.getByText('2026 1 income, 12 expenses, 2 groups, 0 savings goals', { exact: true }).waitFor();
+    await dialog.getByText('2027 3 incomes, 0 expenses, 0 groups, 1 savings goal', { exact: true }).waitFor();
+    await dialog.getByText('Sheet 2027: template example rows will be imported as real data: group "Example name". Delete them if not needed.', { exact: true }).waitFor();
     const summary = dialog.getByRole('group', { name: 'Import summary', exact: true });
     const year = (value) => summary.getByRole('button', { name: String(value), exact: true });
     assert.equal(await year(2026).getAttribute('aria-pressed'), 'false');

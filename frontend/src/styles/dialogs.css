@@ -95,3 +95,8 @@
   .install-prompt-actions { flex: 1 0 100%; }
   .install-prompt-actions .ui-button { flex: 1; min-height: 44px; }
 }
+
+/* Import dialog: per-year counts and server-reported template issues. */
+.dialog-import-counts { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-small); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.dialog-import-counts strong { color: var(--text-1); font-weight: var(--fw-semibold); }
+.dialog-import-issues { display: flex; flex-direction: column; gap: 4px; margin: var(--sp-8) 0 0; padding: 0; list-style: none; font-size: var(--fs-small); overflow-wrap: anywhere; }
